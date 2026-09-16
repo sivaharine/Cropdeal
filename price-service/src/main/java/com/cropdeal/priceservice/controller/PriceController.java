@@ -1,14 +1,15 @@
 package com.cropdeal.priceservice.controller;
 
-import com.cropdeal.priceservice.dto.DistrictPriceResponse;
+import com.cropdeal.priceservice.dto.CropPriceResponse;
+import com.cropdeal.priceservice.dto.PriceSearchRequest;
 import com.cropdeal.priceservice.service.PriceService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+import jakarta.validation.Valid;
 import java.util.List;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/prices")
@@ -20,25 +21,18 @@ public class PriceController {
         this.priceService = priceService;
     }
 
-    /*
-     * GET /api/prices?commodity=Tomato&state=Tamil Nadu&district=Coimbatore
-     *
-     * All query parameters are optional but at least commodity is
-     * recommended for meaningful results.
-     *
-     * Response fields: commodity, state, district, minPricePerKg, maxPricePerKg
-     *
-     * If a district has multiple markets, prices are averaged.
+    /**
+     * Searches district first, then state, while keeping the requested grade
+     * isolated. Only the latest available arrival date is used.
      */
-    @GetMapping
-    public ResponseEntity<List<DistrictPriceResponse>> getCropPrices(
-            @RequestParam(required = false) String commodity,
-            @RequestParam(required = false) String state,
-            @RequestParam(required = false) String district) {
+    @PostMapping("/lookup")
+    public CropPriceResponse lookupPrice(@Valid @RequestBody PriceSearchRequest request) {
+        return priceService.getCropPrice(request);
+    }
 
-        List<DistrictPriceResponse> prices =
-                priceService.getCropPrices(commodity, state, district);
-
-        return ResponseEntity.ok(prices);
+    /** Returns latest-day aggregated prices for all crops available in the database. */
+    @GetMapping("/all")
+    public List<CropPriceResponse> getAllLatestPrices() {
+        return priceService.getAllLatestCropPrices();
     }
 }
