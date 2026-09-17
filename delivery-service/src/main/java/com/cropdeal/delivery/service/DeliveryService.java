@@ -1,59 +1,25 @@
 package com.cropdeal.delivery.service;
 
-import com.cropdeal.delivery.dto.DeliveryAssignmentRequest;
-import com.cropdeal.delivery.dto.DeliveryResponse;
-import com.cropdeal.delivery.dto.RefundRequest;
-import com.cropdeal.delivery.dto.ReturnRequest;
-import com.cropdeal.delivery.dto.UpdateDeliveryStatusRequest;
+import com.cropdeal.delivery.dto.*;
+import java.util.List;
 
 public interface DeliveryService {
 
-    DeliveryResponse createDelivery(
-            DeliveryAssignmentRequest request
-    );
+    DeliveryResponse createDelivery(DeliveryAssignmentRequest request);
 
-    DeliveryResponse getDeliveryById(
-            Long deliveryId
-    );
+    DeliveryResponse getDeliveryById(Long deliveryId, Long requestingPartnerId);
 
-    DeliveryResponse getDeliveryByOrderId(
-            Long orderId
-    );
+    DeliveryResponse getDeliveryByOrderId(Long orderId);
 
-    DeliveryResponse updateDeliveryStatus(
-            Long deliveryId,
-            UpdateDeliveryStatusRequest request
-    );
+    List<DeliveryResponse> getAvailableDeliveries();
 
-    void cancelDelivery(
-            Long deliveryId
-    );
+    List<DeliveryResponse> getMyDeliveries(Long deliveryPartnerId);
 
-    DeliveryResponse requestReturn(
-            Long deliveryId,
-            ReturnRequest request
-    );
+    DeliveryResponse acceptDelivery(Long deliveryId, AcceptDeliveryRequest request);
 
-    DeliveryResponse approveReturn(
-            Long deliveryId
-    );
+    DeliveryResponse verifyDelivery(Long deliveryId, VerifyDeliveryRequest request, Long requestingPartnerId);
 
-    DeliveryResponse rejectReturn(
-            Long deliveryId,
-            String reason
-    );
+    DeliveryResponse updateDeliveryStatus(Long deliveryId, UpdateDeliveryStatusRequest request, Long requestingPartnerId);
 
-    DeliveryResponse updateReturnStatus(
-            Long deliveryId,
-            String status
-    );
-
-    DeliveryResponse requestRefund(
-            Long deliveryId,
-            RefundRequest request
-    );
-
-    DeliveryResponse getRefundStatus(
-            Long deliveryId
-    );
+    void cancelDelivery(Long deliveryId);
 }

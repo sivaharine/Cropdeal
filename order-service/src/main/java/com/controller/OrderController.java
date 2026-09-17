@@ -3,9 +3,6 @@ package com.controller;
 import com.dto.CreateOrderRequest;
 import com.dto.OrderResponse;
 import com.dto.PayOrderRequest;
-import com.dto.PaymentResponse;
-import com.dto.UpdateOrderRequest;
-import com.dto.UpdateOrderStatusRequest;
 import com.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -33,19 +30,19 @@ public class OrderController {
                 .body(orderService.createOrder(request));
     }
 
-    @GetMapping
-    public ResponseEntity<List<OrderResponse>> getAllOrders() {
-
-        return ResponseEntity.ok(
-                orderService.getAllOrders());
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrderById(
             @PathVariable Long id) {
 
         return ResponseEntity.ok(
                 orderService.getOrderById(id));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getAllOrders() {
+
+        return ResponseEntity.ok(
+                orderService.getAllOrders());
     }
 
     @GetMapping("/dealer/{dealerId}")
@@ -64,8 +61,17 @@ public class OrderController {
                 orderService.getOrdersByFarmer(farmerId));
     }
 
-    @PostMapping("/{id}/pay")
-    public ResponseEntity<PaymentResponse> payOrder(
+    @PutMapping("/{id}/status")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        return ResponseEntity.ok(
+                orderService.updateOrderStatus(id, status));
+    }
+
+    @PutMapping("/{id}/pay")
+    public ResponseEntity<OrderResponse> payOrder(
             @PathVariable Long id,
             @Valid @RequestBody PayOrderRequest request) {
 
@@ -73,47 +79,11 @@ public class OrderController {
                 orderService.payOrder(id, request));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<OrderResponse> updateOrder(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateOrderRequest request) {
-
-        return ResponseEntity.ok(
-                orderService.updateOrder(id, request));
-    }
-
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteOrder(
-            @PathVariable Long id) {
-
-        orderService.deleteOrder(id);
-
-        return ResponseEntity.ok(
-                "Order deleted successfully");
-    }
-
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<OrderResponse> updateOrderStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateOrderStatusRequest request) {
-
-        return ResponseEntity.ok(
-                orderService.updateOrderStatus(id, request));
-    }
-
-    @PutMapping("/{id}/return")
-    public ResponseEntity<OrderResponse> requestReturn(
+    public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable Long id) {
 
         return ResponseEntity.ok(
-                orderService.requestReturn(id));
-    }
-
-    @DeleteMapping("/{id}/return")
-    public ResponseEntity<OrderResponse> cancelReturn(
-            @PathVariable Long id) {
-
-        return ResponseEntity.ok(
-                orderService.cancelReturn(id));
+                orderService.cancelOrder(id));
     }
 }

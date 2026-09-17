@@ -17,7 +17,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriBuilder;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,23 +32,21 @@ public class PriceService {
     private final CommodityUnitRepository unitRepository;
     private final RestClient governmentRestClient;
     private final GovernmentApiConfig config;
+    private final PriceAlertMatchingService priceAlertMatchingService;
 
     public PriceService(
             MarketPriceRepository repository,
             CommodityUnitRepository unitRepository,
             RestClient governmentRestClient,
-            GovernmentApiConfig config) {
+            GovernmentApiConfig config,
+            PriceAlertMatchingService priceAlertMatchingService) {
         this.repository = repository;
         this.unitRepository = unitRepository;
         this.governmentRestClient = governmentRestClient;
         this.config = config;
+        this.priceAlertMatchingService = priceAlertMatchingService;
     }
 
-    /**
-     * Downloads the current government dataset, discovers the latest arrival date,
-     * and stores only that latest daily snapshot. Existing rows are updated and
-     * new rows are inserted.
-     */
     public SyncResponse syncLatestGovernmentPrices() {
         validateGovernmentConfig();
 
@@ -204,19 +201,16 @@ public class PriceService {
         target.setMaxPricePerKg(incoming.getMaxPricePerKg());
         target.setModalPricePerKg(incoming.getModalPricePerKg());
 
-        repository.save(target);
+        MarketPrice saved = repository.save(target);
+
+        try {
+            priceAlertMatchingService.processGovernmentPrice(saved);
+        } catch (Exception e) {
+        }
+
         return new SaveResult(inserted);
     }
 
-    /**
-     * Lookup hierarchy:
-     * 1. commodity + state + district + grade
-     * 2. commodity + state + grade
-     *
-     * Grade A, B and C are always isolated. No grade or state mixing is allowed.
-     * At the selected level, only the latest arrival date is used and prices are
-     * averaged across all matching market records.
-     */
     @Transactional(readOnly = true)
     public CropPriceResponse getCropPrice(PriceSearchRequest request) {
         String commodity = required(request.getCommodity(), "Commodity");
@@ -257,7 +251,6 @@ public class PriceService {
         return average(matches, commodity, state, matchedDistrict, requestedGrade, multiplier);
     }
 
-    /** Returns latest-day summaries for all crops stored in the database. */
     @Transactional(readOnly = true)
     public List<CropPriceResponse> getAllLatestCropPrices() {
         List<MarketPrice> all = repository.findAll();
@@ -374,15 +367,6 @@ public class PriceService {
                 && price.getMaxPricePerKg() != null;
     }
 
-    /**
-     * Unit strategy:
-     * - First use an explicit commodity+variety override from commodity_units.
-     * - Otherwise use the DMI standard Rs./Quintal convention for this dataset.
-     * - One quintal = 100 kg, so Rs./Quintal / 100 = Rs./kg.
-     *
-     * If a market/commodity is actually reported in another local unit, add an
-     * override to commodity_units rather than silently using the wrong conversion.
-     */
     private void resolveUnitAndCalculatePricePerKg(MarketPrice price) {
         Optional<CommodityUnit> override = Optional.empty();
 
@@ -434,7 +418,6 @@ public class PriceService {
             try {
                 return LocalDate.parse(value.trim(), formatter);
             } catch (Exception ignored) {
-                // Try the next supported format.
             }
         }
         return null;
@@ -497,11 +480,11 @@ public class PriceService {
 
     private double getGradeMultiplier(String grade) {
         if ("B".equalsIgnoreCase(grade)) {
-            return 0.90; // 10% discount for Grade B
+            return 0.90;
         } else if ("C".equalsIgnoreCase(grade)) {
-            return 0.80; // 20% discount for Grade C
+            return 0.80;
         }
-        return 1.00; // Actual price for Grade A (or default)
+        return 1.00;
     }
 
     private String normalized(String value) {
