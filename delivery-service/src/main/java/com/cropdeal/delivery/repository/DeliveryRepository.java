@@ -2,27 +2,17 @@ package com.cropdeal.delivery.repository;
 
 import com.cropdeal.delivery.entity.Delivery;
 import com.cropdeal.delivery.entity.DeliveryStatus;
-
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface DeliveryRepository
-        extends JpaRepository<Delivery, Long> {
-
-    // Find delivery using order ID
+@Repository
+public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
     Optional<Delivery> findByOrderId(Long orderId);
-
-    // Find all deliveries assigned to an agent
-    List<Delivery> findByDeliveryAgentId(
-            Long deliveryAgentId
-    );
-
-    // Find agent's active delivery
-    Optional<Delivery>
-    findFirstByDeliveryAgentIdAndStatusIn(
-            Long deliveryAgentId,
-            List<DeliveryStatus> statuses
-    );
+    Optional<Delivery> findByDeliveryReference(String deliveryReference);
+    List<Delivery> findByStatus(DeliveryStatus status);
+    List<Delivery> findByDeliveryPartnerId(Long deliveryPartnerId);
+    Optional<Delivery> findByIdAndDeliveryPartnerId(Long id, Long deliveryPartnerId);
 }

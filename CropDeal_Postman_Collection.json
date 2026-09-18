@@ -1,0 +1,785 @@
+{
+    "info":  {
+                 "_postman_id":  "9f30b957-c88f-4ee6-857e-128a3064d852",
+                 "name":  "CropDeal Platform API",
+                 "description":  "Complete microservices API collection for CropDeal backend including Price Alerts, Delivery, Reviews, Mandi sync.",
+                 "schema":  "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+             },
+    "item":  [
+                 {
+                     "name":  "1. Authentication \u0026 Users",
+                     "item":  [
+                                  {
+                                      "name":  "Register Farmer",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"name\": \"Ramesh Patel\",\n  \"email\": \"farmer.ramesh@cropdeal.com\",\n  \"password\": \"SecurePass123!\",\n  \"phone\": \"9876543210\",\n  \"role\": \"ROLE_FARMER\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/auth/register"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Register Dealer",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"name\": \"Suresh Kumar\",\n  \"email\": \"dealer.suresh@cropdeal.com\",\n  \"password\": \"SecurePass123!\",\n  \"phone\": \"9876543211\",\n  \"role\": \"ROLE_DEALER\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/auth/register"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login Farmer",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"farmer.ramesh@cropdeal.com\",\n  \"password\": \"SecurePass123!\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/auth/login"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Login Dealer",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"email\": \"dealer.suresh@cropdeal.com\",\n  \"password\": \"SecurePass123!\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/auth/login"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "2. Price Alert Subscription System",
+                     "item":  [
+                                  {
+                                      "name":  "Create Dealer Price Alert (Tomato \u003c= 30)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"cropName\": \"Tomato\",\n  \"targetPrice\": 30.00,\n  \"priceCondition\": \"LESS_THAN_OR_EQUAL\",\n  \"district\": \"Erode\",\n  \"state\": \"Tamil Nadu\",\n  \"unit\": \"KG\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/prices/alerts"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Create Farmer Price Alert (Tomato \u003e= 30)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{farmer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "101"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "FARMER"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"cropName\": \"Tomato\",\n  \"targetPrice\": 30.00,\n  \"priceCondition\": \"GREATER_THAN_OR_EQUAL\",\n  \"district\": \"Erode\",\n  \"state\": \"Tamil Nadu\",\n  \"unit\": \"KG\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/prices/alerts"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get My Subscriptions",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost:8080/api/prices/alerts"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Subscription by ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost:8080/api/prices/alerts/1"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Update Subscription",
+                                      "request":  {
+                                                      "method":  "PUT",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"cropName\": \"Tomato\",\n  \"targetPrice\": 28.00,\n  \"priceCondition\": \"LESS_THAN_OR_EQUAL\",\n  \"district\": \"Erode\",\n  \"state\": \"Tamil Nadu\",\n  \"unit\": \"KG\",\n  \"active\": true\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/prices/alerts/1"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Deactivate Subscription",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost:8080/api/prices/alerts/1/deactivate"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Activate Subscription",
+                                      "request":  {
+                                                      "method":  "PATCH",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost:8080/api/prices/alerts/1/activate"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Delete Subscription",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "DEALER"
+                                                                     }
+                                                                 ],
+                                                      "url":  "http://localhost:8080/api/prices/alerts/1"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "3. Crop Catalog \u0026 Real-time Matching",
+                     "item":  [
+                                  {
+                                      "name":  "Create Crop Listing (Triggers Dealer Alert)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{farmer_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"farmerId\": 101,\n  \"commodity\": \"Tomato\",\n  \"quantity\": 500,\n  \"pricePerKg\": 28.00,\n  \"grade\": \"A\",\n  \"unit\": \"KG\",\n  \"district\": \"Erode\",\n  \"state\": \"Tamil Nadu\",\n  \"description\": \"Fresh farm harvest\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/crops"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Create Dealer Buying Request (Triggers Farmer Alert)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "201"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"cropName\": \"Tomato\",\n  \"quantity\": 1000,\n  \"buyingPrice\": 32.00,\n  \"unit\": \"KG\",\n  \"district\": \"Erode\",\n  \"state\": \"Tamil Nadu\",\n  \"notes\": \"Urgent requirement for processing\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/crops/buying-requests"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Active Buying Requests",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "http://localhost:8080/api/crops/buying-requests"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "4. Mandi Prices \u0026 Daily Sync",
+                     "item":  [
+                                  {
+                                      "name":  "Get Mandi Market Prices",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "url":  "http://localhost:8080/api/prices/market"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Trigger Daily Government Price Sync",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "url":  "http://localhost:8080/api/prices/sync"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "5. Order, Delivery, Reviews",
+                     "item":  [
+                                  {
+                                      "name":  "Create Order",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"cropId\": 1,\n  \"quantity\": 200,\n  \"deliveryOption\": \"DELIVERY_AGENT\",\n  \"deliveryAddress\": \"Warehouse 4, Sector 18, Delhi\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/orders"
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Submit Farmer Review",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{dealer_token}}"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\n  \"orderId\": 1,\n  \"farmerId\": 101,\n  \"rating\": 5,\n  \"comment\": \"Excellent produce!\"\n}"
+                                                               },
+                                                      "url":  "http://localhost:8080/api/reviews"
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Bidding \u0026 Auction Service (Port 8095)",
+                     "item":  [
+                                  {
+                                      "name":  "Farmer - Create Crop Auction Session",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{jwt_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "1"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "ROLE_FARMER"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\\n  \"cropId\": 101,\\n  \"cropName\": \"Organic Sharbati Wheat\",\\n  \"quantity\": 500.00,\\n  \"unit\": \"KG\",\\n  \"basePrice\": 25.00,\\n  \"minIncrement\": 1.00,\\n  \"endTime\": \"2026-09-30T18:00:00\",\\n  \"district\": \"Pune\",\\n  \"state\": \"Maharashtra\"\\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions"
+                                                                           ]
+                                                              },
+                                                      "description":  "Farmer creates a live crop auction session with base price and end time."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get All Active Live Auctions",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/active",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "active"
+                                                                           ]
+                                                              },
+                                                      "description":  "Discover all active live crop auctions ordered by ending soonest."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Auction Session by ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/1",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "description":  "Retrieve details and current highest bid for an auction session."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Auctions by Farmer ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/farmer/1",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "farmer",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "description":  "Get all auctions created by a specific farmer."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Dealer - Place Wallet-Backed Bid",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     },
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{jwt_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "2"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "ROLE_DEALER"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\\n  \"bidAmount\": 30.00,\\n  \"notes\": \"Dealer bid backed by CropDeal wallet balance\"\\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/1/bids",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "1",
+                                                                               "bids"
+                                                                           ]
+                                                              },
+                                                      "description":  "Dealer places bid. Checks wallet balance, escrows funds, and refunds any previously outbid dealer automatically."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Bid History for Session",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/1/bids",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "1",
+                                                                               "bids"
+                                                                           ]
+                                                              },
+                                                      "description":  "Get chronological bid history for a specific auction session."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get Bids by Dealer ID",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/bids/dealer/2",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "bids",
+                                                                               "dealer",
+                                                                               "2"
+                                                                           ]
+                                                              },
+                                                      "description":  "Get all bids placed by a specific dealer."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Farmer - Close and Award Auction Session",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{jwt_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "1"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "ROLE_FARMER"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/1/close",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "1",
+                                                                               "close"
+                                                                           ]
+                                                              },
+                                                      "description":  "Farmer awards auction to highest bidder; automatically settles payout to farmer wallet."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Farmer - Cancel Auction Session",
+                                      "request":  {
+                                                      "method":  "DELETE",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Authorization",
+                                                                         "value":  "Bearer {{jwt_token}}"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Id",
+                                                                         "value":  "1"
+                                                                     },
+                                                                     {
+                                                                         "key":  "X-User-Role",
+                                                                         "value":  "ROLE_FARMER"
+                                                                     }
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/bidding/sessions/1",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "bidding",
+                                                                               "sessions",
+                                                                               "1"
+                                                                           ]
+                                                              },
+                                                      "description":  "Farmer cancels auction; automatically refunds held funds to active highest bidder."
+                                                  }
+                                  }
+                              ]
+                 },
+                 {
+                     "name":  "Wallet Operations (Port 8086)",
+                     "item":  [
+                                  {
+                                      "name":  "Top Up User/Dealer Wallet",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\\n  \"userId\": 2,\\n  \"userRole\": \"ROLE_DEALER\",\\n  \"amount\": 10000.00,\\n  \"paymentMethod\": \"UPI\",\\n  \"transactionReference\": \"TOPUP-UPI-12345\"\\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/payments/wallet/topup",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments",
+                                                                               "wallet",
+                                                                               "topup"
+                                                                           ]
+                                                              },
+                                                      "description":  "Top up wallet balance for a dealer or farmer."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Get User/Dealer Wallet Balance \u0026 Transactions",
+                                      "request":  {
+                                                      "method":  "GET",
+                                                      "header":  [
+
+                                                                 ],
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/payments/wallet/2",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments",
+                                                                               "wallet",
+                                                                               "2"
+                                                                           ]
+                                                              },
+                                                      "description":  "Get current wallet balance and transaction ledger."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Debit Wallet (Hold / Escrow)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\\n  \"userId\": 2,\\n  \"userRole\": \"ROLE_DEALER\",\\n  \"amount\": 500.00,\\n  \"referenceId\": \"BID_HOLD_101\",\\n  \"transactionType\": \"BID_HOLD\",\\n  \"description\": \"Hold funds for crop auction bid\"\\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/payments/wallet/debit",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments",
+                                                                               "wallet",
+                                                                               "debit"
+                                                                           ]
+                                                              },
+                                                      "description":  "Debit or hold funds from user wallet."
+                                                  }
+                                  },
+                                  {
+                                      "name":  "Credit Wallet (Refund / Settlement)",
+                                      "request":  {
+                                                      "method":  "POST",
+                                                      "header":  [
+                                                                     {
+                                                                         "key":  "Content-Type",
+                                                                         "value":  "application/json"
+                                                                     }
+                                                                 ],
+                                                      "body":  {
+                                                                   "mode":  "raw",
+                                                                   "raw":  "{\\n  \"userId\": 2,\\n  \"userRole\": \"ROLE_DEALER\",\\n  \"amount\": 500.00,\\n  \"referenceId\": \"BID_REFUND_101\",\\n  \"transactionType\": \"BID_REFUND\",\\n  \"description\": \"Refund for outbid session\"\\n}"
+                                                               },
+                                                      "url":  {
+                                                                  "raw":  "{{baseUrl}}/api/payments/wallet/credit",
+                                                                  "host":  [
+                                                                               "{{baseUrl}}"
+                                                                           ],
+                                                                  "path":  [
+                                                                               "api",
+                                                                               "payments",
+                                                                               "wallet",
+                                                                               "credit"
+                                                                           ]
+                                                              },
+                                                      "description":  "Credit or refund funds back into user wallet."
+                                                  }
+                                  }
+                              ]
+                 }
+             ]
+}

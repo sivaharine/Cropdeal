@@ -5,35 +5,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class TemplateService {
 
-    public String generateOtpMessage(
-            String otp) {
-
-        return "Your CropDeal delivery OTP is "
-                + otp
-                + ". Please share this OTP with the delivery agent.";
+    public String generateOtpMessage(String otp) {
+        return "Your CropDeal delivery OTP is " + otp + ". Please share this OTP with the delivery agent.";
     }
 
-    public String generateDeliveryCompletedMessage(
-            Long orderId) {
-
-        return "Your CropDeal order "
-                + orderId
-                + " has been delivered successfully.";
+    public String generateDeliveryCompletedMessage(Long orderId) {
+        return "Your CropDeal order " + orderId + " has been delivered successfully.";
     }
 
-    public String generateReturnMessage(
-            Long orderId) {
-
-        return "Your return request for order "
-                + orderId
-                + " has been received.";
-    }
-
-    public String generateRefundMessage(
-            Long orderId) {
-
-        return "Your refund for order "
-                + orderId
-                + " has been initiated.";
+    public String generateReviewCreatedMessage(Long farmerId, Long orderId) {
+        return "Farmer #" + farmerId + ", you have received a new review for order #" + orderId + ".";
     }
 }

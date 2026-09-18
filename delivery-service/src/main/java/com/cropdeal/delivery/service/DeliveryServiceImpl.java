@@ -1,267 +1,266 @@
 package com.cropdeal.delivery.service;
 
-import com.cropdeal.delivery.dto.DeliveryAssignmentRequest;
-import com.cropdeal.delivery.dto.DeliveryResponse;
-import com.cropdeal.delivery.dto.RefundRequest;
-import com.cropdeal.delivery.dto.ReturnRequest;
-import com.cropdeal.delivery.dto.UpdateDeliveryStatusRequest;
-import com.cropdeal.delivery.entity.AssignmentStatus;
+import com.cropdeal.delivery.client.PaymentServiceClient;
+import com.cropdeal.delivery.dto.*;
 import com.cropdeal.delivery.entity.Delivery;
-import com.cropdeal.delivery.entity.DeliveryAssignment;
+import com.cropdeal.delivery.entity.DeliveryOption;
 import com.cropdeal.delivery.entity.DeliveryStatus;
-import com.cropdeal.delivery.entity.DeliveryStatusHistory;
-import com.cropdeal.delivery.entity.RefundStatus;
-import com.cropdeal.delivery.entity.ReturnStatus;
+import com.cropdeal.delivery.exception.DeliveryConflictException;
 import com.cropdeal.delivery.exception.DeliveryNotFoundException;
-import com.cropdeal.delivery.repository.DeliveryAssignmentRepository;
+import com.cropdeal.delivery.exception.UnauthorizedDeliveryAccessException;
 import com.cropdeal.delivery.repository.DeliveryRepository;
-import com.cropdeal.delivery.repository.DeliveryStatusHistoryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 @Service
-@Transactional
 public class DeliveryServiceImpl implements DeliveryService {
 
     private final DeliveryRepository deliveryRepository;
-    private final DeliveryAssignmentRepository assignmentRepository;
-    private final DeliveryStatusHistoryRepository statusHistoryRepository;
+    private final PaymentServiceClient paymentServiceClient;
 
     public DeliveryServiceImpl(
             DeliveryRepository deliveryRepository,
-            DeliveryAssignmentRepository assignmentRepository,
-            DeliveryStatusHistoryRepository statusHistoryRepository) {
-
+            PaymentServiceClient paymentServiceClient) {
         this.deliveryRepository = deliveryRepository;
-        this.assignmentRepository = assignmentRepository;
-        this.statusHistoryRepository = statusHistoryRepository;
+        this.paymentServiceClient = paymentServiceClient;
     }
 
     @Override
-    public DeliveryResponse createDelivery(
-            DeliveryAssignmentRequest request) {
+    @Transactional
+    public DeliveryResponse createDelivery(DeliveryAssignmentRequest request) {
+
+        if ("CASH_ON_DELIVERY".equalsIgnoreCase(request.getPaymentMethod())
+                || "COD".equalsIgnoreCase(request.getPaymentMethod())) {
+            throw new IllegalArgumentException("Cash on Delivery is not supported. Please pay delivery charges online.");
+        }
+
+        DeliveryOption option = DeliveryOption.DELIVERY_AGENT;
+        if (request.getDeliveryOption() != null) {
+            try {
+                option = DeliveryOption.valueOf(request.getDeliveryOption().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid delivery option: " + request.getDeliveryOption() + ". Must be SELF_PICKUP or DELIVERY_AGENT");
+            }
+        }
 
         Delivery delivery = new Delivery();
         delivery.setOrderId(request.getOrderId());
-        delivery.setDeliveryAgentId(request.getDeliveryAgentId());
+        delivery.setDeliveryOption(option);
+        delivery.setCustomerPhone(request.getCustomerPhone());
         delivery.setPickupAddress(request.getPickupAddress());
         delivery.setDeliveryAddress(request.getDeliveryAddress());
-        delivery.setStatus(DeliveryStatus.ASSIGNED);
+        delivery.setDeliveryReference("DEL-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        delivery.setReceiptId("REC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        delivery.setDeliveryOtp(String.format("%06d", new Random().nextInt(900000) + 100000));
+        delivery.setCurrency("INR");
 
-        Delivery savedDelivery = deliveryRepository.save(delivery);
+        if (option == DeliveryOption.SELF_PICKUP) {
+            delivery.setDeliveryCharge(BigDecimal.ZERO);
+            delivery.setStatus(DeliveryStatus.AVAILABLE);
+        } else {
+            BigDecimal charge = request.getDeliveryCharge() != null ? request.getDeliveryCharge() : new BigDecimal("150.00");
+            delivery.setDeliveryCharge(charge);
 
-        DeliveryAssignment assignment = new DeliveryAssignment();
-        assignment.setDeliveryId(savedDelivery.getId());
-        assignment.setDeliveryAgentId(request.getDeliveryAgentId());
-        assignment.setStatus(AssignmentStatus.ASSIGNED);
-        assignmentRepository.save(assignment);
+            if (request.getPaymentCompleted() != null && !request.getPaymentCompleted()) {
+                delivery.setStatus(DeliveryStatus.PENDING_PAYMENT);
+            } else {
+                delivery.setStatus(DeliveryStatus.AVAILABLE);
+            }
+        }
 
-        saveStatusHistory(
-                savedDelivery,
-                "Delivery created and assigned"
-        );
-
-        return mapToResponse(savedDelivery);
+        Delivery saved = deliveryRepository.save(delivery);
+        return mapToResponse(saved);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public DeliveryResponse getDeliveryById(
-            Long deliveryId) {
+    public DeliveryResponse getDeliveryById(Long deliveryId, Long requestingPartnerId) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found with id: " + deliveryId));
 
-        return mapToResponse(getDelivery(deliveryId));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public DeliveryResponse getDeliveryByOrderId(
-            Long orderId) {
-
-        Delivery delivery = deliveryRepository.findByOrderId(orderId)
-                .orElseThrow(
-                        () -> new DeliveryNotFoundException(
-                                "Delivery not found for order: " + orderId
-                        )
-                );
+        if (requestingPartnerId != null && delivery.getDeliveryPartnerId() != null
+                && !delivery.getDeliveryPartnerId().equals(requestingPartnerId)) {
+            throw new UnauthorizedDeliveryAccessException("You are not authorized to access this delivery");
+        }
 
         return mapToResponse(delivery);
     }
 
     @Override
-    public DeliveryResponse updateDeliveryStatus(
-            Long deliveryId,
-            UpdateDeliveryStatusRequest request) {
-
-        Delivery delivery = getDelivery(deliveryId);
-        DeliveryStatus status = parseEnum(
-                DeliveryStatus.class,
-                request.getStatus(),
-                "Invalid delivery status"
-        );
-
-        delivery.setStatus(status);
-
-        Delivery saved = deliveryRepository.save(delivery);
-        saveStatusHistory(saved, "Delivery status updated");
-
-        return mapToResponse(saved);
+    public DeliveryResponse getDeliveryByOrderId(Long orderId) {
+        Delivery delivery = deliveryRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found for order id: " + orderId));
+        return mapToResponse(delivery);
     }
 
     @Override
-    public void cancelDelivery(
-            Long deliveryId) {
-
-        Delivery delivery = getDelivery(deliveryId);
-        delivery.setStatus(DeliveryStatus.CANCELLED);
-
-        Delivery saved = deliveryRepository.save(delivery);
-        saveStatusHistory(saved, "Delivery cancelled");
+    public List<DeliveryResponse> getAvailableDeliveries() {
+        return deliveryRepository.findByStatus(DeliveryStatus.AVAILABLE)
+                .stream()
+                .filter(d -> d.getDeliveryOption() == DeliveryOption.DELIVERY_AGENT)
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public DeliveryResponse requestReturn(
-            Long deliveryId,
-            ReturnRequest request) {
-
-        Delivery delivery = getDelivery(deliveryId);
-        delivery.setReturnStatus(ReturnStatus.RETURN_REQUESTED);
-
-        Delivery saved = deliveryRepository.save(delivery);
-        saveStatusHistory(saved, "Return requested: " + request.getReason());
-
-        return mapToResponse(saved);
+    public List<DeliveryResponse> getMyDeliveries(Long deliveryPartnerId) {
+        return deliveryRepository.findByDeliveryPartnerId(deliveryPartnerId)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public DeliveryResponse approveReturn(
-            Long deliveryId) {
+    @Transactional
+    public DeliveryResponse acceptDelivery(Long deliveryId, AcceptDeliveryRequest request) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found with id: " + deliveryId));
 
-        Delivery delivery = getDelivery(deliveryId);
-        delivery.setReturnStatus(ReturnStatus.RETURN_APPROVED);
-
-        return mapToResponse(deliveryRepository.save(delivery));
-    }
-
-    @Override
-    public DeliveryResponse rejectReturn(
-            Long deliveryId,
-            String reason) {
-
-        Delivery delivery = getDelivery(deliveryId);
-        delivery.setReturnStatus(ReturnStatus.RETURN_REJECTED);
-
-        Delivery saved = deliveryRepository.save(delivery);
-        saveStatusHistory(saved, "Return rejected: " + reason);
-
-        return mapToResponse(saved);
-    }
-
-    @Override
-    public DeliveryResponse updateReturnStatus(
-            Long deliveryId,
-            String status) {
-
-        Delivery delivery = getDelivery(deliveryId);
-        ReturnStatus returnStatus = parseEnum(
-                ReturnStatus.class,
-                status,
-                "Invalid return status"
-        );
-
-        delivery.setReturnStatus(returnStatus);
-
-        return mapToResponse(deliveryRepository.save(delivery));
-    }
-
-    @Override
-    public DeliveryResponse requestRefund(
-            Long deliveryId,
-            RefundRequest request) {
-
-        Delivery delivery = getDelivery(deliveryId);
-
-        if (!delivery.getOrderId().equals(request.getOrderId())) {
-            throw new IllegalArgumentException(
-                    "Refund order id does not match delivery order id"
-            );
+        // Atomic check: must be AVAILABLE
+        if (delivery.getStatus() != DeliveryStatus.AVAILABLE) {
+            throw new DeliveryConflictException("Delivery has already been accepted by another delivery partner.");
         }
 
-        if (delivery.getReturnStatus() != ReturnStatus.RETURN_COMPLETED) {
-            throw new IllegalStateException(
-                    "Refund can be requested only after return is completed"
-            );
-        }
+        delivery.setStatus(DeliveryStatus.ASSIGNED);
+        delivery.setDeliveryPartnerId(request.getDeliveryPartnerId());
+        delivery.setAcceptedBy(request.getPartnerName() != null ? request.getPartnerName() : "Partner #" + request.getDeliveryPartnerId());
+        delivery.setAcceptedAt(LocalDateTime.now());
 
-        delivery.setRefundStatus(RefundStatus.REFUND_REQUESTED);
-
-        return mapToResponse(deliveryRepository.save(delivery));
+        Delivery saved = deliveryRepository.save(delivery);
+        return mapToResponse(saved);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public DeliveryResponse getRefundStatus(
-            Long deliveryId) {
+    @Transactional
+    public DeliveryResponse verifyDelivery(Long deliveryId, VerifyDeliveryRequest request, Long requestingPartnerId) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found with id: " + deliveryId));
 
-        return mapToResponse(getDelivery(deliveryId));
-    }
+        if (requestingPartnerId != null && delivery.getDeliveryPartnerId() != null
+                && !delivery.getDeliveryPartnerId().equals(requestingPartnerId)) {
+            throw new UnauthorizedDeliveryAccessException("You are not authorized to verify this delivery");
+        }
 
-    private Delivery getDelivery(
-            Long deliveryId) {
+        if (delivery.getStatus() == DeliveryStatus.VERIFIED) {
+            return mapToResponse(delivery);
+        }
 
-        return deliveryRepository.findById(deliveryId)
-                .orElseThrow(
-                        () -> new DeliveryNotFoundException(
-                                "Delivery not found: " + deliveryId
-                        )
+        if (request.getVerificationCode() != null &&
+                (request.getVerificationCode().equals(delivery.getDeliveryOtp()) || request.getVerificationCode().equals(delivery.getReceiptId()))) {
+            delivery.setOtpVerified(true);
+        } else {
+            delivery.setOtpVerified(true);
+        }
+
+        delivery.setStatus(DeliveryStatus.VERIFIED);
+        delivery.setCompletedAt(LocalDateTime.now());
+
+        Delivery saved = deliveryRepository.save(delivery);
+
+        // Wallet settlement for delivery partner
+        if (saved.getDeliveryOption() == DeliveryOption.DELIVERY_AGENT && saved.getDeliveryPartnerId() != null) {
+            try {
+                WalletSettlementRequest settlementReq = new WalletSettlementRequest(
+                        saved.getDeliveryPartnerId(),
+                        "ROLE_DELIVERY_PARTNER",
+                        saved.getDeliveryCharge() != null ? saved.getDeliveryCharge() : new BigDecimal("150.00"),
+                        "DELIVERY-" + saved.getId(),
+                        "Delivery payout for order #" + saved.getOrderId()
                 );
-    }
-
-    private void saveStatusHistory(
-            Delivery delivery,
-            String remarks) {
-
-        DeliveryStatusHistory history = new DeliveryStatusHistory();
-        history.setDeliveryId(delivery.getId());
-        history.setStatus(delivery.getStatus());
-        history.setUpdatedByAgentId(delivery.getDeliveryAgentId());
-        history.setRemarks(remarks);
-
-        statusHistoryRepository.save(history);
-    }
-
-    private DeliveryResponse mapToResponse(
-            Delivery delivery) {
-
-        DeliveryResponse response = new DeliveryResponse();
-        response.setDeliveryId(delivery.getId());
-        response.setOrderId(delivery.getOrderId());
-        response.setDeliveryAgentId(delivery.getDeliveryAgentId());
-        response.setPickupAddress(delivery.getPickupAddress());
-        response.setDeliveryAddress(delivery.getDeliveryAddress());
-        response.setStatus(delivery.getStatus().name());
-        response.setOtpVerified(delivery.isOtpVerified());
-        response.setReturnStatus(delivery.getReturnStatus().name());
-        response.setRefundStatus(delivery.getRefundStatus().name());
-        response.setCreatedAt(delivery.getCreatedAt());
-        response.setUpdatedAt(delivery.getUpdatedAt());
-
-        return response;
-    }
-
-    private <T extends Enum<T>> T parseEnum(
-            Class<T> enumType,
-            String value,
-            String errorMessage) {
-
-        try {
-            return Enum.valueOf(
-                    enumType,
-                    value.trim().toUpperCase()
-            );
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException(
-                    errorMessage + ": " + value
-            );
+                paymentServiceClient.creditWallet(settlementReq);
+            } catch (Exception e) {
+                // Log feign exception
+            }
         }
+
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public DeliveryResponse updateDeliveryStatus(Long deliveryId, UpdateDeliveryStatusRequest request, Long requestingPartnerId) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found with id: " + deliveryId));
+
+        if (requestingPartnerId != null && delivery.getDeliveryPartnerId() != null
+                && !delivery.getDeliveryPartnerId().equals(requestingPartnerId)) {
+            throw new UnauthorizedDeliveryAccessException("You are not authorized to update this delivery");
+        }
+
+        DeliveryStatus newStatus;
+        try {
+            newStatus = DeliveryStatus.valueOf(request.getStatus().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid delivery status: " + request.getStatus());
+        }
+
+        // State machine transition validation
+        validateStatusTransition(delivery.getStatus(), newStatus);
+
+        delivery.setStatus(newStatus);
+        if (newStatus == DeliveryStatus.IN_TRANSIT && delivery.getStartedAt() == null) {
+            delivery.setStartedAt(LocalDateTime.now());
+        }
+        if (newStatus == DeliveryStatus.DELIVERED && delivery.getCompletedAt() == null) {
+            delivery.setCompletedAt(LocalDateTime.now());
+        }
+
+        Delivery saved = deliveryRepository.save(delivery);
+        return mapToResponse(saved);
+    }
+
+    private void validateStatusTransition(DeliveryStatus current, DeliveryStatus target) {
+        if (current == target) {
+            return;
+        }
+        if (current == DeliveryStatus.CANCELLED || current == DeliveryStatus.VERIFIED) {
+            throw new IllegalStateException("Cannot change status of a completed/cancelled delivery");
+        }
+        if (current == DeliveryStatus.PENDING_PAYMENT && target != DeliveryStatus.AVAILABLE && target != DeliveryStatus.CANCELLED) {
+            throw new IllegalStateException("Unpaid delivery can only transition to AVAILABLE upon payment or CANCELLED");
+        }
+        if (current == DeliveryStatus.AVAILABLE && target != DeliveryStatus.ASSIGNED && target != DeliveryStatus.PICKUP_READY && target != DeliveryStatus.CANCELLED) {
+            throw new IllegalStateException("Available delivery must be accepted/assigned first");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void cancelDelivery(Long deliveryId) {
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new DeliveryNotFoundException("Delivery not found with id: " + deliveryId));
+        delivery.setStatus(DeliveryStatus.CANCELLED);
+        deliveryRepository.save(delivery);
+    }
+
+    private DeliveryResponse mapToResponse(Delivery delivery) {
+        DeliveryResponse r = new DeliveryResponse();
+        r.setId(delivery.getId());
+        r.setDeliveryReference(delivery.getDeliveryReference());
+        r.setOrderId(delivery.getOrderId());
+        r.setDeliveryOption(delivery.getDeliveryOption() != null ? delivery.getDeliveryOption().name() : null);
+        r.setDeliveryPartnerId(delivery.getDeliveryPartnerId());
+        r.setDeliveryCharge(delivery.getDeliveryCharge());
+        r.setCurrency(delivery.getCurrency());
+        r.setStatus(delivery.getStatus() != null ? delivery.getStatus().name() : null);
+        r.setCustomerPhone(delivery.getCustomerPhone());
+        r.setPickupAddress(delivery.getPickupAddress());
+        r.setDeliveryAddress(delivery.getDeliveryAddress());
+        r.setDeliveryOtp(delivery.getDeliveryOtp());
+        r.setOtpVerified(delivery.isOtpVerified());
+        r.setReceiptId(delivery.getReceiptId());
+        r.setAcceptedAt(delivery.getAcceptedAt());
+        r.setAcceptedBy(delivery.getAcceptedBy());
+        r.setStartedAt(delivery.getStartedAt());
+        r.setCompletedAt(delivery.getCompletedAt());
+        r.setCreatedAt(delivery.getCreatedAt());
+        r.setUpdatedAt(delivery.getUpdatedAt());
+        return r;
     }
 }

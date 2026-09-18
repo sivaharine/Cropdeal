@@ -31,6 +31,9 @@ class PriceServiceTest {
     @Mock
     private RestClient restClient;
 
+    @Mock
+    private PriceAlertMatchingService priceAlertMatchingService;
+
     private PriceService service;
 
     @BeforeEach
@@ -40,7 +43,7 @@ class PriceServiceTest {
         config.setBaseUrl("https://api.data.gov.in");
         config.setResourceId("9ef84268-d588-465a-a308-a864a43d0070");
         config.setKey("test-key");
-        service = new PriceService(repository, unitRepository, restClient, config);
+        service = new PriceService(repository, unitRepository, restClient, config, priceAlertMatchingService);
         when(unitRepository.findByCommodityIgnoreCaseAndVarietyIgnoreCase(any(), any()))
                 .thenReturn(Optional.empty());
     }
@@ -72,8 +75,8 @@ class PriceServiceTest {
         PriceSearchRequest request = request("onion", "Tamil Nadu", "Erode", "B");
         CropPriceResponse response = service.getCropPrice(request);
 
-        assertEquals(90.0, response.getMinPricePerKg()); // 100 * 0.9
-        assertEquals(180.0, response.getMaxPricePerKg()); // 200 * 0.9
+        assertEquals(90.0, response.getMinPricePerKg());
+        assertEquals(180.0, response.getMaxPricePerKg());
         assertEquals("B", response.getGrade());
     }
 
@@ -87,8 +90,8 @@ class PriceServiceTest {
         PriceSearchRequest request = request("onion", "Tamil Nadu", "Erode", "C");
         CropPriceResponse response = service.getCropPrice(request);
 
-        assertEquals(80.0, response.getMinPricePerKg()); // 100 * 0.8
-        assertEquals(160.0, response.getMaxPricePerKg()); // 200 * 0.8
+        assertEquals(80.0, response.getMinPricePerKg());
+        assertEquals(160.0, response.getMaxPricePerKg());
         assertEquals("C", response.getGrade());
     }
 
@@ -101,8 +104,8 @@ class PriceServiceTest {
         uncalculated.setMarket("Market A");
         uncalculated.setGrade("FAQ");
         uncalculated.setArrivalDate(LocalDate.of(2026, 9, 15));
-        uncalculated.setMinPrice(2000.0); // 2000 Rs / 100kg = 20 Rs/kg
-        uncalculated.setMaxPrice(3000.0); // 3000 Rs / 100kg = 30 Rs/kg
+        uncalculated.setMinPrice(2000.0);
+        uncalculated.setMaxPrice(3000.0);
 
         when(repository.findByCommodityStateAndDistrict("onion", "Tamil Nadu", "Erode"))
                 .thenReturn(List.of(uncalculated));

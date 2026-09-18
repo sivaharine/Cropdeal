@@ -1,12 +1,12 @@
 package com.cropdeal.delivery.entity;
 
 public enum DeliveryStatus {
-
-    CREATED,
+    PENDING_PAYMENT,
+    AVAILABLE,
     ASSIGNED,
-    ACCEPTED,
-    PICKED_UP,
+    PICKUP_READY,
     IN_TRANSIT,
     DELIVERED,
+    VERIFIED,
     CANCELLED
 }
