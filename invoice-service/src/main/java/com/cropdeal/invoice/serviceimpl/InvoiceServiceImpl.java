@@ -221,7 +221,6 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private String generateInvoiceNumber() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmssSSS");
-        return "INV-" + LocalDateTime.now().format(formatter);
+        return "INV-" + java.util.UUID.randomUUID();
     }
 }
