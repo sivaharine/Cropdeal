@@ -1,0 +1,18 @@
+package com.entity;
+
+public enum OrderStatus {
+
+    CREATED,
+    PAYMENT_PENDING,
+    PAYMENT_FAILED,
+    PAID,
+    CROP_RESERVED,
+    DELIVERY_CREATED,
+    INVOICE_GENERATED,
+    SAGA_FAILED,
+    CONFIRMED,
+    SHIPPED,
+    OUT_FOR_DELIVERY,
+    DELIVERED,
+    CANCELLED
+}
