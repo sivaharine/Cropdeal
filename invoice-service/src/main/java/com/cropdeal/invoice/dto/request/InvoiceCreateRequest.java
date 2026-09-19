@@ -31,7 +31,7 @@ public class InvoiceCreateRequest {
     /*
      * Payment reference received from Payment Service.
      */
-    @NotNull(message = "Payment ID is required")
+    @jakarta.validation.constraints.NotBlank(message = "Payment ID is required")
     private String paymentId;
 
     /*
