@@ -255,6 +255,6 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
             return "0.00";
         }
 
-        return amount.setScale(2).toPlainString();
+        return amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 }
