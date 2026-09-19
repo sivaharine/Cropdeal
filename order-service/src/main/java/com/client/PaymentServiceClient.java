@@ -14,4 +14,7 @@ public interface PaymentServiceClient {
 
     @PostMapping("/api/payments")
     PaymentResponse makePayment(@RequestBody PaymentRequest request);
+
+    @PostMapping("/api/payments/order/{orderId}/refund")
+    PaymentResponse refundPaymentByOrderId(@PathVariable Long orderId);
 }

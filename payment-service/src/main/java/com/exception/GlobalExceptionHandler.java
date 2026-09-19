@@ -2,6 +2,9 @@ package com.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,107 +17,72 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(PaymentNotFoundException.class)
-    public ResponseEntity<Map<String, Object>>
-    handlePaymentNotFound(
-            PaymentNotFoundException ex) {
-
-        return buildResponse(
-                HttpStatus.NOT_FOUND,
-                ex.getMessage());
-    }
-
-    @ExceptionHandler(RefundException.class)
-    public ResponseEntity<Map<String, Object>>
-    handleRefundException(
-            RefundException ex) {
-
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage());
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, Object>>
-    handleIllegalState(
-            IllegalStateException ex) {
-
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage());
+    public ResponseEntity<Map<String, Object>> handlePaymentNotFound(PaymentNotFoundException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.NOT_FOUND.value());
+        error.put("error", "Not Found");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>>
-    handleIllegalArgument(
-            IllegalArgumentException ex) {
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        error.put("error", "Bad Request");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
 
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage());
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        error.put("error", "Bad Request");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler({
+            DataIntegrityViolationException.class,
+            IncorrectResultSizeDataAccessException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleDataConflict(Exception ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.CONFLICT.value());
+        error.put("error", "Conflict");
+        error.put("message", "Duplicate or conflicting payment data");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>>
-    handleValidation(
-            MethodArgumentNotValidException ex) {
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach((error) -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
 
-        Map<String, Object> response =
-                new HashMap<>();
-
-        response.put(
-                "timestamp",
-                LocalDateTime.now());
-
-        response.put("status", 400);
-
-        Map<String, String> errors =
-                new HashMap<>();
-
-        ex.getBindingResult()
-                .getFieldErrors()
-                .forEach(error ->
-                        errors.put(
-                                error.getField(),
-                                error.getDefaultMessage()));
-
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Validation Error");
         response.put("errors", errors);
-
-        return ResponseEntity
-                .badRequest()
-                .body(response);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>>
-    handleGeneral(Exception ex) {
-
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                ex.getMessage());
-    }
-
-    private ResponseEntity<Map<String, Object>>
-    buildResponse(
-            HttpStatus status,
-            String message) {
-
-        Map<String, Object> response =
-                new HashMap<>();
-
-        response.put(
-                "timestamp",
-                LocalDateTime.now());
-
-        response.put(
-                "status",
-                status.value());
-
-        response.put(
-                "message",
-                message);
-
-        return ResponseEntity
-                .status(status)
-                .body(response);
+    public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        error.put("error", "Internal Server Error");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }
