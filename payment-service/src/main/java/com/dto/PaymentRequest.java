@@ -3,25 +3,24 @@ package com.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 
 public class PaymentRequest {
 
-    @NotNull
+    @NotNull(message = "Order id is required")
     private Long orderId;
 
-    @NotNull
+    @NotNull(message = "Dealer id is required")
     private Long dealerId;
 
-    @NotNull
+    @NotNull(message = "Farmer id is required")
     private Long farmerId;
 
-    @NotNull
-    @DecimalMin(value = "0.01")
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "0.01", message = "Amount must be greater than 0")
     private BigDecimal amount;
 
-    @NotBlank
+    @NotBlank(message = "Payment method is required")
     private String paymentMethod;
 
     public PaymentRequest() {

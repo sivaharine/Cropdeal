@@ -1,6 +1,8 @@
 package com.example.demo.service;
 
+import com.example.demo.config.NotificationRabbitConfig;
 import com.example.demo.dto.CounterOfferRequest;
+import com.example.demo.dto.NegotiationAcceptedEvent;
 import com.example.demo.dto.OfferRequest;
 import com.example.demo.dto.OfferResponse;
 import com.example.demo.entity.Negotiation;
@@ -13,6 +15,9 @@ import com.example.demo.exception.NegotiationNotFoundException;
 import com.example.demo.repository.NegotiationOfferRepository;
 import com.example.demo.repository.NegotiationRepository;
 import java.math.BigDecimal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,15 +25,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class OfferServiceImpl implements OfferService {
 
+    private static final Logger log = LoggerFactory.getLogger(OfferServiceImpl.class);
+
     private final NegotiationRepository negotiationRepository;
     private final NegotiationOfferRepository offerRepository;
+    private final RabbitTemplate rabbitTemplate;
 
     public OfferServiceImpl(
             NegotiationRepository negotiationRepository,
-            NegotiationOfferRepository offerRepository
+            NegotiationOfferRepository offerRepository,
+            RabbitTemplate rabbitTemplate
     ) {
         this.negotiationRepository = negotiationRepository;
         this.offerRepository = offerRepository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -76,7 +86,9 @@ public class OfferServiceImpl implements OfferService {
         offer.setStatus(OfferStatus.ACCEPTED);
         negotiation.setStatus(NegotiationStatus.ACCEPTED);
         negotiationRepository.save(negotiation);
-        return toResponse(offerRepository.save(offer));
+        NegotiationOffer savedOffer = offerRepository.save(offer);
+        publishNegotiationAccepted(negotiation, savedOffer);
+        return toResponse(savedOffer);
     }
 
     @Override
@@ -108,6 +120,28 @@ public class OfferServiceImpl implements OfferService {
     private void validateAmount(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0) {
             throw new InvalidOfferException("Offer amount must be greater than zero");
+        }
+    }
+
+    private void publishNegotiationAccepted(Negotiation negotiation, NegotiationOffer offer) {
+        try {
+            NegotiationAcceptedEvent event = new NegotiationAcceptedEvent(
+                    negotiation.getId(),
+                    offer.getId(),
+                    negotiation.getBuyerId(),
+                    negotiation.getSellerId(),
+                    offer.getAmount(),
+                    offer.getMessage()
+            );
+
+            rabbitTemplate.convertAndSend(
+                    NotificationRabbitConfig.NOTIFICATION_EXCHANGE,
+                    NotificationRabbitConfig.NEGOTIATION_ACCEPTED_ROUTING_KEY,
+                    event
+            );
+        } catch (Exception e) {
+            log.warn("Failed to publish negotiation accepted notification for negotiation {}: {}",
+                    negotiation.getId(), e.getMessage());
         }
     }
 

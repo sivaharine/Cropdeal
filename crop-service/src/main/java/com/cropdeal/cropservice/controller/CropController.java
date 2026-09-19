@@ -54,6 +54,22 @@ public class CropController {
         return cropService.search(commodity, state, district, grade);
     }
 
+    @GetMapping("/nearby")
+    public List<CropSearchResponse> nearbyProducts(@RequestParam(required = false) String state,
+                                                   @RequestParam(required = false) String district,
+                                                   @RequestParam(required = false) String commodity,
+                                                   @RequestParam(required = false) String grade) {
+        return cropService.searchNearbyProducts(state, district, commodity, grade);
+    }
+
+    @GetMapping("/products/nearby")
+    public List<CropSearchResponse> nearbyProductsAlias(@RequestParam(required = false) String state,
+                                                        @RequestParam(required = false) String district,
+                                                        @RequestParam(required = false) String commodity,
+                                                        @RequestParam(required = false) String grade) {
+        return cropService.searchNearbyProducts(state, district, commodity, grade);
+    }
+
     /**
      * Internal purchase callback for Order/Deal Service.
      * Reduces available quantity atomically. When it reaches zero the crop becomes SOLD_OUT.
@@ -62,6 +78,16 @@ public class CropController {
     public CropResponse reduceQuantity(@PathVariable @Positive Long id,
                                        @Valid @RequestBody QuantityUpdateRequest request) {
         return cropService.reduceQuantity(id, request.getPurchasedQuantity());
+    }
+
+    /**
+     * Internal Saga compensation callback for Order Service.
+     * Restores quantity when a later order step fails after inventory was reserved.
+     */
+    @PatchMapping("/{id}/quantity/restore")
+    public CropResponse restoreQuantity(@PathVariable @Positive Long id,
+                                        @Valid @RequestBody QuantityUpdateRequest request) {
+        return cropService.restoreQuantity(id, request.getPurchasedQuantity());
     }
 
     @DeleteMapping("/{id}")

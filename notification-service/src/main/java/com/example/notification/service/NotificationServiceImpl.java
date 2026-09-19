@@ -54,6 +54,14 @@ public class NotificationServiceImpl
 
             notification.setStatus("SENT");
 
+            if (isEmailAddress(request.getRecipient())) {
+                emailService.sendEmail(
+                        request.getRecipient(),
+                        buildSubject(request.getType()),
+                        request.getMessage()
+                );
+            }
+
             Notification saved =
                     notificationRepository.save(notification);
 
@@ -202,5 +210,16 @@ public class NotificationServiceImpl
         );
 
         return response;
+    }
+
+    private boolean isEmailAddress(String recipient) {
+        return recipient != null && recipient.contains("@");
+    }
+
+    private String buildSubject(String type) {
+        if (type == null || type.isBlank()) {
+            return "CropDeal Notification";
+        }
+        return "CropDeal - " + type.replace('_', ' ');
     }
 }
