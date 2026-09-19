@@ -63,7 +63,6 @@ public class InvoiceCreateRequest {
     /*
      * Subtotal before tax.
      */
-    @NotNull(message = "Subtotal is required")
     @DecimalMin(value = "0.00", message = "Subtotal cannot be negative")
     private BigDecimal subtotal;
 
