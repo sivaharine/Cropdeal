@@ -190,7 +190,10 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice invoice = new Invoice();
         invoice.setInvoiceNumber(generateInvoiceNumber());
         invoice.setOrderId(request.getOrderId());
-        invoice.setPaymentId(request.getPaymentId() != null ? String.valueOf(request.getPaymentId()) : null);
+        if (request.getPaymentId() == null) {
+            throw new IllegalArgumentException("Payment ID is required to generate an invoice");
+        }
+        invoice.setPaymentId(String.valueOf(request.getPaymentId()));
         invoice.setFarmerId(request.getFarmerId());
         invoice.setDealerId(request.getDealerId());
 
