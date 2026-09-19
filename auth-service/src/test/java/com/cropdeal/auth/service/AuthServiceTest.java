@@ -15,9 +15,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -42,6 +45,9 @@ class AuthServiceTest {
 
     @Mock
     private UserServiceClient userServiceClient;
+
+    @Mock
+    private JavaMailSender mailSender;
 
     @InjectMocks
     private AuthServiceImpl authService;
@@ -259,7 +265,7 @@ class AuthServiceTest {
     // Operation 7: Forgot Password (2 test cases)
     // -------------------------------------------------------------
     @Test
-    @DisplayName("Op 7 - Case 1: Forgot Password Success generates reset token")
+    @DisplayName("Op 7 - Case 1: Forgot Password Success sends OTP email")
     void testForgotPasswordSuccess() {
         ForgotPasswordRequest request = new ForgotPasswordRequest();
         request.setEmail("ramesh@cropdeal.com");
@@ -270,10 +276,22 @@ class AuthServiceTest {
         MessageResponse response = authService.forgotPassword(request);
 
         assertNotNull(response);
-        assertTrue(response.getMessage().contains("Password reset token generated"));
+        assertEquals("Password reset OTP sent to registered email", response.getMessage());
         assertNotNull(testUser.getResetToken());
+        assertTrue(testUser.getResetToken().matches("\\d{6}"));
         assertNotNull(testUser.getResetTokenExpiry());
         verify(userRepository).save(testUser);
+
+        ArgumentCaptor<SimpleMailMessage> mailCaptor =
+                ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(mailCaptor.capture());
+
+        SimpleMailMessage sentMail = mailCaptor.getValue();
+        assertArrayEquals(new String[]{"ramesh@cropdeal.com"}, sentMail.getTo());
+        assertEquals("CropDeal Password Reset OTP", sentMail.getSubject());
+        assertNotNull(sentMail.getText());
+        assertTrue(sentMail.getText().contains(testUser.getResetToken()));
+        assertTrue(sentMail.getText().contains("valid for 15 minutes"));
     }
 
     @Test

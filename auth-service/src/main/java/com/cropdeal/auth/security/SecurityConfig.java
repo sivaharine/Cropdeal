@@ -54,12 +54,14 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
-                        ).permitAll()
+                		.requestMatchers(
+                		        "/api/auth/internal/**",
+                		        "/api/auth/register",
+                		        "/api/auth/login",
+                		        "/api/auth/logout",
+                		        "/api/auth/forgot-password",
+                		        "/api/auth/reset-password"
+                		).permitAll()
 
                         .requestMatchers(
                                 "/swagger-ui/**",

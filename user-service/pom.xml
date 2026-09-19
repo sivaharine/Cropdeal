@@ -14,11 +14,11 @@
     </parent>
 
     <groupId>com.cropdeal</groupId>
-    <artifactId>auth-service</artifactId>
+    <artifactId>user-service</artifactId>
     <version>1.0.0</version>
 
-    <name>auth-service</name>
-    <description>CropDeal Authentication Service</description>
+    <name>user-service</name>
+    <description>CropDeal User Profile Service</description>
 
     <properties>
         <java.version>21</java.version>
@@ -94,11 +94,6 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.6</version>
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <dependency>

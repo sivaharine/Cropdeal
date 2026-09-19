@@ -8,32 +8,39 @@ import com.cropdeal.auth.enums.UserStatus;
 import com.cropdeal.auth.exception.*;
 import com.cropdeal.auth.repository.UserRepository;
 import com.cropdeal.auth.security.JwtService;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @Transactional
 public class AuthServiceImpl implements AuthService {
 
+    private static final SecureRandom OTP_RANDOM = new SecureRandom();
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserServiceClient userServiceClient;
+    private final JavaMailSender mailSender;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            UserServiceClient userServiceClient
+            UserServiceClient userServiceClient,
+            JavaMailSender mailSender
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.userServiceClient = userServiceClient;
+        this.mailSender = mailSender;
     }
 
     @Override
@@ -185,8 +192,7 @@ public class AuthServiceImpl implements AuthService {
                         )
                 );
 
-        String resetToken =
-                UUID.randomUUID().toString();
+        String resetToken = generateOtp();
 
         user.setResetToken(resetToken);
 
@@ -196,17 +202,10 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
-        /*
-         * During development we return the token so it can
-         * be tested through Swagger.
-         *
-         * In production this token should be sent by email
-         * and NOT returned in the API response.
-         */
+        sendForgotPasswordOtp(email, resetToken);
 
         return new MessageResponse(
-                "Password reset token generated: "
-                        + resetToken
+                "Password reset OTP sent to registered email"
         );
     }
 
@@ -269,5 +268,23 @@ public class AuthServiceImpl implements AuthService {
                 "User status updated to "
                         + status.name()
         );
+    }
+
+    private String generateOtp() {
+        return String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
+    }
+
+    private void sendForgotPasswordOtp(String email, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("CropDeal Password Reset OTP");
+        message.setText("""
+                Your CropDeal password reset OTP is: %s
+
+                This OTP is valid for 15 minutes.
+                If you did not request a password reset, please ignore this email.
+                """.formatted(otp));
+
+        mailSender.send(message);
     }
 }
