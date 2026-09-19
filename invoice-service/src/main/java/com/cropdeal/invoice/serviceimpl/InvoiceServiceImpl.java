@@ -157,6 +157,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal calculatedTotal = calculatedSubtotal.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
 
         existingInvoice.setSubtotal(calculatedSubtotal);
+        existingInvoice.setTaxAmount(taxAmount);
         existingInvoice.setTotalAmount(calculatedTotal);
 
         Invoice updatedInvoice = invoiceRepository.save(existingInvoice);
