@@ -1,0 +1,283 @@
+<div class="delivery-dashboard-container">
+  <!-- Dashboard Hero Banner -->
+  <section class="dashboard-hero">
+    <div class="hero-content">
+      <div class="hero-tag">
+        <i class="fa-solid fa-truck-fast"></i> Kisan Logistics &amp; Farm Transport
+      </div>
+      <h2>Welcome, {{ authService.currentUser?.name || 'Delivery Partner' }}!</h2>
+      <p>Accept farm gate pickup requests, transmit live GPS telemetry, and complete secure OTP handovers.</p>
+    </div>
+    <div class="hero-actions">
+      <button class="btn" [ngClass]="isAvailable ? 'btn-danger' : 'btn-primary-green'" (click)="toggleAvailability()">
+        <i class="fa-solid" [class.fa-power-off]="isAvailable" [class.fa-check]="!isAvailable"></i>
+        {{ isAvailable ? 'Go Offline' : 'Go Online' }}
+      </button>
+      <button class="btn btn-navy" (click)="simulateGpsPing()">
+        <i class="fa-solid fa-location-crosshairs"></i> Transmit GPS Ping
+      </button>
+    </div>
+  </section>
+
+  <!-- Metric Stat Cards -->
+  <div class="grid-4 mb-3">
+    <div class="stat-card green">
+      <div class="stat-icon bg-green">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div class="stat-value">{{ completedCount }}</div>
+      <div class="stat-label">Delivered Orders</div>
+      <div class="stat-change positive"><i class="fa-solid fa-star"></i> 100% On-Time Record</div>
+    </div>
+
+    <div class="stat-card navy">
+      <div class="stat-icon bg-navy">
+        <i class="fa-solid fa-wallet"></i>
+      </div>
+      <div class="stat-value">₹{{ totalEarnings | number }}</div>
+      <div class="stat-label">Trip Earnings</div>
+      <div class="stat-change positive"><i class="fa-solid fa-bolt"></i> Direct Wallet Payout</div>
+    </div>
+
+    <div class="stat-card gold">
+      <div class="stat-icon bg-gold">
+        <i class="fa-solid fa-truck-ramp-box"></i>
+      </div>
+      <div class="stat-value">{{ availableDeliveries.length }}</div>
+      <div class="stat-label">Available Pickups</div>
+      <div class="stat-change positive"><i class="fa-solid fa-location-arrow"></i> Radius: 25 KM</div>
+    </div>
+
+    <div class="stat-card teal">
+      <div class="stat-icon bg-teal">
+        <i class="fa-solid fa-satellite-dish"></i>
+      </div>
+      <div class="stat-value">{{ isAvailable ? 'ONLINE' : 'IDLE' }}</div>
+      <div class="stat-label">Agent Status</div>
+      <div class="stat-change positive"><i class="fa-solid fa-wifi"></i> GPS Synced</div>
+    </div>
+  </div>
+
+  <!-- Active Delivery Route Card -->
+  <div class="card mb-3" *ngIf="activeDelivery">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-route text-green"></i> Active Route — Delivery #{{ activeDelivery.id }} (Order #{{ activeDelivery.orderId }})</h3>
+        <span class="badge"
+          [class.badge-warning]="activeDelivery.status === 'ACCEPTED'"
+          [class.badge-info]="activeDelivery.status === 'IN_TRANSIT' || activeDelivery.status === 'PICKED_UP'"
+          [class.badge-success]="activeDelivery.status === 'DELIVERED'">
+          {{ activeDelivery.status | titlecase }}
+        </span>
+      </div>
+      <div class="action-buttons">
+        <button *ngIf="activeDelivery.status === 'ACCEPTED'" class="btn btn-sm btn-navy" (click)="markPickedUp(activeDelivery)">
+          <i class="fa-solid fa-box"></i> Confirm Farm Pickup
+        </button>
+        <button *ngIf="activeDelivery.status === 'IN_TRANSIT' || activeDelivery.status === 'PICKED_UP'" class="btn btn-sm btn-primary-green" (click)="openOtpModal(activeDelivery)">
+          <i class="fa-solid fa-key"></i> Verify Delivery OTP
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="grid-2">
+        <div class="route-box">
+          <div class="route-point">
+            <div class="point-icon pickup"><i class="fa-solid fa-arrow-up-from-bracket"></i></div>
+            <div class="point-text">
+              <small class="text-muted">PICKUP FROM FARM</small>
+              <strong>{{ activeDelivery.pickupAddress || 'Farm Gate' }}</strong>
+            </div>
+          </div>
+          <div class="route-line"></div>
+          <div class="route-point">
+            <div class="point-icon drop"><i class="fa-solid fa-location-dot"></i></div>
+            <div class="point-text">
+              <small class="text-muted">DELIVERY DESTINATION</small>
+              <strong>{{ activeDelivery.deliveryAddress || 'Buyer Yard' }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="gps-telemetry-box">
+          <h4>Live Telemetry Tracker</h4>
+          <p class="text-muted small">Simulated GPS coordinates of delivery vehicle:</p>
+          <div class="coords-display">
+            <span>Latitude: <strong>{{ currentLat | number:'1.4-4' }}° N</strong></span>
+            <span>Longitude: <strong>{{ currentLng | number:'1.4-4' }}° E</strong></span>
+          </div>
+          <button class="btn btn-sm btn-navy mt-2 w-full" (click)="simulateGpsPing()">
+            <i class="fa-solid fa-rotate"></i> Transmit Coordinates Update
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Pickups Table -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-list-check text-green"></i> Open Delivery Orders — Accept a Trip</h3>
+        <small class="text-muted">Nearby farm-to-dealer orders requesting transport</small>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Trip #</th>
+              <th>Order #</th>
+              <th>Pickup Gate</th>
+              <th>Destination</th>
+              <th>Charge</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let del of availableDeliveries">
+              <td><strong>#{{ del.id }}</strong></td>
+              <td>#{{ del.orderId }}</td>
+              <td>{{ del.pickupAddress || '—' }}</td>
+              <td>{{ del.deliveryAddress || '—' }}</td>
+              <td><span class="text-green">₹{{ del.deliveryCharge || 750 | number }}</span></td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn btn-sm btn-primary-green" (click)="acceptDelivery(del.id)">
+                    <i class="fa-solid fa-check"></i> Accept
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="rejectDelivery(del.id)">
+                    <i class="fa-solid fa-xmark"></i> Reject
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="availableDeliveries.length === 0">
+              <td colspan="6" class="text-center py-4 text-muted">No open transport requests at the moment. All deliveries assigned!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Deliveries Snapshot -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-clock-rotate-left text-navy"></i> Recent Delivery Activity</h3>
+        <small class="text-muted">Latest trips assigned to your account</small>
+      </div>
+      <div class="d-flex align-center gap-2">
+        <span class="badge badge-navy">{{ myDeliveries.length }} Total</span>
+        <a routerLink="/delivery/my-deliveries" class="btn btn-outline-navy btn-sm">
+          <i class="fa-solid fa-list-check"></i> Full Deliveries Directory →
+        </a>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Trip #</th>
+              <th>Order #</th>
+              <th>Pickup</th>
+              <th>Destination</th>
+              <th>Status</th>
+              <th>OTP Verified</th>
+              <th>Earnings</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let del of myDeliveries | slice:0:5">
+              <td><strong>#{{ del.id }}</strong></td>
+              <td>#{{ del.orderId }}</td>
+              <td class="small">{{ del.pickupAddress || '—' }}</td>
+              <td class="small">{{ del.deliveryAddress || '—' }}</td>
+              <td>
+                <span class="badge"
+                  [class.badge-warning]="del.status === 'PENDING'"
+                  [class.badge-info]="del.status === 'ACCEPTED'"
+                  [class.badge-navy]="del.status === 'IN_TRANSIT' || del.status === 'PICKED_UP'"
+                  [class.badge-success]="del.status === 'DELIVERED' || del.status === 'VERIFIED'"
+                  [class.badge-danger]="del.status === 'CANCELLED' || del.status === 'REJECTED'">
+                  {{ del.status | titlecase }}
+                </span>
+              </td>
+              <td>
+                <span *ngIf="del.otpVerified" class="badge badge-success"><i class="fa-solid fa-check"></i> Yes</span>
+                <span *ngIf="!del.otpVerified" class="badge badge-warning">Pending</span>
+              </td>
+              <td>
+                <span *ngIf="del.status === 'DELIVERED' || del.status === 'VERIFIED'" class="text-green font-bold">₹{{ del.deliveryCharge || 250 | number }}</span>
+                <span *ngIf="del.status !== 'DELIVERED' && del.status !== 'VERIFIED'" class="text-muted">—</span>
+              </td>
+            </tr>
+            <tr *ngIf="myDeliveries.length === 0">
+              <td colspan="7" class="text-center py-4 text-muted">No deliveries yet. Accept a trip above to get started!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: OTP Delivery Verification -->
+<div class="modal-backdrop" *ngIf="isOtpModalOpen" (click)="isOtpModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-shield-halved text-green"></i> Customer OTP Delivery Verification</h3>
+      <button class="close-btn" (click)="isOtpModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info">
+        <i class="fa-solid fa-mobile-screen"></i>
+        Ask the receiving dealer for their 4-digit handover OTP.
+        <span *ngIf="activeDelivery?.deliveryOtp"> (Demo Code: <strong>{{ activeDelivery?.deliveryOtp }}</strong>)</span>
+      </div>
+      <div class="form-group">
+        <label>Enter 4-Digit Delivery Code *</label>
+        <input type="text" [(ngModel)]="inputOtp" name="inputOtp" class="form-control otp-input" maxlength="4" placeholder="----">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-navy" (click)="isOtpModalOpen = false">Cancel</button>
+      <button type="button" class="btn btn-navy" (click)="submitVerifyOtp()" [disabled]="inputOtp.length !== 4">
+        <i class="fa-solid fa-check-double"></i> Complete Handover
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Reject Delivery -->
+<div class="modal-backdrop" *ngIf="isRejectModalOpen" (click)="isRejectModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-xmark text-danger"></i> Reject Delivery Request</h3>
+      <button class="close-btn" (click)="isRejectModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted small mb-3">Please provide a reason for rejecting this delivery request.</p>
+      <div class="form-group">
+        <label>Reason *</label>
+        <select [(ngModel)]="rejectReason" name="rejectReason" class="form-control">
+          <option value="">— Select reason —</option>
+          <option value="Vehicle breakdown">Vehicle breakdown</option>
+          <option value="Out of service area">Out of service area</option>
+          <option value="Overloaded for the day">Overloaded for the day</option>
+          <option value="Address not accessible">Address not accessible</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-navy" (click)="isRejectModalOpen = false">Cancel</button>
+      <button type="button" class="btn btn-danger" (click)="submitReject()" [disabled]="!rejectReason">
+        <i class="fa-solid fa-xmark"></i> Confirm Reject
+      </button>
+    </div>
+  </div>
+</div>

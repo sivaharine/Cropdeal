@@ -1,0 +1,396 @@
+<div class="profile-page-container">
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <i class="fa-solid fa-spinner fa-spin fa-2x text-green"></i>
+    <p class="text-muted mt-2">Loading your profile...</p>
+  </div>
+
+  <div *ngIf="!isLoading">
+
+    <!-- ── Profile Hero Card ── -->
+    <div class="profile-hero-card mb-4">
+      <div class="profile-avatar">
+        <i class="fa-solid"
+           [class.fa-tractor]="role === 'FARMER'"
+           [class.fa-cart-shopping]="role === 'DEALER'"
+           [class.fa-truck-fast]="role === 'DELIVERY_PARTNER'"
+           [class.fa-shield-halved]="role === 'ADMIN'"></i>
+      </div>
+      <div class="profile-hero-info">
+        <h2 class="profile-name">{{ displayName }}</h2>
+        <div class="d-flex align-center gap-2 mt-1">
+          <span class="badge badge-green">{{ role | titlecase }}</span>
+          <span class="text-muted small" *ngIf="farmer?.email || dealer?.email || agent?.email">
+            <i class="fa-regular fa-envelope"></i>
+            {{ farmer?.email || dealer?.email || agent?.email }}
+          </span>
+        </div>
+        <div class="text-muted small mt-1" *ngIf="displayAddress">
+          <i class="fa-solid fa-location-dot text-green"></i> {{ displayAddress }}
+        </div>
+      </div>
+      <div class="profile-hero-actions">
+        <button class="btn btn-outline-navy btn-sm" (click)="isEditMode = true" *ngIf="!isEditMode">
+          <i class="fa-solid fa-pen"></i> Edit Profile
+        </button>
+        <button class="btn btn-navy btn-sm" (click)="saveProfile()" *ngIf="isEditMode" [disabled]="isSaving">
+          <i class="fa-solid" [class.fa-save]="!isSaving" [class.fa-spinner]="isSaving" [class.fa-spin]="isSaving"></i>
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+        <button class="btn btn-outline-navy btn-sm" (click)="cancelEdit()" *ngIf="isEditMode">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Tab Bar ── -->
+    <div class="profile-tabs mb-3">
+      <button class="profile-tab" [class.active]="activeTab === 'profile'" (click)="activeTab = 'profile'">
+        <i class="fa-solid fa-user"></i> My Profile
+      </button>
+      <button class="profile-tab" [class.active]="activeTab === 'nearby'" (click)="activeTab = 'nearby'; loadNearbyCrops()">
+        <i class="fa-solid fa-location-crosshairs"></i> Nearby Crops
+        <span class="badge badge-navy" *ngIf="nearbyCrops.length > 0">{{ nearbyCrops.length }}</span>
+      </button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 1: PROFILE
+    ════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'profile'">
+
+      <!-- ── FARMER PROFILE ── -->
+      <ng-container *ngIf="role === 'FARMER' && farmer">
+        <div class="card mb-3">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-id-card text-green"></i> Personal Information</h3>
+            <span class="badge badge-green">Farmer Account</span>
+          </div>
+          <div class="card-body">
+            <!-- VIEW MODE -->
+            <div *ngIf="!isEditMode" class="info-grid">
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-user"></i> Full Name</label>
+                <div class="info-value">{{ farmer.name || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-regular fa-envelope"></i> Email</label>
+                <div class="info-value">{{ farmer.email || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-phone"></i> Phone</label>
+                <div class="info-value">{{ farmer.phone || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-location-dot"></i> Address</label>
+                <div class="info-value">{{ farmer.address || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-tractor"></i> Farm Location</label>
+                <div class="info-value">{{ farmer.farmLocation || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-building-columns"></i> Bank Details</label>
+                <div class="info-value">{{ farmer.bankDetails || 'Not provided' }}</div>
+              </div>
+            </div>
+
+            <!-- EDIT MODE -->
+            <form *ngIf="isEditMode" class="edit-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Full Name</label>
+                  <input type="text" [(ngModel)]="farmerForm.name" name="fname" class="form-control" placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                  <label>Phone Number</label>
+                  <input type="tel" [(ngModel)]="farmerForm.phone" name="fphone" class="form-control" placeholder="10-digit mobile">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Address <span class="text-muted small">(used for nearby crop search)</span></label>
+                <input type="text" [(ngModel)]="farmerForm.address" name="faddress" class="form-control" placeholder="e.g. Amritsar, Punjab">
+              </div>
+              <div class="form-group">
+                <label>Farm Location</label>
+                <input type="text" [(ngModel)]="farmerForm.farmLocation" name="ffarm" class="form-control" placeholder="e.g. Village Kala, Amritsar">
+              </div>
+              <div class="form-group">
+                <label>Bank Details / UPI</label>
+                <input type="text" [(ngModel)]="farmerForm.bankDetails" name="fbank" class="form-control" placeholder="Account number, IFSC or UPI ID">
+              </div>
+            </form>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ── DEALER PROFILE ── -->
+      <ng-container *ngIf="role === 'DEALER' && dealer">
+        <div class="card mb-3">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-id-card text-green"></i> Business Information</h3>
+            <span class="badge badge-navy">Dealer Account</span>
+          </div>
+          <div class="card-body">
+            <!-- VIEW MODE -->
+            <div *ngIf="!isEditMode" class="info-grid">
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-user"></i> Contact Person</label>
+                <div class="info-value">{{ dealer.name || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-regular fa-envelope"></i> Email</label>
+                <div class="info-value">{{ dealer.email || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-phone"></i> Phone</label>
+                <div class="info-value">{{ dealer.phone || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-building"></i> Business Name</label>
+                <div class="info-value">{{ dealer.businessName || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-location-dot"></i> Business Address</label>
+                <div class="info-value">{{ dealer.address || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-building-columns"></i> Bank Details</label>
+                <div class="info-value">{{ dealer.bankDetails || 'Not provided' }}</div>
+              </div>
+            </div>
+
+            <!-- EDIT MODE -->
+            <form *ngIf="isEditMode" class="edit-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Contact Person Name</label>
+                  <input type="text" [(ngModel)]="dealerForm.name" name="dname" class="form-control" placeholder="Your name">
+                </div>
+                <div class="form-group">
+                  <label>Phone Number</label>
+                  <input type="tel" [(ngModel)]="dealerForm.phone" name="dphone" class="form-control" placeholder="10-digit mobile">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Business Name</label>
+                <input type="text" [(ngModel)]="dealerForm.businessName" name="dbusiness" class="form-control" placeholder="Company / Firm name">
+              </div>
+              <div class="form-group">
+                <label>Business Address <span class="text-muted small">(used for nearby crop search)</span></label>
+                <input type="text" [(ngModel)]="dealerForm.address" name="daddress" class="form-control" placeholder="e.g. Mandi Yard, Delhi">
+              </div>
+              <div class="form-group">
+                <label>Bank Details / UPI</label>
+                <input type="text" [(ngModel)]="dealerForm.bankDetails" name="dbank" class="form-control" placeholder="Account number, IFSC or UPI ID">
+              </div>
+            </form>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ── DELIVERY PARTNER PROFILE ── -->
+      <ng-container *ngIf="role === 'DELIVERY_PARTNER' && agent">
+        <div class="card mb-3">
+          <div class="card-header">
+            <h3><i class="fa-solid fa-id-card text-green"></i> Agent Information</h3>
+            <span class="badge" [class.badge-success]="agent.availabilityStatus === 'AVAILABLE'" [class.badge-warning]="agent.availabilityStatus === 'ON_DELIVERY'" [class.badge-danger]="agent.availabilityStatus === 'UNAVAILABLE'">{{ agent.availabilityStatus }}</span>
+          </div>
+          <div class="card-body">
+            <!-- VIEW MODE -->
+            <div *ngIf="!isEditMode" class="info-grid">
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-user"></i> Full Name</label>
+                <div class="info-value">{{ agent.name || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-regular fa-envelope"></i> Email</label>
+                <div class="info-value">{{ agent.email || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-phone"></i> Phone</label>
+                <div class="info-value">{{ agent.phone || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-location-dot"></i> Base Address</label>
+                <div class="info-value">{{ agent.address || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-truck"></i> Vehicle</label>
+                <div class="info-value">{{ agent.vehicleType || '—' }} · {{ agent.vehicleNumber || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-id-badge"></i> Driving License</label>
+                <div class="info-value">{{ agent.drivingLicenseNumber || agent.licenseNumber || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-circle-check"></i> Status</label>
+                <div class="info-value">{{ agent.availabilityStatus || '—' }}</div>
+              </div>
+              <div class="info-item">
+                <label class="info-label"><i class="fa-solid fa-building-columns"></i> Bank Details</label>
+                <div class="info-value">{{ agent.bankDetails || 'Not provided' }}</div>
+              </div>
+            </div>
+
+            <!-- EDIT MODE -->
+            <form *ngIf="isEditMode" class="edit-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Full Name</label>
+                  <input type="text" [(ngModel)]="agentForm.name" name="aname" class="form-control" placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                  <label>Phone Number</label>
+                  <input type="tel" [(ngModel)]="agentForm.phone" name="aphone" class="form-control" placeholder="10-digit mobile">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Base Address <span class="text-muted small">(used for nearby delivery zone)</span></label>
+                <input type="text" [(ngModel)]="agentForm.address" name="aaddress" class="form-control" placeholder="e.g. Ludhiana, Punjab">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Vehicle Type</label>
+                  <select [(ngModel)]="agentForm.vehicleType" name="avtype" class="form-control">
+                    <option *ngFor="let vt of vehicleTypes" [value]="vt">{{ vt }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Vehicle Number</label>
+                  <input type="text" [(ngModel)]="agentForm.vehicleNumber" name="avnum" class="form-control" placeholder="e.g. PB-02-1234">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Driving License No.</label>
+                  <input type="text" [(ngModel)]="agentForm.drivingLicenseNumber" name="alicense" class="form-control" placeholder="License number">
+                </div>
+                <div class="form-group">
+                  <label>Availability Status</label>
+                  <select [(ngModel)]="agentForm.availabilityStatus" name="aavail" class="form-control">
+                    <option *ngFor="let s of availabilityOptions" [value]="s">{{ s }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Bank Details / UPI</label>
+                <input type="text" [(ngModel)]="agentForm.bankDetails" name="abank" class="form-control" placeholder="Account number, IFSC or UPI ID">
+              </div>
+            </form>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ── Danger Zone ── -->
+      <div class="card danger-zone-card">
+        <div class="card-body">
+          <h4 class="text-danger mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</h4>
+          <p class="text-muted small mb-3">Deactivating your account will log you out and disable access. Your data will be retained for compliance purposes.</p>
+          <button class="btn btn-outline-danger btn-sm" (click)="isDeleteModalOpen = true">
+            <i class="fa-solid fa-user-slash"></i> Deactivate My Account
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         TAB 2: NEARBY CROPS
+    ════════════════════════════════════════════════════════════ -->
+    <div *ngIf="activeTab === 'nearby'">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3><i class="fa-solid fa-location-crosshairs text-green"></i> Crops Near You</h3>
+            <small class="text-muted" *ngIf="parsedDistrict || parsedState">
+              Searching around <strong>{{ parsedDistrict }}{{ parsedDistrict && parsedState ? ', ' : '' }}{{ parsedState }}</strong>
+            </small>
+            <small class="text-muted" *ngIf="!parsedDistrict && !parsedState">Update your address in Profile to see nearby crops.</small>
+          </div>
+          <div class="d-flex gap-2 align-center">
+            <input type="text" [(ngModel)]="nearbySearchTerm" class="form-control" style="max-width:220px" placeholder="Filter crops...">
+            <button class="btn btn-outline-navy btn-sm" (click)="loadNearbyCrops()" [disabled]="isLoadingNearby">
+              <i class="fa-solid fa-rotate" [class.fa-spin]="isLoadingNearby"></i> Refresh
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+
+          <!-- Loading -->
+          <div *ngIf="isLoadingNearby" class="text-center py-5">
+            <i class="fa-solid fa-spinner fa-spin fa-2x text-green"></i>
+            <p class="text-muted mt-2">Finding nearby crops...</p>
+          </div>
+
+          <!-- No address set -->
+          <div *ngIf="!isLoadingNearby && !parsedState && !parsedDistrict" class="empty-nearby">
+            <i class="fa-solid fa-location-dot fa-2x text-muted mb-2"></i>
+            <h4 class="text-muted">No Location Set</h4>
+            <p class="text-muted small">Please add your address in the Profile tab so we can find crops near you.</p>
+            <button class="btn btn-navy btn-sm mt-2" (click)="activeTab = 'profile'; isEditMode = true">
+              <i class="fa-solid fa-pen"></i> Add My Address
+            </button>
+          </div>
+
+          <!-- Empty results -->
+          <div *ngIf="!isLoadingNearby && (parsedState || parsedDistrict) && filteredNearbyCrops.length === 0" class="empty-nearby">
+            <i class="fa-solid fa-seedling fa-2x text-muted mb-2"></i>
+            <h4 class="text-muted">No Crops Found Nearby</h4>
+            <p class="text-muted small">No crops listed near {{ parsedDistrict || parsedState }} right now. Check back soon!</p>
+          </div>
+
+          <!-- Crops Grid -->
+          <div class="nearby-crops-grid" *ngIf="!isLoadingNearby && filteredNearbyCrops.length > 0">
+            <div *ngFor="let crop of filteredNearbyCrops" class="nearby-crop-card">
+              <div class="crop-card-header">
+                <div class="crop-icon"><i class="fa-solid fa-wheat-awn"></i></div>
+                <span class="badge badge-navy">Grade {{ crop.grade }}</span>
+              </div>
+              <h4 class="crop-name">{{ crop.commodity }}</h4>
+              <div class="crop-location text-muted small">
+                <i class="fa-solid fa-location-dot"></i> {{ crop.district }}, {{ crop.state }}
+              </div>
+              <div class="crop-details">
+                <div class="detail-row">
+                  <span class="detail-label">Price</span>
+                  <span class="detail-value text-green font-bold">₹{{ crop.pricePerKg | number:'1.1-1' }}/KG</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Available</span>
+                  <span class="detail-value">{{ crop.quantity | number }} KG</span>
+                </div>
+              </div>
+              <a routerLink="/catalog" class="btn btn-sm btn-outline-navy w-full mt-2">
+                <i class="fa-solid fa-store"></i> View in Catalog
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Deactivate Confirm Modal -->
+<div class="modal-backdrop" *ngIf="isDeleteModalOpen" (click)="isDeleteModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()" style="max-width:460px">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-triangle-exclamation text-danger"></i> Deactivate Account</h3>
+      <button class="close-btn" (click)="isDeleteModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted">Are you sure you want to deactivate your account? This will log you out immediately. Your data will be retained for record-keeping.</p>
+      <div class="alert-warning-box mt-3">
+        <i class="fa-solid fa-lock"></i> You can reactivate by contacting CropDeal admin support.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline-navy" (click)="isDeleteModalOpen = false">Cancel</button>
+      <button class="btn btn-danger" (click)="confirmDeactivate()">
+        <i class="fa-solid fa-user-slash"></i> Yes, Deactivate
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,517 @@
+<div class="catalog-page-container">
+
+  <!-- Hero Banner -->
+  <div class="catalog-hero">
+    <div class="catalog-hero__content">
+      <div class="catalog-hero__eyebrow">
+        <i class="fa-solid fa-store"></i>
+        <span>Live Agricultural Marketplace</span>
+      </div>
+      <h1>Verified Harvest Catalog</h1>
+      <p>Browse quality-graded crops directly from certified farmers. Place orders, start negotiations, or follow farmers for instant alerts.</p>
+    </div>
+  </div>
+
+  <!-- Empty State: No crops listed yet -->
+  <div *ngIf="crops.length === 0" class="empty-catalog card">
+    <div class="empty-icon"><i class="fa-solid fa-seedling text-muted"></i></div>
+    <h3>No Crops Listed Yet</h3>
+    <p *ngIf="authService.currentUser?.role === 'FARMER'">
+      You haven't listed any crops yet.
+      <a routerLink="/farmer/dashboard" class="register-link">Go to your dashboard</a> to add your first harvest.
+    </p>
+    <p *ngIf="authService.currentUser?.role !== 'FARMER'">
+      No farmer has listed crops yet. Check back soon!
+    </p>
+  </div>
+
+  <!-- Catalog Tabs & Nearby Mandi Filter Toggle -->
+  <div class="catalog-tabs-bar mb-3">
+    <div class="tabs-group">
+      <button class="cat-tab-btn" [class.active]="activeCatalogTab === 'crops'" (click)="activeCatalogTab = 'crops'">
+        <i class="fa-solid fa-wheat-awn"></i> Harvests For Sale ({{ crops.length }})
+      </button>
+      <button class="cat-tab-btn" [class.active]="activeCatalogTab === 'demands'" (click)="activeCatalogTab = 'demands'">
+        <i class="fa-solid fa-bullhorn"></i> Buyer Procurement Demands ({{ buyingRequests.length }})
+      </button>
+    </div>
+    <div class="nearby-toggle-group">
+      <button class="btn btn-sm" [class.btn-outline-navy]="!isNearbyOnly" [class.btn-gold]="isNearbyOnly" (click)="toggleNearby()">
+        <i class="fa-solid" [class.fa-earth-asia]="!isNearbyOnly" [class.fa-location-crosshairs]="isNearbyOnly"></i>
+        {{ isNearbyOnly ? 'Showing Nearby Mandis Only' : 'Search Nearby Mandis' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="card filter-card mb-3" *ngIf="crops.length > 0 && activeCatalogTab === 'crops'">
+    <div class="card-body">
+      <div class="filter-grid">
+        <div class="search-bar">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" [(ngModel)]="searchTerm" (input)="applyFilter()" class="form-control" placeholder="Search crop, district, farmer name...">
+        </div>
+
+        <select [(ngModel)]="selectedCommodity" (change)="applyFilter()" class="form-control">
+          <option *ngFor="let c of commodities" [value]="c">{{ c }}</option>
+        </select>
+
+        <select [(ngModel)]="selectedState" (change)="applyFilter()" class="form-control">
+          <option *ngFor="let s of states" [value]="s">{{ s }}</option>
+        </select>
+
+        <select [(ngModel)]="selectedGrade" (change)="applyFilter()" class="form-control">
+          <option *ngFor="let g of grades" [value]="g">{{ g }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-meta mb-2" *ngIf="crops.length > 0 && activeCatalogTab === 'crops'">
+    <span>Showing <strong>{{ filteredCrops.length }}</strong> of {{ crops.length }} verified agricultural harvest listings</span>
+  </div>
+
+  <!-- Crop Grid -->
+  <div class="grid-3 mb-3" *ngIf="filteredCrops.length > 0 && activeCatalogTab === 'crops'">
+    <div *ngFor="let crop of filteredCrops" class="catalog-card">
+      <div class="card-top">
+        <div class="badge-group">
+          <span class="badge badge-green">Grade {{ crop.grade }}</span>
+          <span class="badge badge-navy">{{ crop.status }}</span>
+        </div>
+        <div class="loc-text"><i class="fa-solid fa-location-dot"></i> {{ crop.district }}, {{ crop.state }}</div>
+      </div>
+
+      <div class="card-body-content">
+        <div class="crop-category-mark"><i class="fa-solid fa-wheat-awn"></i></div>
+        <h3 class="crop-heading">{{ crop.commodity }}</h3>
+
+        <!-- Farmer Name + Follow button -->
+        <div class="farmer-info-row" *ngIf="crop.farmerName">
+          <div class="farmer-name-badge">
+            <i class="fa-solid fa-tractor"></i>
+            <span>{{ crop.farmerName }}</span>
+          </div>
+          <button
+            *ngIf="authService.currentUser?.role === 'DEALER'"
+            class="btn-follow"
+            [class.following]="isFollowing(crop.farmerId)"
+            (click)="followFarmer(crop)"
+            [title]="isFollowing(crop.farmerId) ? 'Following — click to unfollow' : 'Follow farmer for listing alerts'"
+          >
+            <i class="fa-solid" [class.fa-bell-slash]="isFollowing(crop.farmerId)" [class.fa-bell]="!isFollowing(crop.farmerId)"></i>
+            {{ isFollowing(crop.farmerId) ? 'Following' : 'Follow Farmer' }}
+          </button>
+        </div>
+
+        <!-- Commodity Alert Subscription Button (POST /api/subscriptions) -->
+        <div class="crop-sub-row mb-2">
+          <button type="button" class="btn-sub-chip" [class.active]="isSubscribed(crop.commodity)" (click)="toggleSubscription(crop); $event.stopPropagation()"
+            [title]="isSubscribed(crop.commodity) ? 'Subscribed to alerts for this crop. Click to unsubscribe.' : 'Subscribe to automated alerts when new batches of ' + crop.commodity + ' are listed'">
+            <i class="fa-solid" [class.fa-bookmark]="isSubscribed(crop.commodity)" [class.fa-bookmark-slash]="!isSubscribed(crop.commodity)"></i>
+            {{ isSubscribed(crop.commodity) ? 'Alerts Active for ' + crop.commodity : 'Get ' + crop.commodity + ' Alerts' }}
+          </button>
+        </div>
+
+        <!-- Product Rating & Reviews Row -->
+        <div class="crop-rating-row" (click)="openProductReviewsModal(crop)" title="View customer reviews and ratings">
+          <div class="stars-display">
+            <i class="fa-solid fa-star text-gold" *ngFor="let s of [1,2,3,4,5]" [class.star-faded]="s > getCropRating(crop.id)"></i>
+          </div>
+          <ng-container *ngIf="getCropReviewCount(crop.id) > 0">
+            <span class="rating-score font-bold">{{ getCropRating(crop.id) | number:'1.1-1' }}</span>
+            <button type="button" class="reviews-count-btn" (click)="openProductReviewsModal(crop); $event.stopPropagation()">
+              ({{ getCropReviewCount(crop.id) }} reviews)
+            </button>
+          </ng-container>
+          <span *ngIf="getCropReviewCount(crop.id) === 0" class="text-muted small" style="font-size: 0.78rem;">
+            (No reviews yet)
+          </span>
+          <button *ngIf="authService.currentUser?.role === 'DEALER'" type="button" class="btn-write-review-chip ms-auto"
+                  (click)="openWriteReviewModal(crop); $event.stopPropagation()" title="Rate and write review for this produce">
+            <i class="fa-regular fa-star"></i> Rate
+          </button>
+        </div>
+
+        <p class="crop-desc" *ngIf="crop.description">{{ crop.description | slice:0:80 }}...</p>
+
+        <div class="benchmark-pill" *ngIf="benchmarkPrices[crop.commodity]">
+          <i class="fa-solid fa-chart-line text-green"></i>
+          <span>Mandi Benchmark: <strong>₹{{ benchmarkPrices[crop.commodity] | number:'1.1-1' }}/KG</strong></span>
+        </div>
+
+        <div class="crop-specs-grid">
+          <div>
+            <span class="spec-label">Lot Quantity</span>
+            <span class="spec-val">{{ crop.quantity | number }} {{ crop.unit }}</span>
+          </div>
+          <div class="text-right">
+            <span class="spec-label">Asking Price</span>
+            <span class="spec-price">₹{{ crop.pricePerKg | number:'1.2-2' }}<small>/KG</small></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-actions">
+        <!-- DEALER: Order + Negotiate -->
+        <button class="btn btn-navy flex-1" (click)="openOrderModal(crop)" *ngIf="authService.currentUser?.role === 'DEALER'">
+          <i class="fa-solid fa-cart-shopping"></i> Order Now
+        </button>
+        <button class="btn btn-outline-navy" (click)="openNegotiateModal(crop)" *ngIf="authService.currentUser?.role === 'DEALER'">
+          <i class="fa-solid fa-comments-dollar"></i> Negotiate
+        </button>
+
+        <!-- FARMER: Edit + Delete own crops only -->
+        <ng-container *ngIf="isOwnCrop(crop)">
+          <span class="own-listing-tag"><i class="fa-solid fa-seedling"></i> Your Listing</span>
+          <div class="own-crop-actions">
+            <button class="btn btn-sm btn-outline-navy" (click)="openEditModal(crop)" title="Edit this crop">
+              <i class="fa-solid fa-pen"></i> Edit
+            </button>
+            <button class="btn btn-sm btn-danger" (click)="deleteCrop(crop)" title="Remove from marketplace">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- ADMIN: view-only label -->
+        <span *ngIf="authService.currentUser?.role === 'ADMIN'" class="text-muted small">
+          <i class="fa-solid fa-eye"></i> Admin View
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="filteredCrops.length === 0 && crops.length > 0 && activeCatalogTab === 'crops'" class="empty-state card">
+    <div class="empty-icon"><i class="fa-solid fa-seedling text-muted"></i></div>
+    <h3>No matching listings found</h3>
+    <p>Try broadening your search or clearing the filters.</p>
+    <button class="btn btn-navy" (click)="searchTerm=''; selectedState='All States'; selectedGrade='All Grades'; selectedCommodity='All Commodities'; applyFilter()">
+      Reset Filters
+    </button>
+  </div>
+
+  <!-- Buyer Procurement Demands Section (GET /api/crops/buying-requests) -->
+  <div class="demands-section" *ngIf="activeCatalogTab === 'demands'">
+    <div class="results-meta mb-2">
+      <span>Showing <strong>{{ buyingRequests.length }}</strong> active procurement demands posted by verified commercial buyers</span>
+    </div>
+
+    <div class="grid-3 mb-3" *ngIf="buyingRequests.length > 0">
+      <div *ngFor="let req of buyingRequests" class="catalog-card demand-card">
+        <div class="card-top">
+          <div class="badge-group">
+            <span class="badge badge-gold"><i class="fa-solid fa-bullhorn"></i> Buying Demand</span>
+            <span class="badge badge-green">{{ req.status }}</span>
+          </div>
+          <div class="loc-text"><i class="fa-solid fa-location-dot"></i> {{ req.district }}, {{ req.state }}</div>
+        </div>
+
+        <div class="card-body-content">
+          <h3 class="crop-heading">{{ req.cropName }}</h3>
+          <div class="farmer-info-row mb-2">
+            <div class="farmer-name-badge">
+              <i class="fa-solid fa-building-wheat"></i>
+              <span>Commercial Buyer #{{ req.dealerId }}</span>
+            </div>
+          </div>
+          <p class="crop-desc" *ngIf="req.notes">"{{ req.notes }}"</p>
+          <div class="crop-specs-grid mt-3">
+            <div>
+              <span class="spec-label">Target Volume</span>
+              <span class="spec-val">{{ req.quantity | number }} {{ req.unit }}</span>
+            </div>
+            <div class="text-right">
+              <span class="spec-label">Offered Purchase Price</span>
+              <span class="spec-price text-green">₹{{ req.buyingPrice | number:'1.2-2' }}<small>/KG</small></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button *ngIf="authService.currentUser?.role === 'FARMER'" class="btn btn-navy flex-1" routerLink="/farmer/dashboard">
+            <i class="fa-solid fa-wheat-awn"></i> Fulfill from Farm
+          </button>
+          <button *ngIf="authService.currentUser?.role === 'DEALER'" class="btn btn-outline-navy flex-1" routerLink="/dealer/dashboard">
+            <i class="fa-solid fa-bullhorn"></i> View in Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="buyingRequests.length === 0" class="empty-state card">
+      <div class="empty-icon"><i class="fa-solid fa-bullhorn text-muted"></i></div>
+      <h3>No Active Buying Demands</h3>
+      <p>No procurement demands have been posted yet. Commercial buyers can post crop demands directly from their dashboard.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Order Now -->
+<div class="modal-backdrop" *ngIf="isOrderModalOpen" (click)="isOrderModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-cart-shopping text-green"></i> Order: {{ selectedCropForOrder?.commodity }}</h3>
+      <button class="close-btn" (click)="isOrderModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitOrder()">
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Farmer: <strong>{{ selectedCropForOrder?.farmerName || 'Farmer #' + selectedCropForOrder?.farmerId }}</strong> &nbsp;|&nbsp;
+          Asking: <strong>₹{{ selectedCropForOrder?.pricePerKg }}/KG</strong>
+        </div>
+        <div class="form-group">
+          <label>Quantity (KG) *</label>
+          <input type="number" [(ngModel)]="orderQuantity" name="orderQuantity" class="form-control"
+            [max]="selectedCropForOrder?.quantity || 10000" min="10" required>
+          <small class="text-muted">Available: {{ selectedCropForOrder?.quantity | number }} KG</small>
+        </div>
+        <div class="form-group">
+          <label>Delivery Address *</label>
+          <textarea [(ngModel)]="deliveryAddress" name="deliveryAddress" class="form-control" rows="2"
+            required placeholder="Enter your warehouse / yard address"></textarea>
+        </div>
+        <div class="order-summary-box">
+          <div class="d-flex justify-between">
+            <span>Total Payable:</span>
+            <strong class="text-navy" style="font-size:1.15rem;">
+              ₹{{ (orderQuantity * (selectedCropForOrder?.pricePerKg || 0)) | number:'1.2-2' }}
+            </strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isOrderModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-lock"></i> Confirm Purchase Order
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Negotiate -->
+<div class="modal-backdrop" *ngIf="isNegotiateModalOpen" (click)="isNegotiateModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-comments-dollar text-green"></i> Negotiate: {{ selectedCropForNeg?.commodity }}</h3>
+      <button class="close-btn" (click)="isNegotiateModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitNegotiation()">
+      <div class="modal-body">
+        <div class="alert alert-info">
+          Farmer: <strong>{{ selectedCropForNeg?.farmerName || 'Farmer #' + selectedCropForNeg?.farmerId }}</strong> &nbsp;|&nbsp;
+          Asking: <strong>₹{{ selectedCropForNeg?.pricePerKg }}/KG</strong>
+        </div>
+        <div class="form-group">
+          <label>Your Target Price (₹/KG) *</label>
+          <input type="number" [(ngModel)]="negTargetPrice" name="negTargetPrice" class="form-control"
+            min="1" [max]="selectedCropForNeg?.pricePerKg || 99999" required step="0.5">
+          <small class="text-muted">Propose a price — the farmer can counter-offer or accept</small>
+        </div>
+        <div class="form-group">
+          <label>Quantity (KG) *</label>
+          <input type="number" [(ngModel)]="negQuantity" name="negQuantity" class="form-control"
+            min="10" [max]="selectedCropForNeg?.quantity || 99999" required>
+        </div>
+        <div class="order-summary-box">
+          <div class="d-flex justify-between">
+            <span>Estimated Total at Your Price:</span>
+            <strong class="text-green">₹{{ (negQuantity * negTargetPrice) | number:'1.2-2' }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isNegotiateModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-paper-plane"></i> Send Negotiation Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Crop (Farmer — My Crops) -->
+<div class="modal-backdrop" *ngIf="isEditCropModalOpen" (click)="isEditCropModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-pen text-green"></i> Edit My Crop</h3>
+      <button class="close-btn" (click)="isEditCropModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitEditCrop()" *ngIf="cropBeingEdited">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Commodity *</label>
+            <input type="text" [(ngModel)]="cropBeingEdited.commodity" name="eCommodity"
+              class="form-control" list="catalogEditList" autocomplete="off" required>
+            <datalist id="catalogEditList">
+              <option value="Basmati Rice"></option><option value="Wheat"></option>
+              <option value="Cotton"></option><option value="Soyabean"></option>
+              <option value="Onion"></option><option value="Potato"></option>
+              <option value="Tomato"></option><option value="Mustard Seeds"></option>
+              <option value="Maize"></option><option value="Turmeric"></option>
+              <option value="Chilli (Dry)"></option><option value="Groundnut"></option>
+              <option value="Ginger"></option><option value="Garlic"></option>
+              <option value="Sugarcane"></option><option value="Banana"></option>
+              <option value="Mango"></option><option value="Chickpea (Chana)"></option>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Grade *</label>
+            <select [(ngModel)]="cropBeingEdited.grade" name="eGrade" class="form-control" required>
+              <option value="A">Grade A (Premium)</option>
+              <option value="B">Grade B (Standard)</option>
+              <option value="C">Grade C (Processing)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>State *</label>
+            <input type="text" [(ngModel)]="cropBeingEdited.state" name="eState" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>District *</label>
+            <input type="text" [(ngModel)]="cropBeingEdited.district" name="eDistrict" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity (KG) *</label>
+            <input type="number" [(ngModel)]="cropBeingEdited.quantity" name="eQty" class="form-control" min="10" required>
+          </div>
+          <div class="form-group">
+            <label>Price (₹/KG) *</label>
+            <input type="number" [(ngModel)]="cropBeingEdited.pricePerKg" name="ePrice" class="form-control" step="0.5" min="1" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="cropBeingEdited.description" name="eDesc" class="form-control" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isEditCropModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy"><i class="fa-solid fa-save"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: View Product Reviews & Ratings (GET /api/reviews/crop/{cropId})    -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="isReviewsModalOpen && selectedCropForReviews" (click)="isReviewsModalOpen = false">
+  <div class="modal modal-md" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 class="mb-0"><i class="fa-solid fa-star text-gold"></i> Ratings &amp; Reviews</h3>
+        <small class="text-muted">{{ selectedCropForReviews.commodity }} (Grade {{ selectedCropForReviews.grade }}) • Farmer {{ selectedCropForReviews.farmerName || ('Farmer #' + selectedCropForReviews.farmerId) }}</small>
+      </div>
+      <button class="close-btn" (click)="isReviewsModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- Rating Summary Banner -->
+      <div class="reviews-summary-banner mb-3 p-3 bg-light rounded d-flex align-center gap-3">
+        <div class="summary-score-box text-center">
+          <div class="big-score text-navy font-bold" style="font-size:2rem;">{{ getCropRating(selectedCropForReviews.id) | number:'1.1-1' }}</div>
+          <div class="stars-display">
+            <i class="fa-solid fa-star text-gold" *ngFor="let s of [1,2,3,4,5]" [class.star-faded]="s > getCropRating(selectedCropForReviews.id)"></i>
+          </div>
+          <small class="text-muted d-block">{{ getCropReviewCount(selectedCropForReviews.id) }} ratings</small>
+        </div>
+        <div class="summary-meta-box flex-1 border-start ps-3">
+          <div class="d-flex align-center gap-1 text-green small font-bold mb-1">
+            <i class="fa-solid fa-shield-halved"></i> 100% Verified Trade Reviews
+          </div>
+          <p class="text-muted small mb-0">Ratings by verified buyers based on grain purity, moisture level, and farm dispatch punctuality.</p>
+        </div>
+      </div>
+
+      <!-- Reviews Feed -->
+      <div class="reviews-list" style="max-height:360px; overflow-y:auto;">
+        <div *ngFor="let rev of getCropReviews(selectedCropForReviews.id)" class="review-item-card mb-2 p-3 border rounded">
+          <div class="d-flex justify-between align-center mb-1">
+            <div class="d-flex align-center gap-2">
+              <strong>{{ rev.dealerName || ('Verified Dealer #' + rev.dealerId) }}</strong>
+              <span class="badge badge-green small"><i class="fa-solid fa-check"></i> Verified Buyer</span>
+            </div>
+            <div class="stars-display small">
+              <i class="fa-solid fa-star text-gold" *ngFor="let s of [1,2,3,4,5]" [class.star-faded]="s > rev.rating"></i>
+            </div>
+          </div>
+          <p class="review-text-content mb-1 text-dark">{{ rev.reviewText || rev.comment }}</p>
+          <div class="text-muted small">
+            <i class="fa-regular fa-clock me-1"></i> {{ rev.createdAt | slice:0:10 }} • Ref: {{ rev.reviewReference || ('REV-' + rev.id) }}
+          </div>
+        </div>
+
+        <div *ngIf="getCropReviews(selectedCropForReviews.id).length === 0" class="text-center py-4 text-muted">
+          <i class="fa-regular fa-comment-dots fa-2x mb-2 d-block"></i>
+          <p class="small mb-0">No written reviews yet for this harvest lot. Be the first to share feedback!</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-navy" (click)="isReviewsModalOpen = false">Close</button>
+      <button *ngIf="authService.currentUser?.role === 'DEALER'" type="button" class="btn btn-navy"
+              (click)="isReviewsModalOpen = false; openWriteReviewModal(selectedCropForReviews)">
+        <i class="fa-solid fa-pen-to-square"></i> Rate &amp; Write Review
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: Write Product Review (POST /api/reviews/farmers)                   -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="isWriteReviewModalOpen && selectedCropForReviews" (click)="isWriteReviewModalOpen = false">
+  <div class="modal modal-md" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 class="mb-0"><i class="fa-solid fa-pen-to-square text-green"></i> Rate &amp; Review Produce</h3>
+        <small class="text-muted">{{ selectedCropForReviews.commodity }} from {{ selectedCropForReviews.farmerName || ('Farmer #' + selectedCropForReviews.farmerId) }}</small>
+      </div>
+      <button class="close-btn" (click)="isWriteReviewModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitProductReview()">
+      <div class="modal-body">
+        <div class="form-group text-center mb-3">
+          <label class="d-block font-bold mb-2">Overall Product Rating</label>
+          <div class="star-rating-selector d-flex justify-center gap-2">
+            <button *ngFor="let s of [1,2,3,4,5]" type="button" class="star-select-btn"
+                    (click)="setReviewRating(s)" [class.active]="s <= newReviewForm.rating">
+              <i class="fa-solid fa-star"></i>
+            </button>
+          </div>
+          <div class="rating-label mt-2 text-gold font-bold small">
+            <span *ngIf="newReviewForm.rating === 5">★★★★★ Outstanding (Export Grade)</span>
+            <span *ngIf="newReviewForm.rating === 4">★★★★☆ Very Good (High Commercial Quality)</span>
+            <span *ngIf="newReviewForm.rating === 3">★★★☆☆ Good (Standard Mandi Spec)</span>
+            <span *ngIf="newReviewForm.rating === 2">★★☆☆☆ Fair (Processing Grade)</span>
+            <span *ngIf="newReviewForm.rating === 1">★☆☆☆☆ Poor (Below Spec)</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Review &amp; Quality Feedback *</label>
+          <textarea
+            [(ngModel)]="newReviewForm.reviewText"
+            name="reviewText"
+            class="form-control"
+            rows="4"
+            required
+            placeholder="Share feedback on grain luster, moisture level, packaging, or farm pickup experience..."
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isWriteReviewModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy" [disabled]="!newReviewForm.reviewText.trim()">
+          <i class="fa-solid fa-paper-plane"></i> Submit Verified Review
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

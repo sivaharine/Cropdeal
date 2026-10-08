@@ -1,0 +1,224 @@
+<div class="my-deliveries-page">
+  <!-- Page Header -->
+  <div class="page-header d-flex justify-between align-center mb-3">
+    <div>
+      <div class="back-link mb-1">
+        <a routerLink="/delivery/dashboard" class="text-green small">
+          <i class="fa-solid fa-arrow-left"></i> Back to Live Operations Dashboard
+        </a>
+      </div>
+      <h1 class="page-title">
+        <i class="fa-solid fa-box-open text-green"></i> My Deliveries Directory
+      </h1>
+      <p class="text-muted">
+        Full archive of all crop transport missions assigned to your account, route logs, and delivery receipts.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline-navy btn-sm" (click)="loadMyDeliveries()" [disabled]="isLoading">
+        <i class="fa-solid fa-rotate" [class.fa-spin]="isLoading"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary KPI Bar -->
+  <div class="grid-4 mb-3">
+    <div class="stat-card navy">
+      <div class="stat-icon bg-navy"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div class="stat-value">{{ totalCount }}</div>
+      <div class="stat-label">Total Assigned Trips</div>
+      <div class="stat-change positive"><i class="fa-solid fa-calendar"></i> Lifetime Log</div>
+    </div>
+
+    <div class="stat-card gold">
+      <div class="stat-icon bg-gold"><i class="fa-solid fa-truck-fast"></i></div>
+      <div class="stat-value">{{ activeCount }}</div>
+      <div class="stat-label">In-Transit / Active</div>
+      <div class="stat-change positive"><i class="fa-solid fa-location-arrow"></i> Active On Road</div>
+    </div>
+
+    <div class="stat-card green">
+      <div class="stat-icon bg-green"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="stat-value">{{ completedCount }}</div>
+      <div class="stat-label">Completed Deliveries</div>
+      <div class="stat-change positive"><i class="fa-solid fa-shield-halved"></i> OTP Verified</div>
+    </div>
+
+    <div class="stat-card teal">
+      <div class="stat-icon bg-teal"><i class="fa-solid fa-wallet"></i></div>
+      <div class="stat-value">₹{{ totalEarnings | number }}</div>
+      <div class="stat-label">Total Delivery Earnings</div>
+      <div class="stat-change positive"><i class="fa-solid fa-arrow-up"></i> Direct Wallet Settlement</div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Panel -->
+  <div class="card mb-3">
+    <div class="filter-controls">
+      <!-- Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab" [class.active]="statusFilter === 'ALL'" (click)="setStatusFilter('ALL')">
+          All Trips <span class="tab-badge">{{ totalCount }}</span>
+        </button>
+        <button class="filter-tab" [class.active]="statusFilter === 'ACTIVE'" (click)="setStatusFilter('ACTIVE')">
+          Active / Transit <span class="tab-badge warning">{{ activeCount }}</span>
+        </button>
+        <button class="filter-tab" [class.active]="statusFilter === 'COMPLETED'" (click)="setStatusFilter('COMPLETED')">
+          Completed <span class="tab-badge success">{{ completedCount }}</span>
+        </button>
+        <button class="filter-tab" [class.active]="statusFilter === 'CANCELLED'" (click)="setStatusFilter('CANCELLED')">
+          Cancelled / Rejected <span class="tab-badge danger">{{ cancelledCount }}</span>
+        </button>
+      </div>
+
+      <!-- Search Input -->
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="applyFilter()"
+          class="form-control search-input"
+          placeholder="Search by Trip #, Order #, address, phone..."
+        />
+        <button *ngIf="searchTerm" class="clear-btn" (click)="searchTerm = ''; applyFilter()">&times;</button>
+      </div>
+    </div>
+
+    <!-- Table Body -->
+    <div class="card-body p-0">
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Trip / Ref</th>
+              <th>Order ID</th>
+              <th>Pickup Origin (Farm)</th>
+              <th>Delivery Destination</th>
+              <th>Customer Phone</th>
+              <th>Fare</th>
+              <th>Status</th>
+              <th>Verification / Proof</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let del of filteredDeliveries">
+              <td>
+                <div class="trip-id-block">
+                  <strong>#{{ del.id }}</strong>
+                  <span class="ref-tag" *ngIf="del.deliveryReference">{{ del.deliveryReference }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="order-badge">Order #{{ del.orderId }}</span>
+              </td>
+              <td>
+                <div class="address-cell">
+                  <i class="fa-solid fa-arrow-up-from-bracket text-green"></i>
+                  <span>{{ del.pickupAddress || 'Farm Gate' }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="address-cell">
+                  <i class="fa-solid fa-location-dot text-danger"></i>
+                  <span>{{ del.deliveryAddress || 'Dealer Warehouse' }}</span>
+                </div>
+              </td>
+              <td class="small text-muted">
+                <span *ngIf="del.customerPhone"><i class="fa-solid fa-phone"></i> {{ del.customerPhone }}</span>
+                <span *ngIf="!del.customerPhone">—</span>
+              </td>
+              <td>
+                <strong class="text-green">₹{{ del.deliveryCharge || 250 | number }}</strong>
+              </td>
+              <td>
+                <span class="badge"
+                  [class.badge-warning]="del.status === 'PENDING' || del.status === 'ACCEPTED'"
+                  [class.badge-info]="del.status === 'IN_TRANSIT' || del.status === 'PICKED_UP'"
+                  [class.badge-success]="del.status === 'DELIVERED' || del.status === 'VERIFIED'"
+                  [class.badge-danger]="del.status === 'CANCELLED' || del.status === 'REJECTED'">
+                  {{ del.status | titlecase }}
+                </span>
+              </td>
+              <td>
+                <div *ngIf="del.status === 'DELIVERED' || del.status === 'VERIFIED'" class="verified-proof">
+                  <span class="badge badge-success"><i class="fa-solid fa-shield-check"></i> Verified</span>
+                  <small class="receipt-code" *ngIf="del.receiptId">ID: {{ del.receiptId }}</small>
+                </div>
+                <div *ngIf="del.status !== 'DELIVERED' && del.status !== 'VERIFIED'">
+                  <span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Pending OTP</span>
+                </div>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <!-- OTP Verification Button if trip is in transit -->
+                  <button
+                    *ngIf="del.status === 'IN_TRANSIT' || del.status === 'PICKED_UP' || del.status === 'ACCEPTED'"
+                    class="btn btn-sm btn-primary-green"
+                    (click)="openOtpModal(del)"
+                    title="Verify Handover OTP">
+                    <i class="fa-solid fa-key"></i> Verify OTP
+                  </button>
+                  <span *ngIf="del.status === 'DELIVERED' || del.status === 'VERIFIED'" class="text-muted small">
+                    <i class="fa-solid fa-circle-check text-green"></i> Handover Closed
+                  </span>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Empty State -->
+            <tr *ngIf="filteredDeliveries.length === 0">
+              <td colspan="9" class="text-center py-5 text-muted">
+                <i class="fa-solid fa-box-open fa-2x mb-2 text-muted"></i>
+                <p class="font-bold">No deliveries found matching the criteria</p>
+                <small *ngIf="searchTerm || statusFilter !== 'ALL'">Try changing your search query or status filter.</small>
+                <small *ngIf="!searchTerm && statusFilter === 'ALL'">You have no assigned trips yet. Check available pickups on the dashboard.</small>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: OTP Handover Verification -->
+<div class="modal-backdrop" *ngIf="isOtpModalOpen" (click)="isOtpModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-shield-halved text-green"></i> Customer OTP Delivery Verification</h3>
+      <button class="close-btn" (click)="isOtpModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info mb-3">
+        <i class="fa-solid fa-mobile-screen"></i>
+        Ask the receiving customer for their 4-digit handover OTP.
+        <span *ngIf="selectedDeliveryForOtp?.deliveryOtp"> (Demo Code: <strong>{{ selectedDeliveryForOtp?.deliveryOtp }}</strong>)</span>
+      </div>
+      <div class="delivery-details-card mb-3 p-3" *ngIf="selectedDeliveryForOtp">
+        <div><strong>Trip:</strong> #{{ selectedDeliveryForOtp.id }} (Order #{{ selectedDeliveryForOtp.orderId }})</div>
+        <div><strong>Destination:</strong> {{ selectedDeliveryForOtp.deliveryAddress }}</div>
+        <div><strong>Fee:</strong> ₹{{ selectedDeliveryForOtp.deliveryCharge || 250 }}</div>
+      </div>
+      <div class="form-group">
+        <label>Enter 4-Digit Delivery Code *</label>
+        <input
+          type="text"
+          [(ngModel)]="inputOtp"
+          name="inputOtp"
+          class="form-control otp-input"
+          maxlength="6"
+          placeholder="----"
+          autofocus
+        />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-navy" (click)="isOtpModalOpen = false">Cancel</button>
+      <button type="button" class="btn btn-navy" (click)="submitVerifyOtp()" [disabled]="!inputOtp.trim()">
+        <i class="fa-solid fa-check-double"></i> Complete Handover
+      </button>
+    </div>
+  </div>
+</div>

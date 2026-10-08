@@ -1,0 +1,212 @@
+<header class="cropdeal-navbar">
+  <div class="nav-left">
+    <button class="menu-toggle" (click)="toggleSidebar.emit()" title="Toggle Sidebar">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <a routerLink="/" class="brand-logo" (click)="closeAllDropdowns()">
+      <div class="logo-icon">
+        <i class="fa-solid fa-seedling"></i>
+      </div>
+      <div class="brand-text">
+        <span class="brand-crop">Crop</span><span class="brand-deal">Deal</span>
+        <span class="brand-tag">Capgemini Enterprise</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- Navigation Links with Dropdown Menu -->
+  <nav class="nav-center">
+    <a routerLink="/catalog" routerLinkActive="active" class="nav-link" (click)="closeAllDropdowns()">
+      <i class="fa-solid fa-store"></i> Market
+    </a>
+
+    <!-- Dropdown Menu: Agriculture Services -->
+    <div class="dropdown-wrapper">
+      <button class="nav-link dropdown-toggle" (click)="isMarketDropdownOpen = !isMarketDropdownOpen; isRoleDropdownOpen = false; isUserDropdownOpen = false">
+        <i class="fa-solid fa-wheat-awn"></i> Services
+        <i class="fa-solid fa-chevron-down caret" [class.rotate]="isMarketDropdownOpen"></i>
+      </button>
+      <div class="dropdown-menu" *ngIf="isMarketDropdownOpen">
+        <a routerLink="/bidding" class="dropdown-item" (click)="closeAllDropdowns()">
+          <div class="drop-icon bg-gold"><i class="fa-solid fa-gavel"></i></div>
+          <div>
+            <strong>Live Crop Auctions</strong>
+            <small>Real-time bidding & price discovery</small>
+          </div>
+        </a>
+        <a routerLink="/prices" class="dropdown-item" (click)="closeAllDropdowns()">
+          <div class="drop-icon bg-green"><i class="fa-solid fa-chart-line"></i></div>
+          <div>
+            <strong>Mandi Market Rates</strong>
+            <small>Government Data.gov.in live benchmarks</small>
+          </div>
+        </a>
+        <a routerLink="/negotiations" class="dropdown-item" (click)="closeAllDropdowns()">
+          <div class="drop-icon bg-teal"><i class="fa-solid fa-comments-dollar"></i></div>
+          <div>
+            <strong>Direct Negotiations</strong>
+            <small>B2B buyer-seller offer exchange</small>
+          </div>
+        </a>
+        <a routerLink="/orders" class="dropdown-item" (click)="closeAllDropdowns()">
+          <div class="drop-icon bg-navy"><i class="fa-solid fa-receipt"></i></div>
+          <div>
+            <strong>Orders & Invoices</strong>
+            <small>Escrow payments & PDF receipts</small>
+          </div>
+        </a>
+      </div>
+    </div>
+
+
+    <!-- Current Role Badge -->
+    <div class="role-badge-display" *ngIf="currentUser">
+      <span class="role-badge" [attr.data-role]="currentUser.role">
+        <i class="fa-solid fa-circle-check"></i>
+        {{ currentUser.role | titlecase }}
+      </span>
+    </div>
+  </nav>
+
+  <!-- Right Actions: Wallet, Notifications, Profile -->
+  <div class="nav-right">
+    <!-- Wallet Pill -->
+    <div class="wallet-pill" (click)="navigateToWallet()" title="Open Wallet Dashboard">
+      <i class="fa-solid fa-wallet"></i>
+      <span class="wallet-balance">₹{{ (wallet?.balance || 0) | number:'1.2-2' }}</span>
+      <button class="wallet-add-btn" (click)="openTopUp($event)" title="Quick Add Funds"><i class="fa-solid fa-plus"></i></button>
+    </div>
+
+    <!-- Notification Dropdown -->
+    <div class="dropdown-wrapper">
+      <button class="icon-btn" (click)="isNotifDropdownOpen = !isNotifDropdownOpen; isMarketDropdownOpen = false; isUserDropdownOpen = false">
+        <i class="fa-regular fa-bell"></i>
+        <span class="badge-dot" *ngIf="unreadNotifCount > 0">{{ unreadNotifCount }}</span>
+      </button>
+      <div class="dropdown-menu notif-menu" *ngIf="isNotifDropdownOpen">
+        <div class="notif-header">
+          <strong>Notifications</strong>
+          <div class="d-flex align-center gap-1">
+            <span class="badge badge-green" *ngIf="unreadNotifCount > 0">{{ unreadNotifCount }} new</span>
+            <button class="btn btn-xs btn-outline-navy" *ngIf="unreadNotifCount > 0" (click)="markAllRead()" title="Mark all as read">
+              Mark read
+            </button>
+            <button class="btn btn-xs btn-outline-danger" *ngIf="notifications.length > 0" (click)="clearAllNotifs()" title="Clear all notifications">
+              Clear
+            </button>
+          </div>
+        </div>
+        <div class="notif-list">
+          <div *ngFor="let n of notifications" class="notif-item" [class.unread]="!n.read"
+               (click)="markNotifRead(n.id)">
+            <!-- Icon per notification type -->
+            <div class="notif-icon" [ngClass]="(n.type || 'info').toLowerCase()">
+              <i class="fa-solid"
+                [class.fa-gavel]="n.type === 'BID' || n.type === 'AUCTION'"
+                [class.fa-indian-rupee-sign]="n.type === 'PAYMENT'"
+                [class.fa-box-open]="n.type === 'ORDER'"
+                [class.fa-seedling]="n.type === 'CROP'"
+                [class.fa-comments-dollar]="n.type === 'NEGOTIATION'"
+                [class.fa-truck-fast]="n.type === 'DELIVERY'"
+                [class.fa-chart-line]="n.type === 'PRICE'"
+                [class.fa-circle-info]="!n.type || !['BID','AUCTION','PAYMENT','ORDER','CROP','NEGOTIATION','DELIVERY','PRICE'].includes(n.type)">
+              </i>
+            </div>
+            <div class="notif-content">
+              <strong>{{ n.title }}</strong>
+              <p>{{ n.message }}</p>
+              <small>{{ n.createdAt | slice:0:10 }} {{ n.createdAt | slice:11:16 }}</small>
+            </div>
+            <button class="notif-delete-btn" (click)="deleteNotif(n.id, $event)" title="Dismiss">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div *ngIf="notifications.length === 0" class="notif-empty">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>No notifications yet</p>
+            <small>Actions like bids, orders and crop posts will appear here</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Dropdown -->
+    <div class="dropdown-wrapper" *ngIf="currentUser">
+      <button class="user-avatar-btn" (click)="isUserDropdownOpen = !isUserDropdownOpen; isMarketDropdownOpen = false; isRoleDropdownOpen = false">
+        <div class="avatar-circle">
+          {{ currentUser.name.charAt(0) }}
+        </div>
+        <div class="user-meta">
+          <span class="user-name">{{ currentUser.name }}</span>
+          <span class="user-role-badge">{{ currentUser.role }}</span>
+        </div>
+        <i class="fa-solid fa-chevron-down caret" [class.rotate]="isUserDropdownOpen"></i>
+      </button>
+      <div class="dropdown-menu user-menu" *ngIf="isUserDropdownOpen">
+        <div class="user-menu-header">
+          <div class="user-email">{{ currentUser.email }}</div>
+          <span class="badge badge-navy">Role: {{ currentUser.role }}</span>
+        </div>
+        <a [routerLink]="dashboardRoute" class="dropdown-item" (click)="closeAllDropdowns()">
+          <i class="fa-solid fa-chart-pie"></i> My Dashboard
+        </a>
+        <a routerLink="/wallet" class="dropdown-item" (click)="closeAllDropdowns()">
+          <i class="fa-solid fa-wallet"></i> My Wallet
+        </a>
+        <a routerLink="/orders" class="dropdown-item" (click)="closeAllDropdowns()">
+          <i class="fa-solid fa-box-archive"></i> Orders & History
+        </a>
+        <div class="divider"></div>
+        <button class="dropdown-item logout-item" (click)="logout()">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="!currentUser" class="auth-buttons">
+      <a routerLink="/auth/login" class="btn btn-sm btn-outline-green">Log In</a>
+      <a routerLink="/auth/register" class="btn btn-sm btn-navy">Register</a>
+    </div>
+  </div>
+</header>
+
+<!-- Modal: Wallet Quick Top-Up -->
+<div class="modal-backdrop" *ngIf="isTopUpModalOpen" (click)="isTopUpModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-wallet text-green"></i> Add Funds to CropDeal Wallet</h3>
+      <button class="close-btn" (click)="isTopUpModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted mb-2">Instantly recharge your wallet for auction bidding, direct crop purchases, or advance settlements.</p>
+      <div class="form-group">
+        <label>Current Wallet Balance</label>
+        <div class="stat-value text-green">₹{{ (wallet?.balance || 0) | number:'1.2-2' }}</div>
+      </div>
+      <div class="form-group">
+        <label>Top-Up Amount (₹)</label>
+        <div class="quick-amounts mb-1">
+          <button type="button" class="btn btn-sm" [class.btn-navy]="topUpAmount === 2000" (click)="topUpAmount = 2000">₹2,000</button>
+          <button type="button" class="btn btn-sm" [class.btn-navy]="topUpAmount === 5000" (click)="topUpAmount = 5000">₹5,000</button>
+          <button type="button" class="btn btn-sm" [class.btn-navy]="topUpAmount === 10000" (click)="topUpAmount = 10000">₹10,000</button>
+          <button type="button" class="btn btn-sm" [class.btn-navy]="topUpAmount === 25000" (click)="topUpAmount = 25000">₹25,000</button>
+        </div>
+        <input type="number" [(ngModel)]="topUpAmount" class="form-control" placeholder="Enter custom amount">
+      </div>
+      <div class="form-group">
+        <label>Payment Method</label>
+        <select [(ngModel)]="topUpMethod" class="form-control">
+          <option value="UPI">UPI (Google Pay / PhonePe / BHIM)</option>
+          <option value="NET_BANKING">Net Banking (SBI / HDFC / ICICI)</option>
+          <option value="CARD">Debit / Credit Card</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-sm btn-outline-navy" (click)="isTopUpModalOpen = false">Cancel</button>
+      <button class="btn btn-sm btn-navy" (click)="submitTopUp()">
+        <i class="fa-solid fa-lock"></i> Add ₹{{ topUpAmount }} Securely
+      </button>
+    </div>
+  </div>
+</div>

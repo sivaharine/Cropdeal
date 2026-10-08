@@ -1,0 +1,492 @@
+<div class="dealer-dashboard-container">
+  <!-- Dark Green Dashboard Hero Banner -->
+  <section class="dashboard-hero">
+    <div class="hero-content">
+      <div class="hero-tag">
+        <i class="fa-solid fa-cart-shopping"></i> Verified Dealer Procurement Hub
+      </div>
+      <h2>Welcome, {{ authService.currentUser?.name || 'AgriTrade Corp' }}!</h2>
+      <p>Procure premium certified harvests directly from farmers, participate in real-time auctions, and manage secured escrow settlements.</p>
+    </div>
+    <div class="hero-actions">
+      <button type="button" class="btn btn-gold" (click)="openBuyingRequestModal()">
+        <i class="fa-solid fa-bullhorn"></i> Post Buying Demand
+      </button>
+      <a routerLink="/catalog" class="btn btn-navy">
+        <i class="fa-solid fa-wheat-awn"></i> Browse All Crops
+      </a>
+      <a routerLink="/bidding" class="btn btn-outline-white">
+        <i class="fa-solid fa-gavel"></i> Live Auction Arena
+      </a>
+    </div>
+  </section>
+
+  <!-- Metric Stat Cards -->
+  <div class="grid-4 mb-3">
+    <div class="stat-card green">
+      <div class="stat-icon bg-green">
+        <i class="fa-solid fa-box-archive"></i>
+      </div>
+      <div class="stat-value">{{ orders.length }}</div>
+      <div class="stat-label">My Orders</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-truck"></i> {{ totalPurchasedVolume | number }} KG Procured
+      </div>
+    </div>
+
+    <div class="stat-card navy">
+      <div class="stat-icon bg-navy">
+        <i class="fa-solid fa-wallet"></i>
+      </div>
+      <div class="stat-value">₹{{ (walletBalance || 0) | number:'1.0-0' }}</div>
+      <div class="stat-label">Procurement Balance</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-lock"></i> Escrow Ready
+      </div>
+    </div>
+
+    <div class="stat-card gold">
+      <div class="stat-icon bg-gold">
+        <i class="fa-solid fa-gavel"></i>
+      </div>
+      <div class="stat-value">{{ auctions.length }}</div>
+      <div class="stat-label">Auctions Live Now</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-bolt"></i> Competitive Bidding
+      </div>
+    </div>
+
+    <div class="stat-card teal">
+      <div class="stat-icon bg-teal">
+        <i class="fa-solid fa-comments-dollar"></i>
+      </div>
+      <div class="stat-value">{{ negotiations.length }}</div>
+      <div class="stat-label">Active Negotiations</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-handshake"></i> Direct Farmer Proposals
+      </div>
+    </div>
+  </div>
+
+  <!-- Available Crops for Immediate Procurement -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-store text-green"></i> Certified Crops Available for Immediate Order</h3>
+        <small class="text-muted">Direct from farmer gate with assured weight and quality grading</small>
+      </div>
+      <a routerLink="/catalog" class="btn btn-sm btn-outline-navy">View Full Catalog</a>
+    </div>
+    <div class="card-body">
+      <div class="grid-3">
+        <div *ngFor="let crop of availableCrops | slice:0:3" class="crop-catalog-card">
+          <div class="crop-badge-row">
+            <span class="badge badge-green">Grade {{ crop.grade }}</span>
+            <span class="crop-loc"><i class="fa-solid fa-location-dot"></i> {{ crop.district }}, {{ crop.state }}</span>
+          </div>
+          <h4 class="crop-title">{{ crop.commodity }}</h4>
+          <div class="crop-rating-row" style="display:flex; align-items:center; gap:0.4rem; font-size:0.78rem; margin: 0.25rem 0 0.5rem 0;">
+            <div class="stars-display text-gold" style="color:#F59E0B; letter-spacing:1px;">
+              <i class="fa-solid fa-star" *ngFor="let s of [1,2,3,4,5]" [style.opacity]="s > getCropRating(crop.id) ? '0.3' : '1'"></i>
+            </div>
+            <ng-container *ngIf="getCropReviewCount(crop.id) > 0">
+              <span class="rating-score font-bold" style="font-weight:700; color:#1F2937;">{{ getCropRating(crop.id) | number:'1.1-1' }}</span>
+              <span class="text-muted" style="color:#6B7280;">({{ getCropReviewCount(crop.id) }} reviews)</span>
+            </ng-container>
+            <span *ngIf="getCropReviewCount(crop.id) === 0" class="text-muted" style="color:#94A3B8; font-size:0.75rem;">(No reviews yet)</span>
+          </div>
+          <p class="crop-desc">{{ crop.description || 'Export grade harvest ready for dispatch.' }}</p>
+          <div class="crop-meta-row">
+            <div>
+              <span class="meta-label">Stock</span>
+              <span class="meta-value">{{ crop.quantity | number }} {{ crop.unit }}</span>
+            </div>
+            <div class="text-right">
+              <span class="meta-label">Price</span>
+              <span class="crop-price">₹{{ crop.pricePerKg | number:'1.2-2' }}<small>/kg</small></span>
+            </div>
+          </div>
+          <div class="crop-actions-row">
+            <button class="btn btn-sm btn-navy w-full" (click)="openOrderModal(crop)">
+              <i class="fa-solid fa-bag-shopping"></i> Order Now
+            </button>
+            <a [routerLink]="['/negotiations']" class="btn btn-sm btn-outline-navy">
+              <i class="fa-solid fa-comments"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Price Negotiations with Farmers -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-comments-dollar text-green"></i> Active Price Negotiations</h3>
+        <small class="text-muted">Direct price counter-offers and bulk negotiations with farmers</small>
+      </div>
+      <a routerLink="/negotiations" class="btn btn-sm btn-outline-navy">Negotiation Hub</a>
+    </div>
+    <div class="card-body">
+      <div class="grid-3" *ngIf="negotiations.length > 0">
+        <div *ngFor="let neg of negotiations" class="order-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ neg.cropName || ('Crop #' + neg.cropId) }}</strong>
+            <span class="badge" [class.badge-success]="neg.status === 'ACCEPTED'" [class.badge-warning]="neg.status === 'OPEN'" [class.badge-danger]="neg.status === 'CLOSED'">
+              {{ neg.status }}
+            </span>
+          </div>
+          <div class="d-flex justify-between align-center text-muted small mb-2">
+            <span>Target: ₹{{ neg.targetPrice }}/KG ({{ neg.quantity }} KG)</span>
+            <span class="badge badge-light">Farmer #{{ neg.sellerId }}</span>
+          </div>
+          <div class="d-flex justify-between align-center border-top pt-2">
+            <small class="text-muted">{{ neg.offers.length }} offer(s) exchanged</small>
+            <a routerLink="/negotiations" class="btn btn-sm btn-navy">
+              <i class="fa-solid fa-comments"></i> View & Counter
+            </a>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="negotiations.length === 0" class="text-center py-4 text-muted">
+        <i class="fa-regular fa-comments fa-2x mb-2 d-block text-muted"></i>
+        No active negotiations. Click "Negotiate" on any crop in the catalog to propose a custom bulk rate directly to a farmer.
+      </div>
+    </div>
+  <!-- My Procurement Demands (Buying Requests) -->
+  <div class="card mb-3">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-bullhorn text-green"></i> My Crop Procurement Demands</h3>
+        <small class="text-muted">Post your required crop commodities to alert registered farmers across target districts</small>
+      </div>
+      <button class="btn btn-sm btn-gold" (click)="openBuyingRequestModal()">
+        <i class="fa-solid fa-plus"></i> Post New Demand
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="grid-3" *ngIf="buyingRequests.length > 0">
+        <div *ngFor="let req of buyingRequests" class="order-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ req.cropName }}</strong>
+            <span class="badge" [class.badge-success]="req.status === 'ACTIVE'" [class.badge-danger]="req.status === 'CANCELLED'">
+              {{ req.status }}
+            </span>
+          </div>
+          <div class="text-muted small mb-1">
+            <i class="fa-solid fa-location-dot"></i> {{ req.district }}, {{ req.state }}
+          </div>
+          <div class="d-flex justify-between align-center text-muted small mb-2">
+            <span>Demand: <strong>{{ req.quantity | number }} {{ req.unit }}</strong></span>
+            <span class="text-navy font-bold">Offer: ₹{{ req.buyingPrice }}/KG</span>
+          </div>
+          <p *ngIf="req.notes" class="text-muted small italic mb-2">"{{ req.notes }}"</p>
+          <div class="d-flex justify-between align-center border-top pt-2">
+            <small class="text-muted">Posted {{ req.createdAt | slice:0:10 }}</small>
+            <button *ngIf="req.status === 'ACTIVE'" class="btn btn-sm btn-outline-danger" (click)="cancelBuyingRequest(req.id)" title="Cancel this procurement request">
+              <i class="fa-solid fa-xmark"></i> Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="buyingRequests.length === 0" class="text-center py-4 text-muted">
+        <i class="fa-solid fa-bullhorn fa-2x mb-2 d-block text-muted"></i>
+        No active procurement demands posted yet. Click "Post New Demand" to notify farmers of what crops you want to buy!
+      </div>
+    </div>
+  </div>
+
+  <!-- Main 2-Column: My Orders & Live Auctions -->
+  <div class="grid-2-1">
+    <!-- Orders Table -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3><i class="fa-solid fa-receipt text-green"></i> My Orders & Invoices</h3>
+          <small class="text-muted">Track order status, pay via wallet, and download tax invoices</small>
+        </div>
+        <a routerLink="/orders" class="btn btn-sm btn-outline-navy">Orders Center</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Quantity</th>
+                <th>Total (₹)</th>
+                <th>Order Status</th>
+                <th>Payment</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let order of orders">
+                <td><strong>#{{ order.id }}</strong></td>
+                <td>{{ order.quantity | number }} KG</td>
+                <td><strong class="text-navy">₹{{ order.totalAmount | number:'1.2-2' }}</strong></td>
+                <td>
+                  <span class="badge" [class.badge-success]="order.status === 'CONFIRMED'" [class.badge-warning]="order.status === 'PENDING'">
+                    {{ order.status }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [class.badge-success]="order.paymentStatus === 'PAID'" [class.badge-danger]="order.paymentStatus !== 'PAID'">
+                    {{ order.paymentStatus || 'UNPAID' }}
+                  </span>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button *ngIf="order.paymentStatus !== 'PAID'" class="btn btn-sm btn-navy" (click)="openPaymentModal(order)">
+                      <i class="fa-solid fa-credit-card"></i> Pay
+                    </button>
+                    <button class="btn btn-sm btn-outline-navy btn-icon" (click)="downloadInvoice(order.id)" title="Download Tax Invoice PDF">
+                      <i class="fa-solid fa-file-pdf"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-green btn-icon" (click)="openReviewModal(order)" title="Rate Farmer">
+                      <i class="fa-solid fa-star"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="orders.length === 0">
+                <td colspan="6" class="text-center py-4 text-muted">No orders placed yet. Choose a crop above to buy!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Auction Feed -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-gavel text-green"></i> Live Auction Arena</h3>
+        <span class="badge badge-gold">Active Bids</span>
+      </div>
+      <div class="card-body">
+        <div *ngFor="let auc of auctions" class="auction-bid-card">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ auc.cropName }}</strong>
+            <span class="badge badge-gold">LOT: {{ auc.quantity }} KG</span>
+          </div>
+          <div class="auction-bid-stats mb-2">
+            <div>
+              <span class="meta-label">Current Highest</span>
+              <div class="bid-current">₹{{ auc.currentHighestBid || auc.basePrice }}/kg</div>
+            </div>
+            <div class="text-right">
+              <span class="meta-label">Min Next Bid</span>
+              <div class="bid-next">₹{{ (auc.currentHighestBid || auc.basePrice) + auc.minIncrement }}/kg</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-navy w-full" (click)="openBidModal(auc)">
+            <i class="fa-solid fa-gavel"></i> Place Bid Now
+          </button>
+        </div>
+        <div *ngIf="auctions.length === 0" class="text-center py-4 text-muted">No live auctions currently running.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Place Order -->
+<div class="modal-backdrop" *ngIf="isOrderModalOpen" (click)="isOrderModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-cart-plus text-green"></i> Procure {{ selectedCrop?.commodity }}</h3>
+      <button class="close-btn" (click)="isOrderModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitOrder()">
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="fa-solid fa-circle-info"></i>
+          Price: <strong>₹{{ selectedCrop?.pricePerKg }}/KG</strong> (Available: {{ selectedCrop?.quantity }} KG)
+        </div>
+        <div class="form-group">
+          <label>Quantity to Purchase (KG) *</label>
+          <input type="number" [(ngModel)]="orderQuantity" name="orderQuantity" class="form-control" [max]="selectedCrop?.quantity || 10000" min="50" required>
+        </div>
+        <div class="form-group">
+          <label>Delivery Address *</label>
+          <textarea [(ngModel)]="deliveryAddress" name="deliveryAddress" class="form-control" rows="2" required></textarea>
+        </div>
+        <div class="order-summary-box">
+          <div class="d-flex justify-between mb-1">
+            <span>Subtotal:</span>
+            <strong>₹{{ (orderQuantity * (selectedCrop?.pricePerKg || 0)) | number:'1.2-2' }}</strong>
+          </div>
+          <div class="d-flex justify-between text-muted small mb-1">
+            <span>Platform Escrow Fee (0% Capgemini Promo):</span>
+            <span>₹0.00</span>
+          </div>
+          <div class="d-flex justify-between border-top pt-1 text-navy text-bold">
+            <span>Total Payable:</span>
+            <span>₹{{ (orderQuantity * (selectedCrop?.pricePerKg || 0)) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isOrderModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-lock"></i> Confirm Purchase Order
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Place Bid on Auction -->
+<div class="modal-backdrop" *ngIf="isBidModalOpen" (click)="isBidModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-gavel text-green"></i> Bid on {{ selectedAuction?.cropName }}</h3>
+      <button class="close-btn" (click)="isBidModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitBid()">
+      <div class="modal-body">
+        <div class="d-flex justify-between mb-2">
+          <span>Current Top Bid: <strong>₹{{ selectedAuction?.currentHighestBid || selectedAuction?.basePrice }}/KG</strong></span>
+          <span>Min Step: <strong>+₹{{ selectedAuction?.minIncrement }}/KG</strong></span>
+        </div>
+        <div class="form-group">
+          <label>Your Bid Amount (₹ / KG) *</label>
+          <input type="number" [(ngModel)]="bidAmount" name="bidAmount" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Bid Notes (Optional)</label>
+          <input type="text" [(ngModel)]="bidNotes" name="bidNotes" class="form-control" placeholder="e.g. Immediate pickup with our fleet">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isBidModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-check"></i> Submit Bid (₹{{ bidAmount }}/KG)
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Pay Order via Escrow Wallet -->
+<div class="modal-backdrop" *ngIf="isPaymentModalOpen" (click)="isPaymentModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-shield-halved text-green"></i> Escrow Payment for Order #{{ selectedOrderForPayment?.id }}</h3>
+      <button class="close-btn" (click)="isPaymentModalOpen = false">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-success">
+        <i class="fa-solid fa-lock"></i>
+        Funds will be securely locked in CropDeal Escrow and only released to the farmer after OTP delivery verification!
+      </div>
+      <div class="d-flex justify-between mb-2">
+        <span>Order Amount:</span>
+        <strong class="text-navy">₹{{ selectedOrderForPayment?.totalAmount | number:'1.2-2' }}</strong>
+      </div>
+      <div class="d-flex justify-between mb-2">
+        <span>Your Wallet Balance:</span>
+        <strong class="text-green">₹{{ walletBalance | number:'1.2-2' }}</strong>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-navy" (click)="isPaymentModalOpen = false">Cancel</button>
+      <button type="button" class="btn btn-navy" (click)="submitPayment()">
+        <i class="fa-solid fa-check-double"></i> Authorize Escrow Payment
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rate Farmer -->
+<div class="modal-backdrop" *ngIf="isReviewModalOpen" (click)="isReviewModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-star text-gold"></i> Review Harvest & Farmer</h3>
+      <button class="close-btn" (click)="isReviewModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitReview()">
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Rating (1 to 5 Stars) *</label>
+          <select [(ngModel)]="reviewForm.rating" name="rating" class="form-control" required>
+            <option [value]="5">⭐⭐⭐⭐⭐ 5 Stars - Exceptional Harvest</option>
+            <option [value]="4">⭐⭐⭐⭐ 4 Stars - Very Good</option>
+            <option [value]="3">⭐⭐⭐ 3 Stars - Average</option>
+            <option [value]="2">⭐⭐ 2 Stars - Below Expectations</option>
+            <option [value]="1">⭐ 1 Star - Poor Quality</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Review Comments</label>
+          <textarea [(ngModel)]="reviewForm.comment" name="comment" class="form-control" rows="3" placeholder="Share feedback about grain quality, packaging, and timeliness..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isReviewModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-paper-plane"></i> Submit Verified Review
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Post Buying Demand (POST /api/crops/buying-requests) -->
+<div class="modal-backdrop" *ngIf="isBuyingRequestModalOpen" (click)="isBuyingRequestModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-bullhorn text-gold"></i> Post Crop Procurement Demand</h3>
+      <button class="close-btn" (click)="isBuyingRequestModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitBuyingRequest()">
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="fa-solid fa-bell"></i>
+          Posting a buying demand notifies registered farmers in your target region who produce this commodity.
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Crop / Commodity *</label>
+            <input type="text" [(ngModel)]="newBuyingRequest.cropName" name="cropName" class="form-control"
+              placeholder="e.g. Basmati Rice, Wheat, Cotton..." required>
+          </div>
+          <div class="form-group">
+            <label>Target Quantity (KG) *</label>
+            <input type="number" [(ngModel)]="newBuyingRequest.quantity" name="quantity" class="form-control"
+              min="10" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Offer Price (₹ / KG) *</label>
+            <input type="number" [(ngModel)]="newBuyingRequest.buyingPrice" name="buyingPrice" class="form-control"
+              min="1" step="0.5" required>
+          </div>
+          <div class="form-group">
+            <label>State *</label>
+            <input type="text" [(ngModel)]="newBuyingRequest.state" name="state" class="form-control"
+              placeholder="e.g. Punjab, Maharashtra" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>District / Mandi Region *</label>
+          <input type="text" [(ngModel)]="newBuyingRequest.district" name="district" class="form-control"
+            placeholder="e.g. Ludhiana, Nashik" required>
+        </div>
+        <div class="form-group">
+          <label>Procurement Notes / Requirements (Optional)</label>
+          <textarea [(ngModel)]="newBuyingRequest.notes" name="notes" class="form-control" rows="2"
+            placeholder="e.g. Moisture < 12%, delivery required by end of month..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isBuyingRequestModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-gold">
+          <i class="fa-solid fa-bullhorn"></i> Post Procurement Demand
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

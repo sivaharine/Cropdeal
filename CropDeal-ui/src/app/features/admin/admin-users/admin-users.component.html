@@ -1,0 +1,372 @@
+<div class="admin-users-container">
+
+  <!-- Header Banner -->
+  <section class="users-hero">
+    <div class="hero-content">
+      <div class="hero-tag">
+        <i class="fa-solid fa-users-gear"></i> Platform User Directory &amp; Compliance
+      </div>
+      <h2>CropDeal Multi-Entity User Governance</h2>
+      <p>Audit identities, verify APMC mandi credentials, supervise logistics partners, and manage account statuses.</p>
+    </div>
+    <div class="hero-actions">
+      <a routerLink="/admin/dashboard" class="btn btn-outline-white">
+        <i class="fa-solid fa-gauge-high"></i> Dashboard
+      </a>
+      <a routerLink="/admin/reports" class="btn btn-gold">
+        <i class="fa-solid fa-file-csv"></i> Reports Hub
+      </a>
+    </div>
+  </section>
+
+  <!-- User Stats Overview Cards -->
+  <div class="grid-4 mb-3">
+    <div class="stat-card blue">
+      <div class="stat-icon bg-blue">
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <div class="stat-value">{{ totalUsersCount | number }}</div>
+      <div class="stat-label">Total Registered Accounts</div>
+      <div class="stat-sub">
+        <span class="text-green font-bold">{{ activeUsersCount }} Active</span> &bull; 
+        <span class="text-danger font-bold">{{ suspendedUsersCount }} Suspended</span>
+      </div>
+    </div>
+
+    <div class="stat-card green" (click)="setRoleFilter('FARMER')" style="cursor: pointer;">
+      <div class="stat-icon bg-green">
+        <i class="fa-solid fa-tractor"></i>
+      </div>
+      <div class="stat-value">{{ farmersCount | number }}</div>
+      <div class="stat-label">Agricultural Farmers</div>
+      <div class="stat-sub text-green">Verified Produce Sellers</div>
+    </div>
+
+    <div class="stat-card navy" (click)="setRoleFilter('DEALER')" style="cursor: pointer;">
+      <div class="stat-icon bg-navy">
+        <i class="fa-solid fa-building-wheat"></i>
+      </div>
+      <div class="stat-value">{{ dealersCount | number }}</div>
+      <div class="stat-label">Commercial Dealers</div>
+      <div class="stat-sub text-navy">Wholesale Buyers &amp; Traders</div>
+    </div>
+
+    <div class="stat-card purple" (click)="setRoleFilter('DELIVERY_PARTNER')" style="cursor: pointer;">
+      <div class="stat-icon bg-purple">
+        <i class="fa-solid fa-truck-fast"></i>
+      </div>
+      <div class="stat-value">{{ deliveryPartnersCount | number }}</div>
+      <div class="stat-label">Delivery Partners</div>
+      <div class="stat-sub text-purple">Fleet Agents &amp; Logistics</div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Controls Bar -->
+  <div class="card p-3 mb-3">
+    <div class="filter-controls-row">
+      <!-- Role Filters -->
+      <div class="role-filter-group">
+        <button class="filter-pill" [class.active]="selectedRole === 'ALL'" (click)="setRoleFilter('ALL')">
+          <i class="fa-solid fa-border-all"></i> All ({{ totalUsersCount }})
+        </button>
+        <button class="filter-pill farmer" [class.active]="selectedRole === 'FARMER'" (click)="setRoleFilter('FARMER')">
+          <i class="fa-solid fa-tractor"></i> Farmers ({{ farmersCount }})
+        </button>
+        <button class="filter-pill dealer" [class.active]="selectedRole === 'DEALER'" (click)="setRoleFilter('DEALER')">
+          <i class="fa-solid fa-building-wheat"></i> Dealers ({{ dealersCount }})
+        </button>
+        <button class="filter-pill delivery" [class.active]="selectedRole === 'DELIVERY_PARTNER'" (click)="setRoleFilter('DELIVERY_PARTNER')">
+          <i class="fa-solid fa-truck-fast"></i> Logistics ({{ deliveryPartnersCount }})
+        </button>
+      </div>
+
+      <!-- Status Filters -->
+      <div class="status-filter-group">
+        <span class="status-filter-label">Status:</span>
+        <button class="status-pill" [class.active]="selectedStatus === 'ALL'" (click)="setStatusFilter('ALL')">All</button>
+        <button class="status-pill active-status" [class.active]="selectedStatus === 'ACTIVE'" (click)="setStatusFilter('ACTIVE')">
+          <i class="fa-solid fa-circle-check"></i> Active
+        </button>
+        <button class="status-pill suspended-status" [class.active]="selectedStatus === 'SUSPENDED'" (click)="setStatusFilter('SUSPENDED')">
+          <i class="fa-solid fa-ban"></i> Suspended
+        </button>
+      </div>
+
+      <!-- Live Search Box -->
+      <div class="search-input-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input
+          type="text"
+          class="form-control search-input"
+          placeholder="Search by name, phone, area..."
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+        />
+        <button *ngIf="searchQuery" class="clear-search-btn" (click)="searchQuery = ''; onSearchChange()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Data Table Card -->
+  <div class="card overflow-hidden">
+    <div class="card-header d-flex justify-between align-center">
+      <div>
+        <h3 class="mb-0">
+          <i class="fa-solid fa-address-book text-green me-2"></i>
+          User Directory ({{ filteredUsers.length }} of {{ totalUsersCount }})
+        </h3>
+        <small class="text-muted">Manage user privileges, verify registrations, and audit status changes</small>
+      </div>
+      <button class="btn btn-sm btn-outline-navy" (click)="loadUsers()" title="Reload from Backend">
+        <i class="fa-solid fa-rotate me-1" [class.fa-spin]="isLoading"></i> Refresh
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="p-4 text-center">
+      <i class="fa-solid fa-circle-notch fa-spin fa-2x text-green mb-2"></i>
+      <p class="text-muted">Fetching user directory from User &amp; Management microservices...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && filteredUsers.length === 0" class="p-4 text-center">
+      <i class="fa-solid fa-users-slash fa-2x text-muted mb-2"></i>
+      <h4 class="text-muted">No Users Match the Criteria</h4>
+      <p class="text-muted small">Try clearing your search query or switching role/status filters.</p>
+      <button class="btn btn-navy btn-sm" (click)="selectedRole = 'ALL'; selectedStatus = 'ALL'; searchQuery = ''; applyFilters()">
+        Reset Filters
+      </button>
+    </div>
+
+    <!-- User Table -->
+    <div class="table-responsive" *ngIf="!isLoading && filteredUsers.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Role</th>
+            <th>Contact Details</th>
+            <th>Location / Entity</th>
+            <th>Status</th>
+            <th>Governance Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of filteredUsers">
+            <!-- User Info -->
+            <td>
+              <div class="user-cell">
+                <div class="user-avatar" [ngClass]="user.role.toLowerCase()">
+                  <i *ngIf="user.role === 'FARMER'" class="fa-solid fa-tractor"></i>
+                  <i *ngIf="user.role === 'DEALER'" class="fa-solid fa-building-wheat"></i>
+                  <i *ngIf="user.role === 'DELIVERY_PARTNER'" class="fa-solid fa-truck-fast"></i>
+                </div>
+                <div class="user-details">
+                  <div class="user-name">{{ user.name }}</div>
+                  <div class="user-meta text-muted">ID: #USR-{{ user.userId }} &bull; Reg: {{ user.registeredAt || '2026-01-15' }}</div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Role Badge -->
+            <td>
+              <span class="role-badge" [ngClass]="user.role.toLowerCase()">
+                {{ user.role === 'DELIVERY_PARTNER' ? 'LOGISTICS' : user.role }}
+              </span>
+            </td>
+
+            <!-- Contact -->
+            <td>
+              <div class="contact-info">
+                <div><i class="fa-solid fa-phone text-muted me-1"></i> {{ user.phone }}</div>
+                <div class="text-muted small"><i class="fa-regular fa-envelope text-muted me-1"></i> {{ user.email }}</div>
+              </div>
+            </td>
+
+            <!-- Location / Role specific entity -->
+            <td>
+              <div class="entity-info">
+                <div *ngIf="user.role === 'FARMER'">
+                  <strong>{{ user.farmLocation || user.address }}</strong>
+                </div>
+                <div *ngIf="user.role === 'DEALER'">
+                  <strong>{{ user.businessName || 'Agri Enterprise' }}</strong>
+                  <div class="text-muted small">{{ user.address }}</div>
+                </div>
+                <div *ngIf="user.role === 'DELIVERY_PARTNER'">
+                  <strong>{{ user.vehicleNumber }}</strong> ({{ user.vehicleType || 'LCV' }})
+                  <div class="text-muted small">{{ user.operationalArea }}</div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Account Status -->
+            <td>
+              <span class="status-pill-badge" [class.active]="user.active" [class.suspended]="!user.active">
+                <i class="fa-solid" [class.fa-check]="user.active" [class.fa-ban]="!user.active"></i>
+                {{ user.active ? 'ACTIVE' : 'SUSPENDED' }}
+              </span>
+            </td>
+
+            <!-- Action Buttons -->
+            <td>
+              <div class="action-buttons-group">
+                <!-- Status Toggle Button -->
+                <button
+                  *ngIf="user.active"
+                  class="btn btn-sm btn-outline-danger"
+                  (click)="openStatusModal(user, false)"
+                  title="Suspend User Account"
+                >
+                  <i class="fa-solid fa-ban"></i> Suspend
+                </button>
+                <button
+                  *ngIf="!user.active"
+                  class="btn btn-sm btn-outline-success"
+                  (click)="openStatusModal(user, true)"
+                  title="Activate User Account"
+                >
+                  <i class="fa-solid fa-check"></i> Activate
+                </button>
+
+                <!-- Dossier / View Details Button -->
+                <button class="btn btn-sm btn-outline-navy" (click)="openDetailModal(user)" title="View Full Profile Dossier">
+                  <i class="fa-solid fa-id-card"></i> Details
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: Update User Status -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="isStatusModalOpen" (click)="isStatusModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <i class="fa-solid" [class.fa-user-check]="newStatusActive" [class.fa-user-slash]="!newStatusActive"
+           [class.text-green]="newStatusActive" [class.text-danger]="!newStatusActive"></i>
+        {{ newStatusActive ? 'Activate Account' : 'Suspend Account' }}
+      </h3>
+      <button class="close-btn" (click)="isStatusModalOpen = false">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="alert" [class.alert-success]="newStatusActive" [class.alert-danger]="!newStatusActive">
+        <strong>{{ newStatusActive ? 'Restoring access for:' : 'Suspending access for:' }}</strong>
+        {{ selectedUserForStatus?.name }} (ID: #USR-{{ selectedUserForStatus?.userId }} &bull; {{ selectedUserForStatus?.role }})
+      </div>
+
+      <div class="form-group mb-3">
+        <label>Administrative Reason for Audit Trail *</label>
+        <textarea
+          class="form-control"
+          rows="3"
+          [(ngModel)]="statusReason"
+          placeholder="State the compliance, verification, or dispute reason..."
+        ></textarea>
+        <small class="text-muted">This action will be permanently recorded in the platform Admin Audit Log.</small>
+      </div>
+
+      <div class="admin-signer-meta">
+        <i class="fa-solid fa-shield-halved me-1 text-green"></i>
+        Signing Admin: <strong>{{ authService.currentUser?.email || 'admin@cropdeal.com' }}</strong>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline-navy" (click)="isStatusModalOpen = false">Cancel</button>
+      <button
+        class="btn"
+        [class.btn-success]="newStatusActive"
+        [class.btn-danger]="!newStatusActive"
+        (click)="submitStatusUpdate()"
+      >
+        <i class="fa-solid" [class.fa-check]="newStatusActive" [class.fa-ban]="!newStatusActive"></i>
+        Confirm {{ newStatusActive ? 'Activation' : 'Suspension' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: User Dossier Details -->
+<!-- ========================================================================= -->
+<div class="modal-backdrop" *ngIf="isDetailModalOpen" (click)="isDetailModalOpen = false">
+  <div class="modal modal-lg" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>
+        <i class="fa-solid fa-address-card text-green me-2"></i>
+        User Profile Dossier: {{ selectedUserForDetail?.name }}
+      </h3>
+      <button class="close-btn" (click)="isDetailModalOpen = false">&times;</button>
+    </div>
+
+    <div class="modal-body" *ngIf="selectedUserForDetail">
+      <div class="dossier-grid">
+        <div class="dossier-card">
+          <h4><i class="fa-solid fa-user text-navy me-1"></i> Identity &amp; Role</h4>
+          <div class="dossier-item"><span>Full Name:</span> <strong>{{ selectedUserForDetail.name }}</strong></div>
+          <div class="dossier-item"><span>User ID:</span> <strong>#USR-{{ selectedUserForDetail.userId }}</strong></div>
+          <div class="dossier-item"><span>Platform Role:</span> <span class="role-badge" [ngClass]="selectedUserForDetail.role.toLowerCase()">{{ selectedUserForDetail.role }}</span></div>
+          <div class="dossier-item"><span>Account Status:</span> 
+            <span class="status-pill-badge" [class.active]="selectedUserForDetail.active" [class.suspended]="!selectedUserForDetail.active">
+              {{ selectedUserForDetail.active ? 'ACTIVE' : 'SUSPENDED' }}
+            </span>
+          </div>
+          <div class="dossier-item"><span>Registration Date:</span> <strong>{{ selectedUserForDetail.registeredAt || '2026-01-15' }}</strong></div>
+        </div>
+
+        <div class="dossier-card">
+          <h4><i class="fa-solid fa-phone text-green me-1"></i> Contact &amp; Location</h4>
+          <div class="dossier-item"><span>Mobile Phone:</span> <strong>{{ selectedUserForDetail.phone }}</strong></div>
+          <div class="dossier-item"><span>Email Address:</span> <strong>{{ selectedUserForDetail.email }}</strong></div>
+          <div class="dossier-item"><span>Official Address:</span> <strong>{{ selectedUserForDetail.address }}</strong></div>
+          <div *ngIf="selectedUserForDetail.farmLocation" class="dossier-item">
+            <span>Farm Location:</span> <strong>{{ selectedUserForDetail.farmLocation }}</strong>
+          </div>
+          <div *ngIf="selectedUserForDetail.businessName" class="dossier-item">
+            <span>Registered Business:</span> <strong>{{ selectedUserForDetail.businessName }}</strong>
+          </div>
+        </div>
+
+        <div class="dossier-card full-width">
+          <h4><i class="fa-solid fa-building-columns text-gold me-1"></i> Financial &amp; Operational Credentials</h4>
+          <div class="dossier-item">
+            <span>Settlement Bank:</span> 
+            <strong>{{ selectedUserForDetail.bankDetails || 'State Bank of India (IFSC: SBIN0001234, A/C: ******8910)' }}</strong>
+          </div>
+          <div *ngIf="selectedUserForDetail.vehicleNumber" class="dossier-item">
+            <span>Fleet Vehicle:</span> 
+            <strong>{{ selectedUserForDetail.vehicleNumber }} ({{ selectedUserForDetail.vehicleType }}) &bull; {{ selectedUserForDetail.operationalArea }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline-navy" (click)="isDetailModalOpen = false">Close</button>
+      <button 
+        *ngIf="selectedUserForDetail?.active" 
+        class="btn btn-danger" 
+        (click)="isDetailModalOpen = false; openStatusModal(selectedUserForDetail!, false)"
+      >
+        <i class="fa-solid fa-ban"></i> Suspend Account
+      </button>
+      <button 
+        *ngIf="!selectedUserForDetail?.active" 
+        class="btn btn-success" 
+        (click)="isDetailModalOpen = false; openStatusModal(selectedUserForDetail!, true)"
+      >
+        <i class="fa-solid fa-check"></i> Activate Account
+      </button>
+    </div>
+  </div>
+</div>

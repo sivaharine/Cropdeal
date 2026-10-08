@@ -1,0 +1,90 @@
+<div class="negotiations-page-container">
+  <!-- Header Bar -->
+  <div class="section-header">
+    <div>
+      <h1 class="page-title"><i class="fa-solid fa-comments-dollar text-green"></i> B2B Direct Negotiations Arena</h1>
+      <p class="text-muted">Farmer-Dealer direct price bargaining with full audit and formal acceptance</p>
+    </div>
+  </div>
+
+  <div class="grid-2-1">
+    <!-- Negotiations Thread List -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-handshake text-green"></i> Negotiation Channels ({{ negotiations.length }})</h3>
+        <span class="badge badge-navy">Direct Chat</span>
+      </div>
+      <div class="card-body">
+        <div class="threads-list">
+          <div *ngFor="let neg of negotiations"
+               class="negotiation-channel-card"
+               [class.active]="selectedNegotiation?.id === neg.id"
+               (click)="selectNegotiation(neg)">
+            <div class="d-flex justify-between align-center mb-1">
+              <strong>{{ neg.cropName || ('Deal #' + neg.id + ' • Crop #' + neg.cropId) }}</strong>
+              <span class="badge" [class.badge-success]="neg.status === 'ACCEPTED'" [class.badge-warning]="neg.status === 'OPEN'">
+                {{ neg.status }}
+              </span>
+            </div>
+            <div class="d-flex justify-between text-muted small">
+              <span>Lot: {{ neg.quantity | number }} KG</span>
+              <span class="text-navy text-bold">Target: ₹{{ neg.targetPrice }}/kg</span>
+            </div>
+          </div>
+          <div *ngIf="negotiations.length === 0" class="text-center py-4 text-muted">No open negotiation threads found.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Negotiation Chat/Offer Box -->
+    <div class="card" *ngIf="selectedNegotiation">
+      <div class="card-header">
+        <div>
+          <h3>{{ selectedNegotiation.cropName || ('Crop #' + selectedNegotiation.cropId) }} • Deal #{{ selectedNegotiation.id }}</h3>
+          <small class="text-muted">Quantity: {{ selectedNegotiation.quantity | number }} KG</small>
+        </div>
+        <span class="badge badge-green">{{ selectedNegotiation.status }}</span>
+      </div>
+      <div class="card-body">
+        <div class="offers-history-box mb-3">
+          <div *ngFor="let off of selectedNegotiation.offers" class="offer-bubble" [class.mine]="isMine(off)">
+            <div class="offer-header">
+              <span class="sender-tag">{{ getSenderLabel(off) }}</span>
+              <span class="badge" [class.badge-success]="off.status === 'ACCEPTED'" [class.badge-warning]="off.status === 'PENDING'" [class.badge-danger]="off.status === 'REJECTED'">
+                {{ off.status }}
+              </span>
+            </div>
+            <div class="offer-rate">Proposed Price: <strong>₹{{ off.amount | number:'1.2-2' }}</strong> / KG</div>
+            <div class="offer-msg" *ngIf="off.message">"{{ off.message }}"</div>
+            <div class="offer-actions mt-2" *ngIf="isPendingFromOther(off)">
+              <button class="btn btn-sm btn-navy" (click)="acceptOffer(off)">
+                <i class="fa-solid fa-check"></i> Accept Price
+              </button>
+              <button class="btn btn-sm btn-danger" (click)="rejectOffer(off)">
+                <i class="fa-solid fa-xmark"></i> Reject
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Counter Offer Form -->
+        <div class="counter-box" *ngIf="selectedNegotiation.status === 'OPEN'">
+          <h4 class="mb-2" style="font-size: 0.95rem;">Send Counter Offer</h4>
+          <div class="form-row mb-2">
+            <div class="form-group flex-1">
+              <label>Your Counter Rate (₹/KG) *</label>
+              <input type="number" [(ngModel)]="counterAmount" class="form-control" step="0.5" required>
+            </div>
+          </div>
+          <div class="form-group mb-2">
+            <label>Message / Note</label>
+            <input type="text" [(ngModel)]="counterMessage" class="form-control" placeholder="e.g. Can commit to this price if pickup is this Friday">
+          </div>
+          <button class="btn btn-navy w-full" (click)="sendCounterOffer()">
+            <i class="fa-solid fa-paper-plane"></i> Transmit Counter Proposal
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

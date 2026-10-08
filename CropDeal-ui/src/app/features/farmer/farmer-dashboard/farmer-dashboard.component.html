@@ -1,0 +1,556 @@
+<div class="farmer-dashboard-container">
+  <!-- Dark Green Dashboard Hero Banner -->
+  <section class="dashboard-hero">
+    <div class="hero-content">
+      <div class="hero-tag">
+        <i class="fa-solid fa-seedling"></i> Farmer Command Center
+      </div>
+      <h2>Welcome back, {{ authService.currentUser?.name || 'Kisan Mitra' }}!</h2>
+      <p>Manage your harvest catalog, monitor real-time Mandi market rates, and accept bids from verified dealers.</p>
+    </div>
+    <div class="hero-actions">
+      <button class="btn btn-navy" (click)="openAddCropModal()">
+        <i class="fa-solid fa-plus"></i> List New Harvest
+      </button>
+      <a routerLink="/bidding" class="btn btn-outline-white">
+        <i class="fa-solid fa-gavel"></i> View Active Auctions
+      </a>
+    </div>
+  </section>
+
+  <!-- Metric Stat Cards -->
+  <div class="grid-4 mb-3">
+    <div class="stat-card green">
+      <div class="stat-icon bg-green">
+        <i class="fa-solid fa-wheat-awn"></i>
+      </div>
+      <div class="stat-value">{{ crops.length }}</div>
+      <div class="stat-label">Crops Listed</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-arrow-trend-up"></i> {{ totalCropQuantity | number }} KG in Stock
+      </div>
+    </div>
+
+    <div class="stat-card navy">
+      <div class="stat-icon bg-navy">
+        <i class="fa-solid fa-indian-rupee-sign"></i>
+      </div>
+      <div class="stat-value">₹{{ (walletBalance || 0) | number:'1.0-0' }}</div>
+      <div class="stat-label">Wallet Balance</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-shield-halved"></i> Instant Escrow Protected
+      </div>
+    </div>
+
+    <div class="stat-card gold">
+      <div class="stat-icon bg-gold">
+        <i class="fa-solid fa-gavel"></i>
+      </div>
+      <div class="stat-value">{{ auctions.length }}</div>
+      <div class="stat-label">Active Auctions</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-users"></i> Real-time Dealer Bids
+      </div>
+    </div>
+
+    <div class="stat-card teal">
+      <div class="stat-icon bg-teal">
+        <i class="fa-solid fa-star"></i>
+      </div>
+      <div class="stat-value">{{ ratingSummary ? ratingSummary.averageRating : 5.0 }} / 5.0</div>
+      <div class="stat-label">Dealer Trust Score</div>
+      <div class="stat-change positive">
+        <i class="fa-solid fa-check"></i> {{ ratingSummary ? ratingSummary.totalReviews : 0 }} Verified Reviews
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="grid-2-1 mb-3">
+    <!-- Left Column: My Listed Crops -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3><i class="fa-solid fa-list-check text-green"></i> My Listed Harvests</h3>
+          <small class="text-muted">Manage your agricultural commodities and pricing</small>
+        </div>
+        <button class="btn btn-sm btn-navy" (click)="openAddCropModal()">
+          <i class="fa-solid fa-plus"></i> Add Crop
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Commodity</th>
+                <th>Location</th>
+                <th>Grade</th>
+                <th>Quantity</th>
+                <th>Price / KG</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let crop of crops">
+                <td>
+                  <strong>{{ crop.commodity }}</strong>
+                  <div *ngIf="getCropReviewCount(crop.id) > 0" class="stars-display text-gold small" style="color:#F59E0B; font-size:0.75rem; display:flex; align-items:center; gap:0.25rem; margin-top:2px;">
+                    <i class="fa-solid fa-star" *ngFor="let s of [1,2,3,4,5]" [style.opacity]="s > getCropRating(crop.id) ? '0.3' : '1'"></i>
+                    <span style="font-weight:700; color:#1F2937;">{{ getCropRating(crop.id) | number:'1.1-1' }}</span>
+                    <span class="text-muted" style="color:#6B7280;">({{ getCropReviewCount(crop.id) }})</span>
+                  </div>
+                  <div *ngIf="getCropReviewCount(crop.id) === 0" class="stars-display text-muted small" style="color:#94A3B8; font-size:0.72rem; display:flex; align-items:center; gap:0.25rem; margin-top:2px;">
+                    <i class="fa-regular fa-star"></i>
+                    <span>Unrated</span>
+                  </div>
+                  <div class="text-muted small" *ngIf="crop.description">{{ crop.description | slice:0:35 }}...</div>
+                </td>
+                <td>{{ crop.district }}, {{ crop.state }}</td>
+                <td><span class="badge badge-green">Grade {{ crop.grade }}</span></td>
+                <td><strong>{{ crop.quantity | number }}</strong> {{ crop.unit }}</td>
+                <td><strong class="text-navy">₹{{ crop.pricePerKg | number:'1.2-2' }}</strong></td>
+                <td>
+                  <span class="badge" [class.badge-success]="crop.status === 'ACTIVE'" [class.badge-warning]="crop.status !== 'ACTIVE'">
+                    {{ crop.status }}
+                  </span>
+                </td>
+                <td>
+                  <div class="action-buttons">
+                    <button class="btn btn-sm btn-navy" (click)="openAuctionModal(crop)" title="Start Live Bidding Auction">
+                      <i class="fa-solid fa-gavel"></i> Auction
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="crops.length === 0">
+                <td colspan="7" class="text-center py-4 text-muted">No crop listings found. Click "Add Crop" to get started!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Mandi Price Benchmark Comparison -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-chart-line text-green"></i> Mandi Market Benchmark</h3>
+        <a routerLink="/prices" class="btn btn-sm btn-outline-navy">View All</a>
+      </div>
+      <div class="card-body">
+        <!-- Search bar -->
+        <div class="mandi-search-bar">
+          <i class="fa-solid fa-magnifying-glass mandi-search-icon"></i>
+          <input
+            type="text"
+            class="form-control mandi-search-input"
+            placeholder="Search commodity, state, district..."
+            [(ngModel)]="mandiSearchTerm"
+            (input)="mandiPage = 1; applyMandiFilter()"
+          >
+        </div>
+
+        <!-- Price rows -->
+        <div class="mandi-list mandi-scroll">
+          <div *ngFor="let price of filteredMandiPrices" class="mandi-card-item">
+            <div class="mandi-info">
+              <strong>{{ price.commodity }}</strong>
+              <small>{{ price.district }}, {{ price.state }}</small>
+            </div>
+            <div class="mandi-rate">
+              <span class="rate-val">₹{{ price.modalPricePerKg | number:'1.1-1' }}</span>
+              <span class="rate-unit">/kg</span>
+            </div>
+          </div>
+          <div *ngIf="filteredMandiPrices.length === 0" class="text-center py-3 text-muted">
+            <i class="fa-solid fa-search"></i> No crops match "{{ mandiSearchTerm }}"
+          </div>
+        </div>
+
+        <!-- Pagination controls -->
+        <div class="mandi-pagination" *ngIf="mandiTotalPages > 1">
+          <button class="page-btn" (click)="mandiPrevPage()" [disabled]="mandiPage === 1">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <span class="page-info">Page {{ mandiPage }} / {{ mandiTotalPages }}</span>
+          <button class="page-btn" (click)="mandiNextPage()" [disabled]="mandiPage === mandiTotalPages">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Section: Active Auctions, Negotiations & Incoming Orders -->
+  <div class="grid-3">
+    <!-- Active Farmer Auctions -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-gavel text-green"></i> Live Auctions</h3>
+        <span class="badge badge-gold">{{ auctions.length }} Active</span>
+      </div>
+      <div class="card-body">
+        <div *ngFor="let auc of auctions" class="auction-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ auc.cropName }}</strong>
+            <span class="badge badge-green">{{ auc.status }}</span>
+          </div>
+          <div class="d-flex justify-between align-center text-muted small mb-2">
+            <span>Base: ₹{{ auc.basePrice }}/kg</span>
+            <span class="text-navy text-bold">Highest: ₹{{ auc.currentHighestBid || auc.basePrice }}/kg</span>
+          </div>
+          <div class="d-flex justify-between align-center">
+            <small><i class="fa-regular fa-clock"></i> Ends: {{ auc.endTime | slice:0:10 }}</small>
+            <button class="btn btn-sm btn-navy" (click)="closeAuction(auc.id)" [disabled]="auc.status !== 'ACTIVE'">
+              <i class="fa-solid fa-award"></i> Award Bid
+            </button>
+          </div>
+        </div>
+        <div *ngIf="auctions.length === 0" class="text-center py-3 text-muted">
+          No live auctions yet. Select a crop from table above to launch bidding.
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct Price Negotiations -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-comments-dollar text-green"></i> Negotiations</h3>
+        <a routerLink="/negotiations" class="btn btn-sm btn-outline-navy">Negotiation Hub</a>
+      </div>
+      <div class="card-body">
+        <div *ngFor="let neg of negotiations" class="order-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ neg.cropName || ('Crop #' + neg.cropId) }}</strong>
+            <span class="badge" [class.badge-success]="neg.status === 'ACCEPTED'" [class.badge-warning]="neg.status === 'OPEN'" [class.badge-danger]="neg.status === 'CLOSED'">
+              {{ neg.status }}
+            </span>
+          </div>
+          <div class="d-flex justify-between align-center text-muted small mb-1">
+            <span>Target: ₹{{ neg.targetPrice }}/kg ({{ neg.quantity }} KG)</span>
+            <span class="badge badge-light">Buyer #{{ neg.buyerId }}</span>
+          </div>
+          <div class="d-flex justify-between align-center mt-2 pt-1 border-top">
+            <small class="text-muted">{{ neg.offers.length }} offer(s)</small>
+            <a routerLink="/negotiations" class="btn btn-sm btn-navy">
+              <i class="fa-solid fa-comments"></i> Counter / Deal
+            </a>
+          </div>
+        </div>
+        <div *ngIf="negotiations.length === 0" class="text-center py-3 text-muted">
+          No active negotiations. Deals proposed by buyers will appear here.
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming Farmer Orders -->
+    <div class="card">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-box text-green"></i> Recent Customer Orders</h3>
+        <a routerLink="/orders" class="btn btn-sm btn-outline-navy">All Orders</a>
+      </div>
+      <div class="card-body">
+        <div *ngFor="let order of orders" class="order-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <span><strong>Order #{{ order.id }}</strong> (Qty: {{ order.quantity }} KG)</span>
+            <span class="badge" [class.badge-success]="order.status === 'CONFIRMED'" [class.badge-warning]="order.status === 'PENDING'">
+              {{ order.status }}
+            </span>
+          </div>
+          <div class="d-flex justify-between align-center">
+            <span class="text-muted small">Total: ₹{{ order.totalAmount | number:'1.2-2' }}</span>
+            <span class="badge" [class.badge-success]="order.paymentStatus === 'PAID'" [class.badge-warning]="order.paymentStatus !== 'PAID'">
+              <i class="fa-solid" [class.fa-circle-check]="order.paymentStatus === 'PAID'" [class.fa-clock]="order.paymentStatus !== 'PAID'"></i>
+              {{ order.paymentStatus === 'PAID' ? 'Escrow Secured' : 'Awaiting Payment' }}
+            </span>
+          </div>
+        </div>
+        <div *ngIf="orders.length === 0" class="text-center py-3 text-muted">
+          No orders received yet.
+        </div>
+      </div>
+    </div>
+  <!-- Active Dealer Procurement Demands -->
+  <div class="card mt-3">
+    <div class="card-header">
+      <div>
+        <h3><i class="fa-solid fa-bullhorn text-green"></i> Active Dealer Procurement Demands</h3>
+        <small class="text-muted">Direct crop requests and purchase offers posted by verified commercial dealers</small>
+      </div>
+      <span class="badge badge-gold" *ngIf="buyingDemands.length > 0">{{ buyingDemands.length }} Active Demands</span>
+    </div>
+    <div class="card-body">
+      <div class="grid-3" *ngIf="buyingDemands.length > 0">
+        <div *ngFor="let demand of buyingDemands" class="order-item-box">
+          <div class="d-flex justify-between align-center mb-1">
+            <strong>{{ demand.cropName }}</strong>
+            <span class="badge badge-green">Demand: {{ demand.quantity | number }} {{ demand.unit }}</span>
+          </div>
+          <div class="text-muted small mb-1">
+            <i class="fa-solid fa-location-dot"></i> {{ demand.district }}, {{ demand.state }}
+          </div>
+          <div class="d-flex justify-between align-center text-muted small mb-2">
+            <span>Dealer Target Price:</span>
+            <strong class="text-navy font-bold" style="font-size: 1.05rem;">₹{{ demand.buyingPrice }}/KG</strong>
+          </div>
+          <p *ngIf="demand.notes" class="text-muted small italic mb-2">"{{ demand.notes }}"</p>
+          <div class="d-flex justify-between align-center border-top pt-2">
+            <span class="badge badge-light">Dealer #{{ demand.dealerId }}</span>
+            <button class="btn btn-sm btn-navy" (click)="fulfillDemand(demand)" title="List crop to fulfill this demand">
+              <i class="fa-solid fa-plus"></i> List This Crop
+            </button>
+          </div>
+        </div>
+      </div>
+      <div *ngIf="buyingDemands.length === 0" class="text-center py-4 text-muted">
+        <i class="fa-solid fa-bullhorn fa-2x mb-2 d-block text-muted"></i>
+        No active dealer demands right now. When commercial buyers request crops in your area, they will appear here.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: List New Harvest / Crop -->
+<div class="modal-backdrop" *ngIf="isAddCropModalOpen" (click)="isAddCropModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-wheat-awn text-green"></i> List New Crop for Sale</h3>
+      <button class="close-btn" (click)="isAddCropModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitNewCrop()">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Commodity * <small class="text-muted">(type any crop or pick suggestion)</small></label>
+            <input type="text"
+              [(ngModel)]="newCrop.commodity"
+              name="commodity"
+              class="form-control"
+              placeholder="e.g. Basmati Rice, Tomato, Ginger..."
+              list="cropSuggestions"
+              autocomplete="off"
+              required>
+            <datalist id="cropSuggestions">
+              <option value="Basmati Rice"></option>
+              <option value="Wheat (Sharbati)"></option>
+              <option value="Cotton (MCU-5)"></option>
+              <option value="Soyabean"></option>
+              <option value="Red Onion"></option>
+              <option value="Potato"></option>
+              <option value="Mustard Seeds"></option>
+              <option value="Maize / Corn"></option>
+              <option value="Turmeric"></option>
+              <option value="Chilli (Dry)"></option>
+              <option value="Groundnut"></option>
+              <option value="Sugarcane"></option>
+              <option value="Sunflower Seeds"></option>
+              <option value="Jowar"></option>
+              <option value="Bajra"></option>
+              <option value="Arhar Dal (Tur)"></option>
+              <option value="Green Gram (Moong)"></option>
+              <option value="Black Gram (Urad)"></option>
+              <option value="Ginger"></option>
+              <option value="Garlic"></option>
+              <option value="Tomato"></option>
+              <option value="Brinjal"></option>
+              <option value="Cabbage"></option>
+              <option value="Cauliflower"></option>
+              <option value="Bitter Gourd"></option>
+              <option value="Bottle Gourd"></option>
+              <option value="Capsicum"></option>
+              <option value="Okra (Bhindi)"></option>
+              <option value="Carrot"></option>
+              <option value="Radish"></option>
+              <option value="Spinach"></option>
+              <option value="Fenugreek"></option>
+              <option value="Banana"></option>
+              <option value="Mango"></option>
+              <option value="Papaya"></option>
+              <option value="Pomegranate"></option>
+              <option value="Guava"></option>
+              <option value="Lemon"></option>
+              <option value="Coconut"></option>
+              <option value="Cashew Nuts"></option>
+              <option value="Sesame (Til)"></option>
+              <option value="Linseed"></option>
+              <option value="Rapeseed"></option>
+              <option value="Horse Gram"></option>
+              <option value="Chickpea (Chana)"></option>
+              <option value="Lentil (Masoor)"></option>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Quality Grade *</label>
+            <select [(ngModel)]="newCrop.grade" name="grade" class="form-control" required>
+              <option value="A">Grade A (Export / Premium)</option>
+              <option value="B">Grade B (Standard Commercial)</option>
+              <option value="C">Grade C (Processing / Feed)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>State *</label>
+            <input type="text" [(ngModel)]="newCrop.state" name="state" class="form-control" placeholder="e.g. Punjab" required>
+          </div>
+          <div class="form-group">
+            <label>District / Mandi *</label>
+            <input type="text" [(ngModel)]="newCrop.district" name="district" class="form-control" placeholder="e.g. Amritsar" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Available Quantity (KG) *</label>
+            <input type="number" [(ngModel)]="newCrop.quantity" name="quantity" class="form-control" min="10" required>
+          </div>
+          <div class="form-group">
+            <label>Farmer Price (₹ per KG) *</label>
+            <input type="number" [(ngModel)]="newCrop.pricePerKg" name="pricePerKg" class="form-control" step="0.5" min="1" required>
+            <small class="text-muted">Must not exceed APMC Mandi maximum ceiling</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Harvest Description & Certifications</label>
+          <textarea [(ngModel)]="newCrop.description" name="description" class="form-control" rows="3" placeholder="Mention organic cert, moisture level, grain size, packaging..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isAddCropModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-check"></i> Publish Listing
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Start Live Auction -->
+<div class="modal-backdrop" *ngIf="isStartAuctionModalOpen" (click)="isStartAuctionModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-gavel text-green"></i> Launch Live Bidding Auction</h3>
+      <button class="close-btn" (click)="isStartAuctionModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitNewAuction()">
+      <div class="modal-body">
+        <p class="text-muted small mb-2">Publish {{ selectedCropForAuction?.commodity }} to the real-time dealer auction floor.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Base Price (₹ / KG) *</label>
+            <input type="number" [(ngModel)]="newAuction.basePrice" name="basePrice" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Min Increment (₹) *</label>
+            <input type="number" [(ngModel)]="newAuction.minIncrement" name="minIncrement" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Auction Start Time</label>
+            <input type="datetime-local" [(ngModel)]="newAuction.startTime" name="startTime" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Auction End Time</label>
+            <input type="datetime-local" [(ngModel)]="newAuction.endTime" name="endTime" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isStartAuctionModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-bullhorn"></i> Start Live Auction
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Crop Listing -->
+<div class="modal-backdrop" *ngIf="isEditCropModalOpen" (click)="isEditCropModalOpen = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3><i class="fa-solid fa-pen text-green"></i> Edit Crop Listing</h3>
+      <button class="close-btn" (click)="isEditCropModalOpen = false">&times;</button>
+    </div>
+    <form (ngSubmit)="submitEditCrop()" *ngIf="cropBeingEdited">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Commodity * <small class="text-muted">(type any crop)</small></label>
+            <input type="text"
+              [(ngModel)]="cropBeingEdited.commodity"
+              name="editCommodity"
+              class="form-control"
+              list="editCropList"
+              autocomplete="off"
+              required>
+            <datalist id="editCropList">
+              <option value="Basmati Rice"></option>
+              <option value="Wheat"></option>
+              <option value="Cotton"></option>
+              <option value="Soyabean"></option>
+              <option value="Onion"></option>
+              <option value="Potato"></option>
+              <option value="Tomato"></option>
+              <option value="Mustard Seeds"></option>
+              <option value="Maize"></option>
+              <option value="Turmeric"></option>
+              <option value="Chilli (Dry)"></option>
+              <option value="Groundnut"></option>
+              <option value="Arhar Dal (Tur)"></option>
+              <option value="Green Gram (Moong)"></option>
+              <option value="Black Gram (Urad)"></option>
+              <option value="Chickpea (Chana)"></option>
+              <option value="Ginger"></option>
+              <option value="Garlic"></option>
+              <option value="Sugarcane"></option>
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label>Quality Grade *</label>
+            <select [(ngModel)]="cropBeingEdited.grade" name="editGrade" class="form-control" required>
+              <option value="A">Grade A (Export / Premium)</option>
+              <option value="B">Grade B (Standard Commercial)</option>
+              <option value="C">Grade C (Processing / Feed)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>State *</label>
+            <input type="text" [(ngModel)]="cropBeingEdited.state" name="editState" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>District / Mandi *</label>
+            <input type="text" [(ngModel)]="cropBeingEdited.district" name="editDistrict" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity (KG) *</label>
+            <input type="number" [(ngModel)]="cropBeingEdited.quantity" name="editQty" class="form-control" min="10" required>
+          </div>
+          <div class="form-group">
+            <label>Price (₹ / KG) *</label>
+            <input type="number" [(ngModel)]="cropBeingEdited.pricePerKg" name="editPrice" class="form-control" step="0.5" min="1" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="cropBeingEdited.description" name="editDesc" class="form-control" rows="3" placeholder="Update certifications, moisture, packaging details..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-navy" (click)="isEditCropModalOpen = false">Cancel</button>
+        <button type="submit" class="btn btn-navy">
+          <i class="fa-solid fa-save"></i> Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
