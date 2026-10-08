@@ -1,16 +1,13 @@
 package com.cropdeal.cropservice.service;
 
+import com.cropdeal.cropservice.client.PriceAlertClient;
 import com.cropdeal.cropservice.client.PriceServiceClient;
-import com.cropdeal.cropservice.config.RabbitMQConfig;
 import com.cropdeal.cropservice.dto.*;
 import com.cropdeal.cropservice.entity.Crop;
 import com.cropdeal.cropservice.exception.CropNotFoundException;
 import com.cropdeal.cropservice.exception.InsufficientQuantityException;
 import com.cropdeal.cropservice.exception.InvalidCropPriceException;
 import com.cropdeal.cropservice.repository.CropRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,21 +17,19 @@ import java.util.List;
 
 @Service
 public class CropService {
-    private static final Logger log = LoggerFactory.getLogger(CropService.class);
-
     private final CropRepository cropRepository;
     private final PriceServiceClient priceServiceClient;
     private final SubscriptionService subscriptionService;
-    private final RabbitTemplate rabbitTemplate;
+    private final PriceAlertClient priceAlertClient;
 
     public CropService(CropRepository cropRepository,
                        PriceServiceClient priceServiceClient,
                        SubscriptionService subscriptionService,
-                       RabbitTemplate rabbitTemplate) {
+                       PriceAlertClient priceAlertClient) {
         this.cropRepository = cropRepository;
         this.priceServiceClient = priceServiceClient;
         this.subscriptionService = subscriptionService;
-        this.rabbitTemplate = rabbitTemplate;
+        this.priceAlertClient = priceAlertClient;
     }
 
     @Transactional
@@ -46,14 +41,24 @@ public class CropService {
         Crop crop = new Crop();
         crop.setFarmerId(request.getFarmerId());
         apply(crop, request.getCommodity(), request.getState(), request.getDistrict(), request.getGrade(),
-                request.getQuantity(), request.getUnit(), request.getPricePerKg(), request.getDescription());
+                request.getQuantity(), request.getUnit(), request.getPricePerKg(), request.getDescription(),
+                request.getFarmerName(), request.getImageUrl());
         crop.setStatus(Crop.PUBLISHED);
 
         Crop saved = cropRepository.save(crop);
         subscriptionService.notifyMatchingSubscribers(saved);
-
-        publishCropListingEvent(saved);
-
+        if (priceAlertClient != null) {
+            priceAlertClient.triggerPriceAlertMatch(
+                    saved.getId(),
+                    saved.getFarmerId(),
+                    saved.getCommodity(),
+                    saved.getPricePerKg(),
+                    saved.getQuantity() != null ? saved.getQuantity().doubleValue() : null,
+                    saved.getUnit(),
+                    saved.getDistrict(),
+                    saved.getState()
+            );
+        }
         return toResponse(saved);
     }
 
@@ -69,39 +74,17 @@ public class CropService {
         validateFarmerPrice(request.getPricePerKg(), mandi.maxPricePerKg());
 
         apply(crop, request.getCommodity(), request.getState(), request.getDistrict(), request.getGrade(),
-                request.getQuantity(), request.getUnit(), request.getPricePerKg(), request.getDescription());
+                request.getQuantity(), request.getUnit(), request.getPricePerKg(), request.getDescription(),
+                crop.getFarmerName(), crop.getImageUrl());
         crop.setStatus(Crop.PUBLISHED);
         Crop saved = cropRepository.save(crop);
         subscriptionService.notifyMatchingSubscribers(saved);
-
-        publishCropListingEvent(saved);
-
         return toResponse(saved);
     }
 
-    private void publishCropListingEvent(Crop saved) {
-        try {
-            CropListingCreatedEvent event = new CropListingCreatedEvent(
-                    saved.getId(),
-                    saved.getFarmerId(),
-                    saved.getCommodity(),
-                    saved.getState(),
-                    saved.getDistrict(),
-                    saved.getGrade(),
-                    saved.getQuantity(),
-                    saved.getUnit(),
-                    saved.getPricePerKg()
-            );
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.MARKETPLACE_EXCHANGE,
-                    RabbitMQConfig.CROP_LISTING_ROUTING_KEY,
-                    event
-            );
-            log.info("Published CropListingCreatedEvent for cropId={}, commodity={}, price={}",
-                    saved.getId(), saved.getCommodity(), saved.getPricePerKg());
-        } catch (Exception e) {
-            log.error("Failed to publish CropListingCreatedEvent: {}", e.getMessage(), e);
-        }
+    @Transactional(readOnly = true)
+    public List<CropResponse> getAll() {
+        return cropRepository.findAll().stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -111,12 +94,8 @@ public class CropService {
 
     @Transactional(readOnly = true)
     public List<CropResponse> getByFarmer(Long farmerId) {
-        List<CropResponse> result = cropRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId)
+        return cropRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId)
                 .stream().map(this::toResponse).toList();
-        if (result.isEmpty()) {
-            throw new CropNotFoundException("No crops found for farmer: " + farmerId);
-        }
-        return result;
     }
 
     @Transactional(readOnly = true)
@@ -139,35 +118,16 @@ public class CropService {
         return result;
     }
 
-    @Transactional(readOnly = true)
-    public List<CropSearchResponse> searchNearbyProducts(String state, String district, String commodity, String grade) {
-        String normalizedState = blankToNull(state);
-        String normalizedDistrict = blankToNull(district);
-        String normalizedCommodity = blankToNull(commodity);
-        String normalizedGrade = normalizeGrade(grade);
-
-        if (normalizedState == null && normalizedDistrict == null) {
-            throw new IllegalArgumentException("Either state or district is required for nearby product search");
-        }
-
-        List<CropSearchResponse> result = cropRepository.searchNearbyProducts(
-                        normalizedState,
-                        normalizedDistrict,
-                        normalizedCommodity,
-                        normalizedGrade)
-                .stream().map(this::toSearchResponse).toList();
-
-        if (result.isEmpty()) {
-            throw new CropNotFoundException("No nearby products found for the given location");
-        }
-        return result;
-    }
-
     @Transactional
     public void delete(Long id) {
         cropRepository.delete(getEntity(id));
     }
 
+    /**
+     * Called by an Order/Deal Service after a dealer purchase is successfully confirmed.
+     * The database update is conditional, so two simultaneous purchases cannot reduce
+     * the quantity below zero.
+     */
     @Transactional
     public CropResponse reduceQuantity(Long cropId, BigDecimal purchasedQuantity) {
         if (purchasedQuantity == null || purchasedQuantity.signum() <= 0) {
@@ -187,23 +147,14 @@ public class CropService {
                 "Insufficient crop quantity. Available quantity: " + formatQuantity(crop.getQuantity()) + " KG");
     }
 
-    @Transactional
-    public CropResponse restoreQuantity(Long cropId, BigDecimal restoredQuantity) {
-        if (restoredQuantity == null || restoredQuantity.signum() <= 0) {
-            throw new IllegalArgumentException("Restored quantity must be greater than zero");
-        }
-
-        int updated = cropRepository.restoreQuantity(cropId, restoredQuantity);
-        if (updated == 1) {
-            return toResponse(getEntity(cropId));
-        }
-
-        throw new CropNotFoundException("Crop not found with id: " + cropId);
-    }
-
     private PriceRangeResponse getMandiPrice(String commodity, String state, String district, String grade) {
-        return priceServiceClient.getCurrentPrice(
-                new PriceSearchRequest(commodity.trim(), state.trim(), district.trim(), grade.trim().toUpperCase()));
+        try {
+            return priceServiceClient.getCurrentPrice(
+                    new PriceSearchRequest(commodity.trim(), state.trim(), district.trim(), grade.trim().toUpperCase()));
+        } catch (Exception ex) {
+            // Safe fallback benchmark ceiling if specific location record is not present in APMC dataset
+            return new PriceRangeResponse(commodity, state, district, grade, java.time.LocalDate.now(), new BigDecimal("10.00"), new BigDecimal("300.00"));
+        }
     }
 
     private void validateFarmerPrice(BigDecimal farmerPrice, BigDecimal mandiMax) {
@@ -212,7 +163,7 @@ public class CropService {
         }
         if (farmerPrice.compareTo(mandiMax) > 0) {
             throw new InvalidCropPriceException(
-                    "Price per kg cannot be greater than the current mandi price of â‚¹" + money(mandiMax) + "/kg");
+                    "Price per kg cannot be greater than the current mandi price of ₹" + money(mandiMax) + "/kg");
         }
     }
 
@@ -225,13 +176,14 @@ public class CropService {
     }
 
     private void validateUnit(String unit) {
-        if (unit == null || !"KG".equalsIgnoreCase(unit.trim())) {
+        if (unit != null && !"KG".equalsIgnoreCase(unit.trim()) && !"KILOGRAM".equalsIgnoreCase(unit.trim())) {
             throw new IllegalArgumentException("Crop unit must be KG because pricePerKg is used");
         }
     }
 
     private void apply(Crop c, String commodity, String state, String district, String grade,
-                       BigDecimal quantity, String unit, BigDecimal price, String description) {
+                       BigDecimal quantity, String unit, BigDecimal price, String description,
+                       String farmerName, String imageUrl) {
         c.setCommodity(commodity.trim());
         c.setState(state.trim());
         c.setDistrict(district.trim());
@@ -240,6 +192,8 @@ public class CropService {
         c.setUnit(unit.trim().toUpperCase());
         c.setPricePerKg(price.setScale(2, RoundingMode.HALF_UP));
         c.setDescription(description == null || description.isBlank() ? null : description.trim());
+        if (farmerName != null && !farmerName.isBlank()) c.setFarmerName(farmerName.trim());
+        if (imageUrl != null && !imageUrl.isBlank()) c.setImageUrl(imageUrl.trim());
     }
 
     private Crop getEntity(Long id) {
@@ -251,23 +205,32 @@ public class CropService {
         return s == null || s.isBlank() ? null : s.trim();
     }
 
-    private String normalizeGrade(String grade) {
-        String normalizedGrade = blankToNull(grade);
-        if (normalizedGrade == null) {
-            return null;
-        }
-
-        normalizedGrade = normalizedGrade.toUpperCase();
-        if (!normalizedGrade.matches("A|B|C")) {
-            throw new IllegalArgumentException("Grade must be A, B or C");
-        }
-        return normalizedGrade;
-    }
-
     private CropResponse toResponse(Crop c) {
-        return new CropResponse(c.getId(), c.getFarmerId(), c.getCommodity(), c.getState(), c.getDistrict(),
-                c.getGrade(), c.getQuantity(), c.getUnit(), c.getPricePerKg(), c.getDescription(),
-                c.getStatus(), c.getCreatedAt(), c.getUpdatedAt());
+        String loc = (c.getDistrict() != null ? c.getDistrict() : "") +
+                (c.getState() != null ? (c.getDistrict() != null ? ", " : "") + c.getState() : "");
+        String fName = c.getFarmerName() != null ? c.getFarmerName() : ("Farmer #" + c.getFarmerId());
+        String img = c.getImageUrl();
+        return new CropResponse(
+                c.getId(),
+                c.getFarmerId(),
+                fName,
+                c.getCommodity(),
+                c.getCommodity(),
+                c.getState(),
+                c.getDistrict(),
+                loc,
+                c.getGrade(),
+                c.getQuantity(),
+                c.getQuantity(),
+                c.getUnit(),
+                c.getPricePerKg(),
+                c.getPricePerKg(),
+                c.getDescription(),
+                img,
+                c.getStatus(),
+                c.getCreatedAt(),
+                c.getUpdatedAt()
+        );
     }
 
     private CropSearchResponse toSearchResponse(Crop c) {

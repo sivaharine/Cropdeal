@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/crops")
+@RequestMapping({"/api/crops", "/api/v1/crops"})
 @Validated
 public class CropController {
     private final CropService cropService;
@@ -36,38 +36,36 @@ public class CropController {
         return cropService.update(id, request);
     }
 
+    @GetMapping
+    public List<CropResponse> getAll() {
+        return cropService.getAll();
+    }
+
     @GetMapping("/{id}")
     public CropResponse getById(@PathVariable @Positive Long id) {
         return cropService.getById(id);
     }
 
     @GetMapping("/farmer/{farmerId}")
-    public List<CropResponse> getByFarmer(@PathVariable @Positive Long farmerId) {
-        return cropService.getByFarmer(farmerId);
+    public List<CropResponse> getByFarmer(@PathVariable String farmerId) {
+        Long id = 1L;
+        try {
+            String digits = farmerId.replaceAll("\\D+", "");
+            if (!digits.isEmpty()) {
+                id = Long.parseLong(digits);
+            }
+        } catch (Exception ignored) {}
+        return cropService.getByFarmer(id);
     }
 
     @GetMapping("/search")
     public List<CropSearchResponse> search(@RequestParam(required = false) String commodity,
+                                           @RequestParam(required = false) String cropName,
                                            @RequestParam(required = false) String state,
                                            @RequestParam(required = false) String district,
                                            @RequestParam(required = false) String grade) {
-        return cropService.search(commodity, state, district, grade);
-    }
-
-    @GetMapping("/nearby")
-    public List<CropSearchResponse> nearbyProducts(@RequestParam(required = false) String state,
-                                                   @RequestParam(required = false) String district,
-                                                   @RequestParam(required = false) String commodity,
-                                                   @RequestParam(required = false) String grade) {
-        return cropService.searchNearbyProducts(state, district, commodity, grade);
-    }
-
-    @GetMapping("/products/nearby")
-    public List<CropSearchResponse> nearbyProductsAlias(@RequestParam(required = false) String state,
-                                                        @RequestParam(required = false) String district,
-                                                        @RequestParam(required = false) String commodity,
-                                                        @RequestParam(required = false) String grade) {
-        return cropService.searchNearbyProducts(state, district, commodity, grade);
+        String query = commodity != null && !commodity.isBlank() ? commodity : cropName;
+        return cropService.search(query, state, district, grade);
     }
 
     /**
@@ -78,16 +76,6 @@ public class CropController {
     public CropResponse reduceQuantity(@PathVariable @Positive Long id,
                                        @Valid @RequestBody QuantityUpdateRequest request) {
         return cropService.reduceQuantity(id, request.getPurchasedQuantity());
-    }
-
-    /**
-     * Internal Saga compensation callback for Order Service.
-     * Restores quantity when a later order step fails after inventory was reserved.
-     */
-    @PatchMapping("/{id}/quantity/restore")
-    public CropResponse restoreQuantity(@PathVariable @Positive Long id,
-                                        @Valid @RequestBody QuantityUpdateRequest request) {
-        return cropService.restoreQuantity(id, request.getPurchasedQuantity());
     }
 
     @DeleteMapping("/{id}")

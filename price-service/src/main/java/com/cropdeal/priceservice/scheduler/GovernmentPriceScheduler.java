@@ -13,7 +13,7 @@ public class GovernmentPriceScheduler {
         this.priceService = priceService;
     }
 
-    @Scheduled(cron = "${government.api.sync-cron}", zone = "Asia/Kolkata")
+    @Scheduled(cron = "${government.api.sync-cron:0 0 2 * * *}", zone = "Asia/Kolkata")
     public void synchronizeGovernmentPrices() {
         try {
             priceService.syncLatestGovernmentPrices();

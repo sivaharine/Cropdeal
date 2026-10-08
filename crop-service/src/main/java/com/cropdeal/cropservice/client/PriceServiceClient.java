@@ -3,6 +3,7 @@ package com.cropdeal.cropservice.client;
 import com.cropdeal.cropservice.dto.PriceRangeResponse;
 import com.cropdeal.cropservice.dto.PriceSearchRequest;
 import com.cropdeal.cropservice.exception.PriceNotFoundException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -10,15 +11,18 @@ import org.springframework.web.client.RestClient;
 @Component
 public class PriceServiceClient {
     private final RestClient restClient;
+    private final String priceServiceUrl;
 
-    public PriceServiceClient(RestClient restClient) {
+    public PriceServiceClient(RestClient restClient,
+                              @Value("${crop-service.price-service-url:http://localhost:8084}") String priceServiceUrl) {
         this.restClient = restClient;
+        this.priceServiceUrl = priceServiceUrl;
     }
 
     public PriceRangeResponse getCurrentPrice(PriceSearchRequest request) {
         try {
             PriceRangeResponse response = restClient.post()
-                    .uri("/api/prices/lookup")
+                    .uri(priceServiceUrl + "/api/prices/lookup")
                     .body(request)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
