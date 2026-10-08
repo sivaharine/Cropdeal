@@ -1,1165 +1,435 @@
-# 🌾 CropDeal – Agricultural Marketplace Microservices Platform
+# 🌾 CropDeal — Enterprise Agricultural Marketplace & Supply Chain Platform
 
-> **CropDeal** is a Spring Boot and Spring Cloud based **microservices marketplace platform** that connects **farmers, dealers, delivery partners, and administrators** in a single digital ecosystem.
-
-The platform manages the complete agricultural commerce lifecycle — from **farmer registration and crop listing to bidding, negotiation, ordering, payment, delivery, invoice generation, notifications, and reviews**.
-
-It also includes **JWT-based security, service discovery, centralized configuration, API Gateway, RabbitMQ messaging, Resilience4j fault tolerance, Docker containerization, and an AI-powered chatbot**.
-
----
-
-## 📌 Table of Contents
-
-* [About the Project](#-about-the-project)
-* [Key Features](#-key-features)
-* [System Architecture](#-system-architecture)
-* [Microservices](#-microservices)
-* [Business Workflow](#-business-workflow)
-* [Technology Stack](#-technology-stack)
-* [Communication Between Services](#-communication-between-services)
-* [Security](#-security)
-* [Database Architecture](#-database-architecture)
-* [Project Structure](#-project-structure)
-* [API Overview](#-api-overview)
-* [Getting Started](#-getting-started)
-* [Docker Setup](#-docker-setup)
-* [Testing with Postman](#-testing-with-postman)
-* [Monitoring](#-monitoring)
-* [Environment Variables](#-environment-variables)
-* [Important Docker Commands](#-important-docker-commands)
-* [Future Enhancements](#-future-enhancements)
-* [Contributors](#-contributors)
+[![Java 17](https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.13-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Spring Cloud](https://img.shields.io/badge/Spring_Cloud-2023.0.6-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
+[![Angular](https://img.shields.io/badge/Angular-18%2B-DD0031?style=for-the-badge&logo=angular&logoColor=white)](https://angular.dev/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 ---
 
-# 🌱 About the Project
+## 📌 Executive Summary
 
-CropDeal is designed to solve common problems in the agricultural supply chain by providing a centralized platform where:
+**CropDeal** is an enterprise-grade, distributed B2B AgriTech e-commerce and supply chain logistics platform engineered with a **microservices architecture** using **Spring Boot 3.3.13**, **Spring Cloud 2023.0.6**, and an **Angular 18+ Standalone** frontend. 
 
-### 👨‍🌾 Farmers can
-
-* Register and manage their profiles
-* List crops for sale
-* Manage crop quantities
-* Search market prices
-* Create bidding sessions
-* Negotiate with dealers
-* Track orders
-* Receive payments
-* Manage deliveries
-* View reviews
-
-### 🏪 Dealers can
-
-* Register and manage profiles
-* Search available crops
-* Place bids
-* Negotiate prices with farmers
-* Purchase crops
-* Make payments
-* Track orders
-* Review farmers and crops
-
-### 🚚 Delivery Partners can
-
-* View available deliveries
-* Accept delivery assignments
-* Update delivery status
-* Manage availability
-* Verify delivery using OTP
-* Track delivery operations
-
-### 👨‍💼 Administrators can
-
-* Manage users
-* Manage crops
-* Manage orders
-* Monitor payments
-* View analytics
-* Generate reports
-* View audit information
-* Manage platform operations
+The platform directly bridges the gap between **Farmers (Producers)**, **Dealers (Wholesale Buyers)**, **Logistics & Delivery Partners**, and **Platform Administrators**. By eliminating exploitative intermediaries, integrating Government of India Mandi price benchmarks, orchestrating live crop bidding with an escrow wallet, and offering real-time delivery milestone tracking with Rule 46 CGST-compliant tax invoices, CropDeal establishes a fair, transparent, and resilient agricultural economy.
 
 ---
 
-# 🚀 Key Features
+## 🏛️ High-Level System Architecture
 
-| Feature                  | Description                                        |
-| ------------------------ | -------------------------------------------------- |
-| 🔐 Authentication        | JWT-based registration and login                   |
-| 👥 User Management       | Farmer, Dealer and Delivery Partner management     |
-| 🌾 Crop Management       | Create, update, search and manage crops            |
-| 💰 Market Prices         | Market/mandi price information and alerts          |
-| 🏆 Bidding               | Dealers can participate in crop bidding            |
-| 🤝 Negotiation           | Farmers and dealers can negotiate prices           |
-| 🛒 Orders                | Complete order lifecycle management                |
-| 💳 Payments              | Payments, refunds and wallet operations            |
-| 🚚 Delivery              | Delivery assignment, tracking and OTP verification |
-| 🔔 Notifications         | Application and delivery notifications             |
-| 🧾 Invoices              | Invoice generation and PDF download                |
-| ⭐ Reviews                | Reviews for farmers, dealers, crops and orders     |
-| 📊 Admin Dashboard       | Management, analytics and reports                  |
-| 🤖 AI Chatbot            | AI-powered CropDeal assistance                     |
-| ⚡ Resilience             | Circuit breaker and retry mechanisms               |
-| 🐇 Messaging             | RabbitMQ asynchronous communication                |
-| 🔎 Service Discovery     | Eureka-based service registration                  |
-| ⚙️ Central Configuration | Spring Cloud Config                                |
-| 🌐 API Gateway           | Centralized request routing                        |
-| 🐳 Docker                | Containerized deployment                           |
+CropDeal follows the **Database-per-Service** design pattern with dynamic service discovery, reactive API gateway routing, and event-driven asynchronous messaging via RabbitMQ.
 
----
+```mermaid
+flowchart TD
+    subgraph Client_Layer [Client Layer]
+        UI["Angular 18+ Web Application<br/>(Port 4200)"]
+    end
 
-# 🏗️ System Architecture
+    subgraph Gateway_Discovery [Gateway & Service Discovery]
+        EUREKA["Netflix Eureka Server<br/>(Port 8761)"]
+        CONFIG["Spring Cloud Config Server<br/>(Port 8888)"]
+        GATEWAY["Spring Cloud API Gateway<br/>(Port 8080)"]
+    end
 
-```text
-                         ┌─────────────────────┐
-                         │       Client        │
-                         │ Postman / Frontend  │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │    API Gateway      │
-                         │       :8080         │
-                         └──────────┬──────────┘
-                                    │
-              ┌─────────────────────┼─────────────────────┐
-              │                     │                     │
-              ▼                     ▼                     ▼
-       ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-       │    Eureka    │     │ Config Server│     │  RabbitMQ    │
-       │    :8761     │     │    :8888     │     │    :5672     │
-       └──────────────┘     └──────────────┘     └──────┬───────┘
-                                                        │
-                                                        ▼
-              ┌─────────────────────────────────────────────────┐
-              │              CropDeal Services                  │
-              │                                                 │
-              │ Auth │ User │ Crop │ Price │ Order │ Payment   │
-              │ Delivery │ Bidding │ Negotiation │ Review      │
-              │ Invoice │ Notification │ Admin │ Chatbot       │
-              └──────────────────────┬──────────────────────────┘
-                                     │
-                                     ▼
-                              ┌─────────────┐
-                              │    MySQL    │
-                              │  Databases  │
-                              └─────────────┘
+    subgraph Event_Broker [Asynchronous Event Bus]
+        RABBIT["RabbitMQ Message Broker<br/>(Port 5672 / Management: 15672)<br/>• Price Alerts • Delivery Updates • Outbid Events"]
+    end
+
+    subgraph Core_Microservices [Business Microservices]
+        AUTH["Auth Service<br/>(Port 8081)"]
+        USER["User Service<br/>(Port 8082)"]
+        CROP["Crop Service<br/>(Port 8083)"]
+        PRICE["Price Service<br/>(Port 8084)"]
+        NEG["Negotiation Service<br/>(Port 8085)"]
+        BID["Bidding Service<br/>(Port 8086)"]
+        WALLET["Wallet Service<br/>(Port 8087)"]
+        ORDER["Order Service<br/>(Port 8088)"]
+        PAY["Payment Service<br/>(Port 8089)"]
+        INV["Invoice Service<br/>(Port 8090)"]
+        DEL["Delivery Service<br/>(Port 8091)"]
+        NOTIF["Notification Service<br/>(Port 8092)"]
+        ALERT["Price Alert Service<br/>(Port 8094)"]
+        REPORT["Report Service<br/>(Port 8095)"]
+        CHAT["AI Chatbot Service<br/>(Port 8096)"]
+    end
+
+    subgraph External_Services [External Integrations]
+        DATA_GOV["Govt. of India Mandi API<br/>(data.gov.in)"]
+        SARVAM["Sarvam AI Agricultural LLM"]
+    end
+
+    UI -->|REST / JSON| GATEWAY
+    GATEWAY --> EUREKA
+    Core_Microservices --> EUREKA
+    GATEWAY --> Core_Microservices
+
+    PRICE -->|Fetch Mandi Benchmarks| DATA_GOV
+    CHAT -->|Natural Language Advisory| SARVAM
+
+    CROP -.->|Publish Price Events| RABBIT
+    ORDER -.->|Publish Order Events| RABBIT
+    DEL -.->|Publish Status Events| RABBIT
+    ALERT -.->|Publish Alert Events| RABBIT
+
+    RABBIT --> NOTIF
+    RABBIT --> ALERT
 ```
 
 ---
 
-# 🧩 Microservices
+## 🧩 Microservices Topology & Port Directory
 
-## Infrastructure Services
+The platform comprises **17 dedicated Spring Boot microservices** communicating via OpenFeign and RabbitMQ:
 
-| Service           |   Port | Responsibility                              |
-| ----------------- | -----: | ------------------------------------------- |
-| **Eureka Server** | `8761` | Service discovery                           |
-| **Config Server** | `8888` | Centralized configuration                   |
-| **API Gateway**   | `8080` | Request routing and centralized entry point |
-
-## Business Services
-
-| Service                    |   Port | Responsibility                                 |
-| -------------------------- | -----: | ---------------------------------------------- |
-| **Auth Service**           | `8081` | Registration, login, JWT authentication        |
-| **User Service**           | `8082` | Farmer, dealer and delivery partner management |
-| **Price Service**          | `8083` | Market prices and price alerts                 |
-| **Order Service**          | `8085` | Order creation and lifecycle                   |
-| **Payment Service**        | `8086` | Payments, refunds and wallet                   |
-| **Crop Service**           | `8087` | Crop listing and management                    |
-| **Chatbot Service**        | `8088` | AI-powered CropDeal assistant                  |
-| **Invoice Service**        | `8089` | Invoice generation and PDF                     |
-| **Delivery Service**       | `8090` | Delivery assignment and tracking               |
-| **Negotiation Service**    | `8091` | Farmer/dealer negotiation                      |
-| **Admin & Report Service** | `8092` | Administration, analytics and reports          |
-| **Notification Service**   | `8093` | Notifications and delivery messages            |
-| **Review Service**         | `8094` | Reviews and ratings                            |
-| **Bidding Service**        | `8095` | Bidding sessions and bids                      |
+| Service Name | Port | Database Schema | Primary Responsibilities |
+|---|:---:|---|---|
+| **`eureka-server`** | `8761` | — | Dynamic service discovery, instance heartbeat tracking, service registry |
+| **`config-server`** | `8888` | — | Centralized configuration management across all microservice profiles |
+| **`api-gateway`** | `8080` | — | Reverse proxy, dynamic Eureka routing, CORS enforcement, unified JWT validation |
+| **`auth-service`** | `8081` | `cropdeal_auth_db` | Multi-role registration & login, BCrypt hashing, JWT issuance & token verification |
+| **`user-service`** | `8082` | `cropdeal_user_db` | Farmer/Dealer profiles, KYC verification, reviews & ratings aggregation, admin moderation |
+| **`crop-service`** | `8083` | `cropdeal_crop_db` | Crop catalog, live stock tracking, batch filtering, image upload handling |
+| **`price-service`** | `8084` | `cropdeal_price_db` | Govt. of India data.gov.in Mandi prices sync with district-to-state fallback caching |
+| **`negotiation-service`** | `8085` | `cropdeal_negotiation_db` | Direct dealer-farmer price bargaining, discount threshold checks, counter-offers |
+| **`bidding-service`** | `8086` | `cropdeal_bidding_db` | Live crop auctions, incremental bidding engine, Feign integration with Wallet & Orders |
+| **`wallet-service`** | `8087` | `cropdeal_wallet_db` | Escrow digital wallet, JPA `@Version` optimistic locking, credit/debit/reserve holds |
+| **`order-service`** | `8088` | `cropdeal_order_db` | Order lifecycle (`CREATED`, `PAID`, `SELF_PICKUP`, `DELIVERED`), quantity deductions |
+| **`payment-service`** | `8089` | `cropdeal_payment_db` | Payment gateway integration, crop stock purchases, delivery fee payments, refunds |
+| **`invoice-service`** | `8090` | `cropdeal_invoice_db` | OpenPDF Rule 46 CGST-compliant tax invoices, itemized HSN codes, PDF downloads |
+| **`deliveryservice`** | `8091` | `cropdeal_delivery_db` | Global Delivery Pool, ₹100 static fee logistics, agent claiming, milestone updates |
+| **`notification-service`** | `8092` | `cropdeal_notification_db` | RabbitMQ event consumer, user-scoped alerts, SMS/Email dispatch simulations |
+| **`price-alert-service`** | `8094` | `cropdeal_price_alert_db` | Real-time price threshold triggers, buyer demand matching, deduplication engine |
+| **`report-service`** | `8095` | — | Aggregated platform analytics, sales volumes, commission reports, system metrics |
+| **`chatbot-service`** | `8096` | `chatbot_db` | AI conversational agricultural assistant powered by Sarvam AI LLM integration |
+| **`cropdeal-ui`** | `4200` | LocalStorage / Cache | Angular 18+ Standalone responsive client with role-based navigation and glassmorphic UI |
 
 ---
 
-# 🔄 Business Workflow
+## 🚀 Key Business Features & Engineering Highlights
 
-The major CropDeal transaction follows this flow:
+### 1. 🛡️ Role-Based Access Control (RBAC)
+- Four distinct platform personas: **Farmer (`ROLE_FARMER`)**, **Dealer (`ROLE_DEALER`)**, **Delivery Partner (`ROLE_DELIVERY_PARTNER`)**, and **System Administrator (`ROLE_ADMIN`)**.
+- Stateless authentication using **JSON Web Tokens (JWT)** signed with HMAC-SHA512.
+- Granular endpoint security across microservices with customized pre-authorization filters.
 
-```text
-                 Farmer
-                   │
-                   ▼
-             Register / Login
-                   │
-                   ▼
-            Authentication
-                   │
-                   ▼
-              Create Crop
-                   │
-                   ▼
-          Crop becomes available
-                   │
-          ┌────────┴────────┐
-          ▼                 ▼
-       Bidding          Negotiation
-          │                 │
-          └────────┬────────┘
-                   ▼
-             Create Order
-                   │
-                   ▼
-              Payment
-                   │
-                   ▼
-        Delivery Assignment
-                   │
-                   ▼
-           Delivery Partner
-                   │
-                   ▼
-             OTP Verification
-                   │
-                   ▼
-          Delivery Completed
-                   │
-          ┌────────┴────────┐
-          ▼                 ▼
-       Invoice          Notification
-          │                 │
-          └────────┬────────┘
-                   ▼
-                 Review
-```
+### 2. 📊 Real-Time Mandi Benchmark Pricing (Govt. of India)
+- Directly integrates with the official **data.gov.in Agricultural Marketing Information Network (AGMARKNET)** API.
+- Implements intelligent multi-tier caching with **district-level fallback to state-level median pricing**, ensuring farmers and dealers negotiate with verified market realities.
 
----
+### 3. 🤝 Direct Price Negotiation Engine
+- Dealers can submit direct bargaining requests for listed crops.
+- **Strict Discount Validation**: Dealers can only propose prices **strictly below the original listed crop price** (`proposedPrice < listedPrice`).
+- Farmers can accept, reject, or propose a counter-offer.
+- Accepted negotiations allow dealers to purchase stock at the negotiated rate with full support for partial order checkout.
 
-# 🔐 Authentication Flow
+### 4. 📦 Automated Stock Lifecycle & Depletion Management
+- **Atomic Stock Deduction**: Real-time deduction across direct purchases and negotiated order flows.
+- **Prominent Stock Visibility**: Every crop card displays the **Available Quantity** and **Remaining Stock** in real-time.
+- **Conditional Post Deletion**: When an order is placed partially, the crop post **persists** with updated stock. The crop listing is automatically decommissioned and deleted **only when remaining stock reaches zero**.
+- **Checkout Guardrails**: Dealers cannot select or purchase quantities exceeding the currently available crop quantity.
 
-CropDeal uses **Spring Security + JWT** for authentication.
+### 5. 🏷️ Live Bidding Floor & Escrow Wallet
+- Farmers can create time-boxed auction lots with custom base prices and minimum bid increments.
+- **Digital Escrow Wallet**: Placing a bid automatically reserves funds from the dealer's wallet.
+- **Automated Outbid Releases**: When a higher bid is registered, previously held funds are immediately released back to the outbid dealer.
+- **Concurrency Safety**: High-volume bidding spikes are protected using JPA `@Version` **optimistic locking**, preventing race conditions and double-spending.
 
-```text
-User
- │
- ▼
-Login
- │
- ▼
-Auth Service
- │
- ├── Validate credentials
- │
- └── Generate JWT
-        │
-        ▼
-     Client
-        │
-        │ Authorization: Bearer <token>
-        ▼
-   API Gateway
-        │
-        ▼
- Protected Microservice
-        │
-        ▼
- JWT Validation
-        │
-        ▼
- Authorized Request
-```
+### 6. 🚚 Dual Fulfillment Logistics Architecture
+- **Path A — Farmer Direct Self-Pickup (₹0 Fee)**:
+  - Zero logistics cost for local or bulk buyers.
+  - No delivery agent assigned; order transitions directly into self-pickup fulfillment.
+- **Path B — Global Delivery Partner Pool (₹100 Flat Fee)**:
+  - Dealer pays a static ₹100 delivery fee upfront.
+  - The job enters the **Global Delivery Pool** in status `AVAILABLE_FOR_PICKUP`.
+  - Nearby verified delivery agents can claim the job and advance through milestone stages:
+    $$\text{ORDERED} \longrightarrow \text{PROCESSING} \longrightarrow \text{PICKED\_UP} \longrightarrow \text{IN\_TRANSIT} \longrightarrow \text{DELIVERED}$$
+  - Delivery status updates reflect instantly across the dealer's order dashboard.
 
-### Supported roles
+### 7. 📬 Asynchronous Event-Driven Messaging (RabbitMQ)
+- Utilizes RabbitMQ exchanges and queues for decoupling critical platform operations:
+  - `cropdeal.notification.exchange` dispatches price alerts, outbid notices, negotiation responses, and order delivery updates.
+  - **User-Specific Notification Routing**: Strict routing rules ensure farmers only receive producer notifications, dealers only receive buyer notifications, and delivery partners receive logistics alerts.
+  - **Deduplication Engine**: Backed by a dedicated database constraint `(subscription_id, source_type, source_id)` to eliminate duplicate alert spam.
 
-```text
-FARMER
-DEALER
-DELIVERY_PARTNER
-ADMIN
-```
+### 8. 📄 Certified GST Tax Invoice Generation (Rule 46 CGST Act)
+- Generated on the fly using **OpenPDF**.
+- Fully compliant with Rule 46 of the Indian CGST Rules:
+  - Official Tax Invoice header with unique Serial Number & Invoice Date
+  - Seller (Farmer) details & Buyer (Dealer) details with state code & GSTIN
+  - Itemized crop details with HSN Codes, unit quantity, and rate
+  - Accurate CGST (2.5%) and SGST (2.5%) or IGST (5%) calculations
+  - Authorized digital signatory seal and payment confirmation status
+
+### 9. 🤖 AI Agricultural Advisory Assistant (Sarvam AI)
+- Embedded chatbot powered by **Sarvam AI** specialized in Indic agricultural language models.
+- Provides real-time guidance on weather forecasts, crop disease remedies, fertilizer recommendations, and market demand predictions.
+
+### 10. ⭐ Farmer Rating, Review & Admin Moderation
+- Post-delivery rating system allowing dealers to evaluate crop quality, fulfillment speed, and farmer communication.
+- Real-time aggregation of farmer ratings (1 to 5 stars).
+- Full Admin moderation suite with audit logs, review deletion, and one-click farmer account suspension/unblocking.
 
 ---
 
-# 💬 Communication Between Services
+## 💻 Technology Stack
 
-CropDeal uses both **synchronous** and **asynchronous** communication.
+### Backend
+- **Core Framework**: Spring Boot `3.3.13`, Spring Cloud `2023.0.6`
+- **Language**: Java 17 / Java 21 (LTS)
+- **Security**: Spring Security 6, JWT (jjwt 0.11.5), BCrypt
+- **Service Mesh & Routing**: Netflix Eureka Server, Spring Cloud Gateway
+- **Inter-Service Communication**: OpenFeign, Spring WebClient
+- **Asynchronous Messaging**: RabbitMQ (AMQP 0-9-1) with Spring AMQP
+- **Data & Persistence**: Spring Data JPA, Hibernate ORM, MySQL Connector/J
+- **Document Generation**: OpenPDF 1.3.30
+- **Documentation**: SpringDoc OpenAPI 2.5 (Swagger UI 3)
 
-## OpenFeign – Synchronous Communication
+### Frontend
+- **Framework**: Angular 18/19 Standalone Architecture
+- **Language**: TypeScript 5.4+, HTML5, SCSS
+- **State & Reactive Streams**: RxJS 7.8+, Signals
+- **Visuals & Charts**: Chart.js, Canvas, Responsive Glassmorphic Theme
 
-OpenFeign is used when a service requires an immediate response from another service.
+### Infrastructure & DevOps
+- **Relational Databases**: MySQL 8.0 (13 distinct schemas via `init.sql`)
+- **Message Broker**: RabbitMQ 3.13 Management Container
+- **Containerization**: Docker, Docker Compose
+- **Build Tools**: Apache Maven 3.8+, Node.js 18+ / npm
 
-Example:
+---
 
-```text
-Order Service
-      │
-      │ OpenFeign
-      ▼
-Payment Service
-      │
-      ▼
-Response
+## 🗄️ Database Architecture (Database-per-Service)
+
+CropDeal enforces complete data isolation. The relational schemas initialized via [`init.sql`](file:///D:/cropdealnaresh/init.sql) are:
+
+```sql
+cropdeal_auth_db          -- Users, credentials, BCrypt hashes, roles
+cropdeal_user_db          -- Profiles, addresses, bank accounts, ratings
+cropdeal_crop_db          -- Crop listings, stock levels, images, categories
+cropdeal_price_db         -- Mandi benchmark prices cache, AGMARKNET sync
+cropdeal_negotiation_db   -- Bargaining history, offer/counter-offer status
+cropdeal_bidding_db       -- Auction lots, live bid history, winner data
+cropdeal_wallet_db        -- Ledger balances, escrow holds, versioning
+cropdeal_order_db         -- Purchase orders, itemized lines, order status
+cropdeal_payment_db       -- Transaction records, payment receipts, refunds
+cropdeal_invoice_db       -- Generated invoice records, tax numbers
+cropdeal_delivery_db      -- Global delivery pool, transit coordinates
+cropdeal_notification_db   -- Dispatched notifications, delivery alerts
+cropdeal_price_alert_db   -- Subscription thresholds, deduplication index
+chatbot_db                -- Chat session history and context logs
 ```
 
 ---
 
-## RabbitMQ – Asynchronous Communication
+## ⚡ Quick Start & Setup Guide
 
-RabbitMQ is used for event-driven communication.
-
-Example:
-
-```text
-Order Service
-      │
-      │ Publish Event
-      ▼
-   RabbitMQ
-      │
-      ├──────────────► Notification Service
-      │
-      └──────────────► Other Consumers
-```
-
-This reduces direct coupling between services.
+### 📋 Prerequisites
+Ensure the following tools are installed on your environment:
+- **Java Development Kit (JDK)**: Version 17 or 21
+- **Apache Maven**: Version 3.8+ (or use the included `mvnw.cmd` / `./mvnw`)
+- **Node.js**: Version 18.x or 20.x & **npm**
+- **Docker & Docker Desktop**: For running MySQL and RabbitMQ containers
+- **PowerShell** (Windows) or **Bash** (macOS/Linux)
 
 ---
 
-# ⚡ Resilience and Fault Tolerance
-
-CropDeal uses **Resilience4j** to improve reliability.
-
-### Circuit Breaker
-
-```text
-Service Available
-       │
-       ▼
-Requests Allowed
-       │
-       ▼
-Service Failures
-       │
-       ▼
-Circuit Opens
-       │
-       ▼
-Requests Temporarily Blocked
-       │
-       ▼
-Recovery Check
-       │
-       ▼
-Circuit Closes
-```
-
-### Retry
-
-Temporary failures can be retried automatically.
-
-This helps prevent failures in one service from unnecessarily affecting the complete application.
-
----
-
-# 💾 Database Architecture
-
-CropDeal follows the **Database-per-Service** approach.
-
-Each major business service maintains its own database.
-
-```text
-                    MySQL
-                      │
-       ┌──────────────┼──────────────┐
-       │              │              │
-       ▼              ▼              ▼
- auth_db         user_db        crop_db
-       │              │              │
-       ▼              ▼              ▼
- order_db       payment_db     delivery_db
-       │              │              │
-       ▼              ▼              ▼
- bidding_db   negotiation_db   review_db
-       │              │              │
-       └──────────────┼──────────────┘
-                      ▼
-              Other Service DBs
-```
-
-Example databases:
-
-```text
-cropdeal_auth_db
-cropdeal_user_db
-cropdeal_marketprice
-cropdeal_crop_db
-cropdeal_order_db
-cropdeal_payment_db
-cropdeal_delivery_db
-crop_negotiation_db
-cropdeal_invoice_db
-cropdeal_notification
-cropdeal_admin_db
-cropdeal_review_db
-cropdeal_bidding_db
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/<your-username>/cropdeal.git
+cd cropdeal
 ```
 
 ---
 
-# ⚙️ Centralized Configuration
+### Step 2: Start Infrastructure (MySQL & RabbitMQ)
 
-The project uses **Spring Cloud Config Server**.
-
-```text
-Config Server
-     │
-     ├── auth-service.properties
-     ├── user-service.properties
-     ├── crop-service.properties
-     ├── order-service.properties
-     ├── payment-service.properties
-     ├── delivery-service.properties
-     └── ...
-```
-
-Config Server:
-
-```text
-http://localhost:8888
-```
-
-This allows service configurations to be managed centrally.
-
----
-
-# 🔎 Service Discovery
-
-CropDeal uses **Netflix Eureka**.
-
-Eureka Server:
-
-```text
-http://localhost:8761
-```
-
-Services register themselves with Eureka:
-
-```text
-Auth Service
-User Service
-Crop Service
-Order Service
-Payment Service
-Delivery Service
-...
-        │
-        ▼
-   Eureka Server
-```
-
-The API Gateway can then route requests using service names:
-
-```text
-lb://auth-service
-lb://user-service
-lb://crop-service
-lb://order-service
-```
-
----
-
-# 🌐 API Gateway
-
-All client requests can be routed through:
-
-```text
-http://localhost:8080
-```
-
-Example gateway routes:
-
-```text
-/api/auth/**               → Auth Service
-/api/farmers/**            → User Service
-/api/dealers/**            → User Service
-/api/crops/**              → Crop Service
-/api/prices/**             → Price Service
-/api/orders/**             → Order Service
-/api/payments/**           → Payment Service
-/api/deliveries/**         → Delivery Service
-/api/negotiations/**       → Negotiation Service
-/api/bidding/**            → Bidding Service
-/api/notifications/**      → Notification Service
-/api/invoices/**           → Invoice Service
-/api/reviews/**            → Review Service
-/api/admin/**              → Admin Service
-/api/chat/**               → Chatbot Service
-```
-
----
-
-# 🤖 AI Chatbot
-
-CropDeal includes an AI-powered chatbot using the **Sarvam AI REST API**.
-
-The chatbot can assist users with:
-
-* Crop information
-* Crop availability
-* Market prices
-* Order information
-* Payment information
-* Delivery tracking
-* Profile-related assistance
-* General CropDeal guidance
-
-Example:
-
-```http
-POST /api/chat
-```
-
-Request:
-
-```json
-{
-  "sessionId": "session-001",
-  "message": "Show available tomato crops"
-}
-```
-
----
-
-# 🧾 Invoice Management
-
-The Invoice Service manages invoice generation.
-
-Features:
-
-* Create invoice
-* Search invoice
-* Find invoice by order
-* List invoices
-* Update invoice
-* Delete invoice
-* Generate invoice PDF
-
-PDF generation is implemented using **OpenPDF**.
-
----
-
-# ⭐ Review System
-
-The Review Service supports reviews for:
-
-* Farmers
-* Dealers
-* Crops
-* Orders
-
-Example operations:
-
-```text
-Create Review
-      ↓
-View Review
-      ↓
-Update Review
-      ↓
-Delete Review
-```
-
----
-
-# 📊 Admin Dashboard & Reports
-
-The Admin/Report Service provides administrative operations.
-
-### User Management
-
-```text
-View Farmers
-View Dealers
-View Delivery Partners
-Update User Status
-```
-
-### Crop Management
-
-```text
-View Crops
-Delete Crops
-```
-
-### Order Management
-
-```text
-View Orders
-View Order Details
-Update Order Status
-```
-
-### Payment Management
-
-```text
-View Payments
-View Payment Details
-```
-
-### Reports
-
-```text
-Farmer Reports
-Dealer Reports
-Crop Reports
-Order Reports
-Payment Reports
-CSV Reports
-```
-
----
-
-# 🛠️ Technology Stack
-
-| Category          | Technology                  |
-| ----------------- | --------------------------- |
-| Language          | Java 21                     |
-| Framework         | Spring Boot 3.5.4           |
-| Cloud             | Spring Cloud 2025.0.0       |
-| Security          | Spring Security + JWT       |
-| Database          | MySQL 8                     |
-| ORM               | Spring Data JPA / Hibernate |
-| Service Discovery | Netflix Eureka              |
-| API Gateway       | Spring Cloud Gateway        |
-| Configuration     | Spring Cloud Config         |
-| Communication     | OpenFeign                   |
-| Messaging         | RabbitMQ                    |
-| Fault Tolerance   | Resilience4j                |
-| API Documentation | Springdoc OpenAPI / Swagger |
-| Monitoring        | Spring Boot Actuator        |
-| Email             | Spring Mail                 |
-| PDF               | OpenPDF                     |
-| AI                | Sarvam AI                   |
-| Build Tool        | Maven                       |
-| Containerization  | Docker                      |
-| Orchestration     | Docker Compose              |
-| API Testing       | Postman                     |
-
----
-
-# 📁 Project Structure
-
-```text
-CropDeal_Team-main/
-│
-├── api-gateway/
-│
-├── auth-service/
-├── user-service/
-├── price-service/
-├── crop-service/
-├── order-service/
-├── payment-service/
-├── delivery-service/
-├── negotiation-service/
-├── bidding-service/
-├── notification-service/
-├── invoice-service/
-├── review-service/
-├── chatbot-service/
-├── admin-dashboard-report-service/
-│
-├── config-server/
-├── eureka-server/
-│
-├── init_databases.sql
-├── docker-compose.yml
-├── CropDeal_Postman_Collection.json
-├── pom.xml
-└── README.md
-```
-
-Typical service structure:
-
-```text
-src/main/java/
-└── com.cropdeal.<service>/
-    │
-    ├── controller/
-    ├── service/
-    ├── repository/
-    ├── entity/
-    ├── dto/
-    ├── exception/
-    ├── config/
-    ├── security/
-    └── client/
-```
-
----
-
-# 📡 API Overview
-
-## Authentication
-
-```http
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/logout
-POST /api/auth/forgot-password
-POST /api/auth/reset-password
-```
-
-## Crops
-
-```http
-POST   /api/crops
-GET    /api/crops/{id}
-GET    /api/crops/search
-GET    /api/crops/nearby
-PUT    /api/crops/{id}
-DELETE /api/crops/{id}
-```
-
-## Orders
-
-```http
-POST   /api/orders
-GET    /api/orders
-GET    /api/orders/{id}
-PUT    /api/orders/{id}/status
-PUT    /api/orders/{id}/pay
-DELETE /api/orders/{id}
-```
-
-## Payments
-
-```http
-POST /api/payments
-GET  /api/payments/{id}
-GET  /api/payments/order/{orderId}
-POST /api/payments/order/{orderId}/refund
-POST /api/payments/wallet/topup
-POST /api/payments/wallet/credit
-POST /api/payments/wallet/debit
-```
-
-## Delivery
-
-```http
-POST /api/deliveries
-GET  /api/deliveries/{deliveryId}
-GET  /api/deliveries/order/{orderId}
-PUT  /api/deliveries/{deliveryId}/status
-POST /api/deliveries/{deliveryId}/accept
-POST /api/deliveries/{deliveryId}/verify
-```
-
-## Bidding
-
-```http
-POST /api/bidding/sessions
-GET  /api/bidding/sessions/active
-GET  /api/bidding/sessions/{id}
-POST /api/bidding/sessions/{id}/bids
-GET  /api/bidding/sessions/{id}/bids
-POST /api/bidding/sessions/{id}/close
-```
-
----
-
-# 🚀 Getting Started
-
-## Prerequisites
-
-Make sure the following are installed:
-
-* Java 21
-* Maven 3.9+
-* Docker Desktop
-* Docker Compose
-* Git
-* Postman
-
-For the Docker setup, MySQL and RabbitMQ are provided through Docker Compose.
-
----
-
-# 🐳 Docker Setup
-
-Clone the repository:
+You can spin up MySQL and RabbitMQ instantly via Docker Compose:
 
 ```bash
-git clone <repository-url>
+# Starts MySQL 8.0 and RabbitMQ with Management UI
+docker compose up -d mysql rabbitmq
 ```
 
-Navigate to the project:
-
-```bash
-cd CropDeal_Team-main
-```
-
-Build and start all services:
-
-```bash
-docker compose up --build
-```
-
-Or run in background:
-
-```bash
-docker compose up --build -d
-```
-
-Check containers:
-
-```bash
-docker compose ps
-```
+> **Manual MySQL Setup**: If running MySQL locally without Docker, run the provided [`init.sql`](file:///D:/cropdealnaresh/init.sql) script in MySQL Workbench or CLI to create all 13 databases and the default user (`naresh` / `vnaresh2004`).
 
 ---
 
-# 🔌 Important Ports
-
-| Component            |    Port |
-| -------------------- | ------: |
-| API Gateway          |  `8080` |
-| Auth Service         |  `8081` |
-| User Service         |  `8082` |
-| Price Service        |  `8083` |
-| Order Service        |  `8085` |
-| Payment Service      |  `8086` |
-| Crop Service         |  `8087` |
-| Chatbot Service      |  `8088` |
-| Invoice Service      |  `8089` |
-| Delivery Service     |  `8090` |
-| Negotiation Service  |  `8091` |
-| Admin/Reports        |  `8092` |
-| Notification Service |  `8093` |
-| Review Service       |  `8094` |
-| Bidding Service      |  `8095` |
-| Eureka Server        |  `8761` |
-| Config Server        |  `8888` |
-| MySQL                |  `3307` |
-| RabbitMQ             |  `5672` |
-| RabbitMQ Management  | `15672` |
+### Step 3: Compile All Microservices
+```bash
+# Compile and build all 17 microservices skipping tests
+./mvnw clean package -DskipTests
+```
+*(On Windows: `.\mvnw.cmd clean package -DskipTests`)*
 
 ---
 
-# 🐇 RabbitMQ Management
+### Step 4: Launch All Services (One-Click)
 
-RabbitMQ Management UI:
-
-```text
-http://localhost:15672
-```
-
-Development credentials:
-
-```text
-Username: guest
-Password: guest
-```
-
-> These credentials are intended only for local development.
-
----
-
-# 🧪 Testing with Postman
-
-The repository contains:
-
-```text
-CropDeal_Postman_Collection.json
-```
-
-Import it into Postman.
-
-Recommended testing order:
-
-```text
-1. Register user
-2. Login
-3. Obtain JWT
-4. Create/Update profile
-5. Create crop
-6. Search crop
-7. Check market price
-8. Create bidding/negotiation
-9. Create order
-10. Process payment
-11. Assign delivery
-12. Verify delivery OTP
-13. Generate invoice
-14. Create review
-15. Check notifications
-16. Test admin APIs
-17. Test chatbot
-```
-
-For secured endpoints:
-
-```http
-Authorization: Bearer <JWT_TOKEN>
-```
-
----
-
-# ❤️ Health & Monitoring
-
-Spring Boot Actuator is enabled for health monitoring.
-
-Example:
-
-```text
-http://localhost:<port>/actuator/health
-```
-
-Eureka Dashboard:
-
-```text
-http://localhost:8761
-```
-
-RabbitMQ Dashboard:
-
-```text
-http://localhost:15672
-```
-
----
-
-# 📖 Swagger / OpenAPI
-
-Services using Springdoc OpenAPI expose API documentation.
-
-Typical endpoints:
-
-```text
-http://localhost:<service-port>/swagger-ui.html
-```
-
-or:
-
-```text
-http://localhost:<service-port>/swagger-ui/index.html
-```
-
-OpenAPI specification:
-
-```text
-http://localhost:<service-port>/v3/api-docs
-```
-
----
-
-# 🔑 Environment Variables
-
-Production credentials and API keys should be supplied through environment variables or a secure secret-management system.
-
-Example:
-
-```text
-DB_HOST
-DB_PORT
-DB_USERNAME
-DB_PASSWORD
-
-RABBITMQ_HOST
-RABBITMQ_PORT
-RABBITMQ_USERNAME
-RABBITMQ_PASSWORD
-
-JWT_SECRET
-JWT_EXPIRATION
-
-MAIL_USERNAME
-MAIL_PASSWORD
-
-SARVAM_API_KEY
-
-EXTERNAL_API_KEY
-GOVT_API_BASE_URL
-```
-
----
-
-# 🔒 Security Notes
-
-Before deploying the project publicly:
-
-* Do not commit real API keys.
-* Do not commit email passwords.
-* Do not expose production database credentials.
-* Use strong JWT secrets.
-* Rotate credentials that have been exposed.
-* Use HTTPS in production.
-* Restrict Actuator endpoints in production.
-* Use separate credentials for development and production.
-* Store secrets using environment variables or a secret manager.
-
----
-
-# 🧰 Useful Docker Commands
-
-### Start
-
-```bash
-docker compose up -d
-```
-
-### Build and Start
-
-```bash
-docker compose up --build -d
-```
-
-### Check Services
-
-```bash
-docker compose ps
-```
-
-### View Logs
-
-```bash
-docker compose logs -f
-```
-
-### View Specific Service Logs
-
-```bash
-docker compose logs -f order-service
-```
-
-### Restart a Service
-
-```bash
-docker compose restart order-service
-```
-
-### Rebuild a Service
-
-```bash
-docker compose up --build order-service
-```
-
-### Stop Services
-
-```bash
-docker compose down
-```
-
-### Stop and Remove Volumes
-
-```bash
-docker compose down -v
-```
-
-> `docker compose down -v` removes Docker volumes and can delete locally persisted database/message-broker data.
-
----
-
-# 🏗️ Build Without Docker
-
-Build the complete Maven project:
-
-```bash
-mvn clean install
-```
-
-Or on Windows:
-
+#### Option A: Using PowerShell Launcher (Recommended on Windows)
 ```powershell
-.\mvnw.cmd clean install
+.\start-all.ps1
 ```
+*(This automatically launches Eureka Server, Config Server, all 15 business services, the API Gateway, and the Angular UI in separate titled processes with optimized memory parameters).*
 
-Run an individual service:
-
+#### Option B: Using Docker Compose
 ```bash
-cd <service-folder>
-mvn spring-boot:run
+docker compose up --build -d
 ```
 
-Example:
+#### Option C: Manual Ordered Startup Sequence
+If starting services manually, start in this strict order:
+1. **Service Discovery**: `eureka-server` (Port `8761`)
+2. **Configuration**: `config-server` (Port `8888`)
+3. **Core Services**:
+   - `auth-service` (Port `8081`)
+   - `user-sevice` (Port `8082`)
+   - `crop-service` (Port `8083`)
+   - `price-service` (Port `8084`)
+   - `negotiation-service` (Port `8085`)
+   - `bidding-service` (Port `8086`)
+   - `wallet-service` (Port `8087`)
+   - `order-service` (Port `8088`)
+   - `payment-service` (Port `8089`)
+   - `invoice-service` (Port `8090`)
+   - `deliveryservice` (Port `8091`)
+   - `notification-service` (Port `8092`)
+   - `price-alert-service` (Port `8094`)
+   - `report-service` (Port `8095`)
+   - `chatbot-service` (Port `8096`)
+4. **API Gateway**: `api-gateway` (Port `8080`)
+5. **Frontend UI**: `cropdeal-ui` (Port `4200`)
 
+---
+
+### Step 5: Start Angular Frontend
 ```bash
-cd auth-service
-mvn spring-boot:run
+cd cropdeal-ui
+npm install
+npm start
+```
+The application will be live at **`http://localhost:4200`**.
+
+---
+
+## 🔑 Pre-Seeded Default Credentials
+
+For rapid end-to-end testing, the platform includes pre-configured personas:
+
+| Role | Email | Password | Access Capabilities |
+|---|---|---|---|
+| **Administrator** | `admin@cropdeal.com` | `Admin@123` | Platform analytics, user moderation, dispute management, review audits |
+| **Farmer (Producer)** | `farmer@cropdeal.com` | `Farmer@123` | Upload crops, view mandi benchmarks, counter negotiations, manage auctions |
+| **Dealer (Buyer)** | `dealer@cropdeal.com` | `Dealer@123` | Browse catalog, negotiate price, place bids, top-up wallet, download GST invoices |
+| **Delivery Partner** | `delivery@cropdeal.com` | `Delivery@123` | Access Global Delivery Pool, claim shipments, update live milestone stepper |
+
+---
+
+## 📖 Swagger / OpenAPI Interactive Documentation
+
+Every microservice exposes OpenAPI 3 documentation with interactive Swagger UI endpoints:
+
+- **API Gateway (Unified Docs)**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **Auth Service**: [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html)
+- **User Service**: [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html)
+- **Crop Service**: [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html)
+- **Price Service**: [http://localhost:8084/swagger-ui.html](http://localhost:8084/swagger-ui.html)
+- **Negotiation Service**: [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html)
+- **Bidding Service**: [http://localhost:8086/swagger-ui.html](http://localhost:8086/swagger-ui.html)
+- **Wallet Service**: [http://localhost:8087/swagger-ui.html](http://localhost:8087/swagger-ui.html)
+- **Order Service**: [http://localhost:8088/swagger-ui.html](http://localhost:8088/swagger-ui.html)
+- **Payment Service**: [http://localhost:8089/swagger-ui.html](http://localhost:8089/swagger-ui.html)
+- **Invoice Service**: [http://localhost:8090/swagger-ui.html](http://localhost:8090/swagger-ui.html)
+- **Delivery Service**: [http://localhost:8091/swagger-ui.html](http://localhost:8091/swagger-ui.html)
+- **Notification Service**: [http://localhost:8092/swagger-ui.html](http://localhost:8092/swagger-ui.html)
+- **Price Alert Service**: [http://localhost:8094/swagger-ui.html](http://localhost:8094/swagger-ui.html)
+- **Report Service**: [http://localhost:8095/swagger-ui.html](http://localhost:8095/swagger-ui.html)
+- **Chatbot Service**: [http://localhost:8096/swagger-ui.html](http://localhost:8096/swagger-ui.html)
+- **Eureka Dashboard**: [http://localhost:8761](http://localhost:8761)
+- **RabbitMQ Management**: [http://localhost:15672](http://localhost:15672) *(guest / guest)*
+
+---
+
+## 🧪 Postman Automated Test Suite
+
+A complete, production-ready Postman collection [`CropDeal.postman_collection.json`](file:///D:/cropdealnaresh/CropDeal.postman_collection.json) is included in the root directory. It contains **39+ automated tests** across 11 modules:
+
+1. `01. Authentication & Profile` (Admin, Farmer, Dealer, and Delivery Partner registration & JWT retrieval)
+2. `02. Crop Catalog & Mandi Price Engine` (Crop creation, filtering, Govt. benchmark lookup)
+3. `03. Direct Price Negotiation` (Discount proposal, validation check, counter-offers, acceptance)
+4. `04. Bidding & Escrow Wallet` (Wallet balance credit, live auction lot creation, wallet escrow reservation)
+5. `05. Orders & Stock Payment` (Order placement, quantity deduction verification, stock payment)
+6. `06. Fulfillment - Path A: Self-Pickup` (Zero-fee self-pickup fulfillment)
+7. `07. Fulfillment - Path B: Delivery Partner & Global Pool` (Static ₹100 fee, pool job claiming, milestone stepper)
+8. `08. Invoicing & PDF Receipts` (Rule 46 CGST Tax invoice generation and PDF stream download)
+9. `09. Reviews, Ratings & Admin Moderation` (5-star ratings, aggregate recalculations, admin sanctions)
+10. `10. AI Chatbot Assistant` (Sarvam AI agricultural conversational testing)
+11. `11. Advanced Price Alert Engine` (Threshold subscriptions, real-time matching, deduplication checks)
+
+To execute the suite:
+1. Open **Postman** and click **Import**.
+2. Select [`CropDeal.postman_collection.json`](file:///D:/cropdealnaresh/CropDeal.postman_collection.json).
+3. Set the environment variable `baseUrl` to `http://localhost:8080`.
+4. Click **Run Collection**.
+
+---
+
+## 📂 Repository Directory Structure
+
+```plaintext
+cropdeal/
+├── api-gateway/               # Spring Cloud API Gateway (Port 8080)
+├── auth-service/              # JWT & BCrypt Authentication Service (Port 8081)
+├── bidding-service/           # Live Crop Auction & Bidding Floor (Port 8086)
+├── chatbot-service/           # Sarvam AI Agricultural Assistant (Port 8096)
+├── config-server/             # Spring Cloud Config Server (Port 8888)
+├── crop-service/              # Crop Catalog & Inventory Management (Port 8083)
+├── cropdeal-ui/               # Angular 18+ Standalone Web Client (Port 4200)
+├── deliveryservice/           # Global Delivery Pool & Milestone Logistics (Port 8091)
+├── eureka-server/             # Netflix Eureka Service Discovery (Port 8761)
+├── invoice-service/           # OpenPDF Rule 46 CGST Tax Invoicing (Port 8090)
+├── negotiation-service/       # Direct Price Bargaining Engine (Port 8085)
+├── notification-service/      # RabbitMQ Event-Driven Notifications (Port 8092)
+├── order-service/             # Order Processing & Stock Deductions (Port 8088)
+├── payment-service/           # Payment Processing & Gateway Webhooks (Port 8089)
+├── price-alert-service/       # Price Subscriptions & Real-Time Matching (Port 8094)
+├── price-service/             # Govt. Mandi API AGMARKNET Integration (Port 8084)
+├── report-service/            # Platform Analytics & Commission Reports (Port 8095)
+├── user-sevice/               # User Profiles, Reviews & Admin Moderation (Port 8082)
+├── wallet-service/            # Escrow Wallet with Optimistic Locking (Port 8087)
+├── uploads/                   # Runtime image uploads (crops & bidding)
+├── CropDeal.postman_collection.json # Automated 39+ request test suite
+├── docker-compose.yml         # Containerized cluster orchestration
+├── init.sql                   # MySQL 13-database schema initialization
+├── pom.xml                    # Root Maven multi-module parent POM
+├── start-all.ps1              # PowerShell master system launcher
+├── stop-all.ps1               # PowerShell graceful shutdown script
+├── .gitignore                 # Production-grade Git ignore configuration
+└── README.md                  # Comprehensive platform documentation
 ```
 
-When running without Docker, make sure MySQL, RabbitMQ, Eureka and Config Server are available.
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+1. **Fork** the repository.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'feat: Add AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a **Pull Request**.
 
 ---
 
-# 🧠 Important Concepts Demonstrated
+## 📜 License
 
-This project demonstrates practical implementation of:
-
-* Microservices Architecture
-* REST APIs
-* Spring Boot
-* Spring Cloud
-* API Gateway
-* Service Discovery
-* Centralized Configuration
-* JWT Authentication
-* Role-Based Authorization
-* Spring Security
-* DTO Pattern
-* Layered Architecture
-* Spring Data JPA
-* Hibernate
-* OpenFeign
-* RabbitMQ
-* Event-Driven Architecture
-* Circuit Breaker
-* Retry Pattern
-* Global Exception Handling
-* Input Validation
-* Database-per-Service
-* API Documentation
-* Application Monitoring
-* Docker
-* Docker Compose
-* AI API Integration
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
 
-# 🔮 Future Enhancements
-
-Planned improvements can include:
-
-* [ ] Angular/React frontend
-* [ ] Kubernetes deployment
-* [ ] CI/CD pipeline
-* [ ] Prometheus and Grafana monitoring
-* [ ] Distributed tracing
-* [ ] Centralized logging
-* [ ] Redis caching
-* [ ] Cloud object storage for crop images
-* [ ] OAuth2 / OpenID Connect
-* [ ] Real-time WebSocket notifications
-* [ ] Production payment gateway integration
-* [ ] Advanced recommendation system
-* [ ] Automated integration testing
-* [ ] Contract testing
-* [ ] Production secret management
-
----
-
-# 👨‍💻 Contributors
-
-**CropDeal Team**
-
-This project was developed as a team-based microservices application to demonstrate practical implementation of **Java, Spring Boot, Spring Cloud, REST APIs, distributed systems, database management, security, messaging, resilience, and Docker**.
-
----
-
-# 📜 License
-
-This project is developed for **educational and academic purposes**.
-
----
-
-## ⭐ If you find this project useful
-
-Give the repository a ⭐ and feel free to explore the implementation.
+<p align="center">
+  <b>Built with ❤️ for Indian Farmers and the Agricultural Community.</b>
+</p>
