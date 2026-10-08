@@ -1,0 +1,179 @@
+# ==============================================================================
+# CropDeal Enterprise Platform - Root .gitignore
+# Multi-Module Spring Boot Microservices & Angular Frontend
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Java, Maven & Spring Boot Compiled Artifacts
+# ------------------------------------------------------------------------------
+target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Gradle (if applicable)
+.gradle/
+**/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ------------------------------------------------------------------------------
+# 2. Frontend & Node.js Artifacts (cropdeal-ui)
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.angular/
+**/.angular/
+dist/
+**/dist/
+out-tsc/
+**/out-tsc/
+bazel-out/
+.sass-cache/
+connect.lock
+coverage/
+**/coverage/
+/typings/
+*.tsbuildinfo
+
+# Package manager debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+testem.log
+
+# ------------------------------------------------------------------------------
+# 3. Application Logs & PID Files
+# ------------------------------------------------------------------------------
+*.log
+**/*.log
+logs/
+**/logs/
+auth.log
+auth_err.log
+*.pid
+*.seed
+*.pid.lock
+
+# ------------------------------------------------------------------------------
+# 4. Uploaded Media & Temporary Runtime Storage
+# (Preserves directories using .gitkeep while ignoring uploaded assets)
+# ------------------------------------------------------------------------------
+uploads/*
+!uploads/.gitkeep
+uploads/crops/*
+!uploads/crops/.gitkeep
+uploads/bidding/*
+!uploads/bidding/.gitkeep
+
+# ------------------------------------------------------------------------------
+# 5. IDE & Editor Files
+# ------------------------------------------------------------------------------
+# IntelliJ IDEA
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+*.iws
+*.ipr
+out/
+**/out/
+
+# Eclipse / Spring Tool Suite (STS)
+.metadata/
+**/.metadata/
+.classpath
+**/.classpath
+.project
+**/.project
+.settings/
+**/.settings/
+.factorypath
+**/.factorypath
+.apt_generated/
+**/.apt_generated/
+.springBeans
+**/.springBeans
+.sts4-cache/
+**/.sts4-cache/
+
+# Visual Studio Code
+.vscode/
+**/.vscode/
+.history/
+**/.history/
+
+# NetBeans
+nbproject/private/
+**/nbproject/private/
+nbbuild/
+nbdist/
+/.nb-gradle/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# ------------------------------------------------------------------------------
+# 6. Operating System & System Cache Files
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ------------------------------------------------------------------------------
+# 7. Environment Variables, Secrets & Credentials
+# ------------------------------------------------------------------------------
+.env
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+
+# ------------------------------------------------------------------------------
+# 8. Temporary & AI Workspace Metadata
+# ------------------------------------------------------------------------------
+tmp/
+**/tmp/
+scratch/
+**/scratch/
+.gemini/
+**/.gemini/
+.system_generated/
+**/.system_generated/
+
+bin/
+**/bin/
+
+
+bin/
+**/bin/
+
