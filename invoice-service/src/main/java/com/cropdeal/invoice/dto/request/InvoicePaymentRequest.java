@@ -15,6 +15,9 @@ public class InvoicePaymentRequest {
     private String transactionReference;
     private LocalDateTime paidAt;
 
+    public InvoicePaymentRequest() {
+    }
+
     public Long getPaymentId() {
         return paymentId;
     }

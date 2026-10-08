@@ -31,7 +31,7 @@ public class InvoiceCreateRequest {
     /*
      * Payment reference received from Payment Service.
      */
-    @jakarta.validation.constraints.NotBlank(message = "Payment ID is required")
+    @NotNull(message = "Payment ID is required")
     private String paymentId;
 
     /*
@@ -63,6 +63,7 @@ public class InvoiceCreateRequest {
     /*
      * Subtotal before tax.
      */
+    @NotNull(message = "Subtotal is required")
     @DecimalMin(value = "0.00", message = "Subtotal cannot be negative")
     private BigDecimal subtotal;
 
