@@ -2,7 +2,6 @@ package com.cropdeal.user.service;
 
 import com.cropdeal.user.dto.DeliveryPartnerResponse;
 import com.cropdeal.user.dto.DeliveryPartnerUpdateRequest;
-import com.cropdeal.user.enums.Role;
 
 import java.util.List;
 
@@ -18,11 +17,7 @@ public interface DeliveryPartnerService {
 
     DeliveryPartnerResponse updateDeliveryPartnerByUserId(Long userId, DeliveryPartnerUpdateRequest request);
 
-    DeliveryPartnerResponse createDeliveryPartnerProfile(Long userId, String name, String email, String phone, Role role);
-
-    default DeliveryPartnerResponse createDeliveryPartnerProfile(Long userId, String name, String phone) {
-        return createDeliveryPartnerProfile(userId, name, null, phone, Role.DELIVERY_PARTNER);
-    }
+    DeliveryPartnerResponse createDeliveryPartnerProfile(Long userId, String name, String phone);
 
     void deleteDeliveryPartnerByUserId(Long userId);
 }

@@ -1,9 +1,6 @@
 package com.cropdeal.user.controller;
 
 import com.cropdeal.user.dto.CreateProfileRequest;
-import com.cropdeal.user.dto.DealerResponse;
-import com.cropdeal.user.dto.FarmerResponse;
-import com.cropdeal.user.dto.ProfileLookupResponse;
 import com.cropdeal.user.enums.Role;
 import com.cropdeal.user.service.DealerService;
 import com.cropdeal.user.service.DeliveryPartnerService;
@@ -34,11 +31,11 @@ public class InternalProfileController {
     @PostMapping("/profile")
     public ResponseEntity<Void> createProfile(@Valid @RequestBody CreateProfileRequest request) {
         if (request.getRole() == Role.FARMER) {
-            farmerService.createFarmerProfile(request.getUserId(), request.getName(), request.getEmail(), request.getPhone(), request.getRole());
+            farmerService.createFarmerProfile(request.getUserId(), request.getName(), request.getPhone());
         } else if (request.getRole() == Role.DEALER) {
-            dealerService.createDealerProfile(request.getUserId(), request.getName(), request.getEmail(), request.getPhone(), request.getRole());
+            dealerService.createDealerProfile(request.getUserId(), request.getName(), request.getPhone());
         } else if (request.getRole() == Role.DELIVERY_PARTNER) {
-            deliveryPartnerService.createDeliveryPartnerProfile(request.getUserId(), request.getName(), request.getEmail(), request.getPhone(), request.getRole());
+            deliveryPartnerService.createDeliveryPartnerProfile(request.getUserId(), request.getName(), request.getPhone());
         }
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -50,19 +47,5 @@ public class InternalProfileController {
         dealerService.deleteDealerByUserId(userId);
         deliveryPartnerService.deleteDeliveryPartnerByUserId(userId);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/profile/{userId}")
-    public ProfileLookupResponse getProfile(@PathVariable Long userId,
-                                            @RequestParam Role role) {
-        if (role == Role.FARMER) {
-            FarmerResponse farmer = farmerService.getFarmerByUserId(userId);
-            return new ProfileLookupResponse(farmer.getId(), farmer.getUserId(), Role.FARMER.name(), farmer.getName());
-        }
-        if (role == Role.DEALER) {
-            DealerResponse dealer = dealerService.getDealerByUserId(userId);
-            return new ProfileLookupResponse(dealer.getId(), dealer.getUserId(), Role.DEALER.name(), dealer.getName());
-        }
-        throw new IllegalArgumentException("Order tracking is available for farmer and dealer accounts");
     }
 }

@@ -1,7 +1,6 @@
 package com.cropdeal.user.entity;
 
 import com.cropdeal.user.enums.DeliveryPartnerStatus;
-import com.cropdeal.user.enums.Role;
 import com.cropdeal.user.enums.VehicleType;
 import jakarta.persistence.*;
 
@@ -34,20 +33,16 @@ public class DeliveryPartner {
     @Column(nullable = false, length = 10)
     private String phone;
 
-    private String email;
-
-    @Enumerated(EnumType.STRING)
-    private Role role;
-
     private String address;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String vehicleNumber;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private VehicleType vehicleType;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String drivingLicenseNumber;
 
     @Enumerated(EnumType.STRING)
@@ -90,22 +85,6 @@ public class DeliveryPartner {
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 
     public String getAddress() {

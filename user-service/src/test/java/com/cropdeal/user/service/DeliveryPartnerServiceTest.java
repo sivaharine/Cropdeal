@@ -148,6 +148,9 @@ class DeliveryPartnerServiceTest {
         newPartner.setUserId(50L);
         newPartner.setName("Fast Cargo");
         newPartner.setPhone("9876543213");
+        newPartner.setVehicleType(VehicleType.BIKE);
+        newPartner.setVehicleNumber("NOT_SET_50");
+        newPartner.setDrivingLicenseNumber("NOT_SET_50");
         newPartner.setAvailabilityStatus(DeliveryPartnerStatus.OFFLINE);
 
         when(deliveryPartnerRepository.save(any(DeliveryPartner.class))).thenReturn(newPartner);
@@ -156,8 +159,6 @@ class DeliveryPartnerServiceTest {
 
         assertNotNull(response);
         assertEquals(50L, response.getUserId());
-        assertNull(response.getVehicleNumber());
-        assertNull(response.getDrivingLicenseNumber());
         verify(deliveryPartnerRepository).save(any(DeliveryPartner.class));
     }
 

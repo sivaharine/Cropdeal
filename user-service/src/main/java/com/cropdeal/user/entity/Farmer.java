@@ -1,6 +1,5 @@
 package com.cropdeal.user.entity;
 
-import com.cropdeal.user.enums.Role;
 import jakarta.persistence.*;
 
 @Entity
@@ -32,17 +31,18 @@ public class Farmer {
     @Column(nullable = false, length = 10)
     private String phone;
 
-    private String email;
-
-    @Enumerated(EnumType.STRING)
-    private Role role;
-
     private String address;
 
     private String farmLocation;
 
     @Column(length = 500)
     private String bankDetails;
+
+    private Double averageRating = 0.0;
+
+    private Integer totalReviews = 0;
+
+    private Boolean isBlocked = false;
 
     public Farmer() {
     }
@@ -79,22 +79,6 @@ public class Farmer {
         this.phone = phone;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
-
     public String getAddress() {
         return address;
     }
@@ -117,5 +101,29 @@ public class Farmer {
 
     public void setBankDetails(String bankDetails) {
         this.bankDetails = bankDetails;
+    }
+
+    public Double getAverageRating() {
+        return averageRating;
+    }
+
+    public void setAverageRating(Double averageRating) {
+        this.averageRating = averageRating;
+    }
+
+    public Integer getTotalReviews() {
+        return totalReviews;
+    }
+
+    public void setTotalReviews(Integer totalReviews) {
+        this.totalReviews = totalReviews;
+    }
+
+    public Boolean getIsBlocked() {
+        return isBlocked;
+    }
+
+    public void setIsBlocked(Boolean isBlocked) {
+        this.isBlocked = isBlocked;
     }
 }

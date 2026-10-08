@@ -8,6 +8,7 @@ import com.cropdeal.user.security.JwtAuthenticationFilter;
 import com.cropdeal.user.security.JwtService;
 import com.cropdeal.user.service.DealerService;
 import com.cropdeal.user.service.DeliveryPartnerService;
+import com.cropdeal.user.service.FarmerReviewService;
 import com.cropdeal.user.service.FarmerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -48,6 +49,15 @@ class AdminUserControllerTest {
 
     @MockBean
     private DeliveryPartnerService deliveryPartnerService;
+
+    @MockBean
+    private com.cropdeal.user.repository.FarmerRepository farmerRepository;
+
+    @MockBean
+    private com.cropdeal.user.repository.DealerRepository dealerRepository;
+
+    @MockBean
+    private com.cropdeal.user.repository.DeliveryPartnerRepository deliveryPartnerRepository;
 
     @MockBean
     private AuthServiceClient authServiceClient;
@@ -112,5 +122,30 @@ class AdminUserControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Admin Endpoint 5: GET /api/admin/users returns aggregated user list")
+    void testGetAllUsers() throws Exception {
+        mockMvc.perform(get("/api/admin/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("Admin Endpoint 6: POST /api/admin/users/{userId}/block blocks user successfully")
+    void testBlockUser() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/users/10/block")
+                        .param("reason", "Violated terms"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("BLOCKED"));
+    }
+
+    @Test
+    @DisplayName("Admin Endpoint 7: POST /api/admin/users/{userId}/unblock unblocks user successfully")
+    void testUnblockUser() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/users/10/unblock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
     }
 }

@@ -63,7 +63,7 @@ class InternalProfileControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        verify(farmerService).createFarmerProfile(100L, "Karthik", "karthik@gmail.com", "9876543210", Role.FARMER);
+        verify(farmerService).createFarmerProfile(100L, "Karthik", "9876543210");
     }
 
     @Test
@@ -82,7 +82,7 @@ class InternalProfileControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        verify(dealerService).createDealerProfile(101L, "Arun", "arun@gmail.com", "9876543211", Role.DEALER);
+        verify(dealerService).createDealerProfile(101L, "Arun", "9876543211");
     }
 
     @Test
@@ -101,7 +101,7 @@ class InternalProfileControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        verify(deliveryPartnerService).createDeliveryPartnerProfile(102L, "Vikas", "vikas@gmail.com", "9876543212", Role.DELIVERY_PARTNER);
+        verify(deliveryPartnerService).createDeliveryPartnerProfile(102L, "Vikas", "9876543212");
     }
 
     @Test

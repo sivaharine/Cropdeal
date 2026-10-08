@@ -1,6 +1,5 @@
 package com.cropdeal.user.entity;
 
-import com.cropdeal.user.enums.Role;
 import jakarta.persistence.*;
 
 @Entity
@@ -31,11 +30,6 @@ public class Dealer {
 
     @Column(nullable = false, length = 10)
     private String phone;
-
-    private String email;
-
-    @Enumerated(EnumType.STRING)
-    private Role role;
 
     private String businessName;
 
@@ -77,22 +71,6 @@ public class Dealer {
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 
     public String getBusinessName() {

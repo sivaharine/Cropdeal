@@ -3,7 +3,6 @@ package com.cropdeal.user.service;
 import com.cropdeal.user.dto.DealerResponse;
 import com.cropdeal.user.dto.DealerUpdateRequest;
 import com.cropdeal.user.entity.Dealer;
-import com.cropdeal.user.enums.Role;
 import com.cropdeal.user.exception.DealerNotFoundException;
 import com.cropdeal.user.repository.DealerRepository;
 import org.springframework.stereotype.Service;
@@ -68,7 +67,7 @@ public class DealerServiceImpl implements DealerService {
     }
 
     @Override
-    public DealerResponse createDealerProfile(Long userId, String name, String email, String phone, Role role) {
+    public DealerResponse createDealerProfile(Long userId, String name, String phone) {
         if (dealerRepository.existsByUserId(userId)) {
             return getDealerByUserId(userId);
         }
@@ -76,9 +75,7 @@ public class DealerServiceImpl implements DealerService {
         Dealer dealer = new Dealer();
         dealer.setUserId(userId);
         dealer.setName(name);
-        dealer.setEmail(normalizeEmail(email));
         dealer.setPhone(phone);
-        dealer.setRole(role);
 
         Dealer saved = dealerRepository.save(dealer);
         return mapToResponse(saved);
@@ -113,15 +110,9 @@ public class DealerServiceImpl implements DealerService {
                 dealer.getUserId(),
                 dealer.getName(),
                 dealer.getPhone(),
-                dealer.getEmail(),
-                dealer.getRole(),
                 dealer.getBusinessName(),
                 dealer.getAddress(),
                 dealer.getBankDetails()
         );
-    }
-
-    private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
     }
 }

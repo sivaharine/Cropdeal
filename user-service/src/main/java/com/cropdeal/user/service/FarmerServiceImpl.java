@@ -3,7 +3,6 @@ package com.cropdeal.user.service;
 import com.cropdeal.user.dto.FarmerResponse;
 import com.cropdeal.user.dto.FarmerUpdateRequest;
 import com.cropdeal.user.entity.Farmer;
-import com.cropdeal.user.enums.Role;
 import com.cropdeal.user.exception.FarmerNotFoundException;
 import com.cropdeal.user.repository.FarmerRepository;
 import org.springframework.stereotype.Service;
@@ -68,7 +67,7 @@ public class FarmerServiceImpl implements FarmerService {
     }
 
     @Override
-    public FarmerResponse createFarmerProfile(Long userId, String name, String email, String phone, Role role) {
+    public FarmerResponse createFarmerProfile(Long userId, String name, String phone) {
         if (farmerRepository.existsByUserId(userId)) {
             return getFarmerByUserId(userId);
         }
@@ -76,9 +75,7 @@ public class FarmerServiceImpl implements FarmerService {
         Farmer farmer = new Farmer();
         farmer.setUserId(userId);
         farmer.setName(name);
-        farmer.setEmail(normalizeEmail(email));
         farmer.setPhone(phone);
-        farmer.setRole(role);
 
         Farmer saved = farmerRepository.save(farmer);
         return mapToResponse(saved);
@@ -113,15 +110,9 @@ public class FarmerServiceImpl implements FarmerService {
                 farmer.getUserId(),
                 farmer.getName(),
                 farmer.getPhone(),
-                farmer.getEmail(),
-                farmer.getRole(),
                 farmer.getAddress(),
                 farmer.getFarmLocation(),
                 farmer.getBankDetails()
         );
-    }
-
-    private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
     }
 }

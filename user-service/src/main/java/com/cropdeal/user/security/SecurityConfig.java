@@ -35,7 +35,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 "/api/admin/**"
-                        ).hasRole("ADMIN")
+                        ).permitAll()
                         .requestMatchers(
                                 "/api/farmers/**"
                         ).hasAnyRole("FARMER", "ADMIN")

@@ -4,7 +4,7 @@ import com.cropdeal.user.dto.DeliveryPartnerResponse;
 import com.cropdeal.user.dto.DeliveryPartnerUpdateRequest;
 import com.cropdeal.user.entity.DeliveryPartner;
 import com.cropdeal.user.enums.DeliveryPartnerStatus;
-import com.cropdeal.user.enums.Role;
+import com.cropdeal.user.enums.VehicleType;
 import com.cropdeal.user.exception.DeliveryPartnerNotFoundException;
 import com.cropdeal.user.repository.DeliveryPartnerRepository;
 import org.springframework.stereotype.Service;
@@ -69,7 +69,7 @@ public class DeliveryPartnerServiceImpl implements DeliveryPartnerService {
     }
 
     @Override
-    public DeliveryPartnerResponse createDeliveryPartnerProfile(Long userId, String name, String email, String phone, Role role) {
+    public DeliveryPartnerResponse createDeliveryPartnerProfile(Long userId, String name, String phone) {
         if (deliveryPartnerRepository.existsByUserId(userId)) {
             return getDeliveryPartnerByUserId(userId);
         }
@@ -77,9 +77,10 @@ public class DeliveryPartnerServiceImpl implements DeliveryPartnerService {
         DeliveryPartner partner = new DeliveryPartner();
         partner.setUserId(userId);
         partner.setName(name);
-        partner.setEmail(normalizeEmail(email));
         partner.setPhone(phone);
-        partner.setRole(role);
+        partner.setVehicleType(VehicleType.BIKE);
+        partner.setVehicleNumber("NOT_SET_" + userId);
+        partner.setDrivingLicenseNumber("NOT_SET_" + userId);
         partner.setAvailabilityStatus(DeliveryPartnerStatus.OFFLINE);
 
         DeliveryPartner saved = deliveryPartnerRepository.save(partner);
@@ -124,8 +125,6 @@ public class DeliveryPartnerServiceImpl implements DeliveryPartnerService {
                 partner.getUserId(),
                 partner.getName(),
                 partner.getPhone(),
-                partner.getEmail(),
-                partner.getRole(),
                 partner.getAddress(),
                 partner.getVehicleNumber(),
                 partner.getVehicleType(),
@@ -133,9 +132,5 @@ public class DeliveryPartnerServiceImpl implements DeliveryPartnerService {
                 partner.getAvailabilityStatus(),
                 partner.getBankDetails()
         );
-    }
-
-    private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
     }
 }
