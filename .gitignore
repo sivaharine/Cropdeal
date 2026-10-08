@@ -1,4 +1,4 @@
-﻿target/
+target/
 **/target/
 *.class
 *.jar
@@ -16,3 +16,10 @@
 **/.settings/
 bin/
 **/bin/
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.angular/
+**/.angular/
+
