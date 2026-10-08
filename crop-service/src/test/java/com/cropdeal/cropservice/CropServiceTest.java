@@ -29,6 +29,7 @@ class CropServiceTest {
     @Mock CropRepository cropRepository;
     @Mock PriceServiceClient priceServiceClient;
     @Mock SubscriptionService subscriptionService;
+    @Mock com.cropdeal.cropservice.client.PriceAlertClient priceAlertClient;
 
     @InjectMocks CropService cropService;
 

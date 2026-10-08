@@ -10,6 +10,7 @@ public class CropPriceResponse {
     private LocalDate priceDate;
     private Double minPricePerKg;
     private Double maxPricePerKg;
+    private Double modalPricePerKg;
 
     public String getCommodity() { return commodity; }
     public void setCommodity(String commodity) { this.commodity = commodity; }
@@ -25,4 +26,18 @@ public class CropPriceResponse {
     public void setMinPricePerKg(Double minPricePerKg) { this.minPricePerKg = minPricePerKg; }
     public Double getMaxPricePerKg() { return maxPricePerKg; }
     public void setMaxPricePerKg(Double maxPricePerKg) { this.maxPricePerKg = maxPricePerKg; }
+    public Double getModalPricePerKg() { return modalPricePerKg; }
+    public void setModalPricePerKg(Double modalPricePerKg) { this.modalPricePerKg = modalPricePerKg; }
+
+    public Double getReferencePrice() {
+        return modalPricePerKg;
+    }
+
+    public Double getMinAllowedPrice() {
+        return minPricePerKg != null ? minPricePerKg : (modalPricePerKg != null ? Math.round(modalPricePerKg * 0.85 * 100.0) / 100.0 : null);
+    }
+
+    public Double getMaxAllowedPrice() {
+        return maxPricePerKg != null ? maxPricePerKg : (modalPricePerKg != null ? Math.round(modalPricePerKg * 1.35 * 100.0) / 100.0 : null);
+    }
 }

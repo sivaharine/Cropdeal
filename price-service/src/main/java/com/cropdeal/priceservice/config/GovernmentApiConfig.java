@@ -12,6 +12,7 @@ public class GovernmentApiConfig {
     private String format = "json";
     private int pageSize = 1000;
     private String syncCron = "0 0 2 * * *";
+    private boolean syncOnStartup = true;
 
     public String getBaseUrl() { return baseUrl; }
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
@@ -25,4 +26,6 @@ public class GovernmentApiConfig {
     public void setPageSize(int pageSize) { this.pageSize = pageSize; }
     public String getSyncCron() { return syncCron; }
     public void setSyncCron(String syncCron) { this.syncCron = syncCron; }
+    public boolean isSyncOnStartup() { return syncOnStartup; }
+    public void setSyncOnStartup(boolean syncOnStartup) { this.syncOnStartup = syncOnStartup; }
 }

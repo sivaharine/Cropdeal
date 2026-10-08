@@ -41,6 +41,12 @@ public class Crop {
     @Column(length = 1000)
     private String description;
 
+    @Column(length = 200)
+    private String farmerName;
+
+    @Column(length = 500)
+    private String imageUrl;
+
     @Column(nullable = false, length = 20)
     private String status;
 
@@ -80,6 +86,10 @@ public class Crop {
     public void setPricePerKg(BigDecimal pricePerKg) { this.pricePerKg = pricePerKg; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getFarmerName() { return farmerName; }
+    public void setFarmerName(String farmerName) { this.farmerName = farmerName; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     public LocalDateTime getCreatedAt() { return createdAt; }

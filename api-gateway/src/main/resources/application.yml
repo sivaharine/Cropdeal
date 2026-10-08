@@ -1,0 +1,259 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**, /oauth2/**, /login/oauth2/**
+
+
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**, /api/farmers/**, /api/dealers/**, /api/delivery-partners/**, /api/reviews/**, /api/admin/**
+
+        - id: crop-service
+          uri: lb://crop-service
+          predicates:
+            - Path=/api/crops/**
+
+        - id: price-service
+          uri: lb://price-service
+          predicates:
+            - Path=/api/pricing/**, /api/prices/**
+
+        - id: negotiation-service
+          uri: lb://negotiation-service
+          predicates:
+            - Path=/api/negotiations/**
+
+        - id: bidding-service
+          uri: lb://bidding-service
+          predicates:
+            - Path=/api/biddings/**, /api/bids/**
+
+        - id: wallet-service
+          uri: lb://wallet-service
+          predicates:
+            - Path=/api/wallet/**, /api/wallets/**
+
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**, /api/refunds/**
+
+        - id: invoice-service
+          uri: lb://invoice-service
+          predicates:
+            - Path=/api/invoices/**
+
+        - id: delivery-service
+          uri: lb://deliveryservice
+          predicates:
+            - Path=/api/deliveries/**,/api/delivery-agents/**
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+
+        - id: chatbot-service
+          uri: lb://chatbot-service
+          predicates:
+            - Path=/api/chat/**,/api/chatbot/**,/api/v1/chatbot/**
+
+        - id: price-alert-service
+          uri: lb://price-alert-service
+          predicates:
+            - Path=/api/price-alerts/**,/api/buying-requests/**
+
+        - id: report-service
+          uri: lb://report-service
+          predicates:
+            - Path=/api/reports/**
+
+        # Swagger OpenAPI documentation routes for microservices
+        - id: auth-service-v3-docs
+          uri: lb://auth-service
+          predicates:
+            - Path=/v3/api-docs/auth-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: user-service-v3-docs
+          uri: lb://user-service
+          predicates:
+            - Path=/v3/api-docs/user-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: crop-service-v3-docs
+          uri: lb://crop-service
+          predicates:
+            - Path=/v3/api-docs/crop-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: price-service-v3-docs
+          uri: lb://price-service
+          predicates:
+            - Path=/v3/api-docs/price-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: price-alert-service-v3-docs
+          uri: lb://price-alert-service
+          predicates:
+            - Path=/v3/api-docs/price-alert-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: negotiation-service-v3-docs
+          uri: lb://negotiation-service
+          predicates:
+            - Path=/v3/api-docs/negotiation-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: bidding-service-v3-docs
+          uri: lb://bidding-service
+          predicates:
+            - Path=/v3/api-docs/bidding-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: wallet-service-v3-docs
+          uri: lb://wallet-service
+          predicates:
+            - Path=/v3/api-docs/wallet-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: order-service-v3-docs
+          uri: lb://order-service
+          predicates:
+            - Path=/v3/api-docs/order-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: payment-service-v3-docs
+          uri: lb://payment-service
+          predicates:
+            - Path=/v3/api-docs/payment-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: invoice-service-v3-docs
+          uri: lb://invoice-service
+          predicates:
+            - Path=/v3/api-docs/invoice-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: delivery-service-v3-docs
+          uri: lb://deliveryservice
+          predicates:
+            - Path=/v3/api-docs/delivery-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: notification-service-v3-docs
+          uri: lb://notification-service
+          predicates:
+            - Path=/v3/api-docs/notification-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: chatbot-service-v3-docs
+          uri: lb://chatbot-service
+          predicates:
+            - Path=/v3/api-docs/chatbot-service
+          filters:
+            - SetPath=/v3/api-docs
+
+        - id: report-service-v3-docs
+          uri: lb://report-service
+          predicates:
+            - Path=/v3/api-docs/report-service
+          filters:
+            - SetPath=/v3/api-docs
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    urls:
+      - name: 1. Auth Service
+        url: /v3/api-docs/auth-service
+      - name: 2. User Service
+        url: /v3/api-docs/user-service
+      - name: 3. Crop Service
+        url: /v3/api-docs/crop-service
+      - name: 4. Price Service
+        url: /v3/api-docs/price-service
+      - name: 5. Price Alert Service
+        url: /v3/api-docs/price-alert-service
+      - name: 6. Negotiation Service
+        url: /v3/api-docs/negotiation-service
+      - name: 7. Bidding Service
+        url: /v3/api-docs/bidding-service
+      - name: 8. Order Service
+        url: /v3/api-docs/order-service
+      - name: 9. Payment Service
+        url: /v3/api-docs/payment-service
+      - name: 10. Invoice Service
+        url: /v3/api-docs/invoice-service
+      - name: 11. Delivery Service
+        url: /v3/api-docs/delivery-service
+      - name: 12. Wallet Service
+        url: /v3/api-docs/wallet-service
+      - name: 13. Notification Service
+        url: /v3/api-docs/notification-service
+      - name: 14. Chatbot Service
+        url: /v3/api-docs/chatbot-service
+      - name: 15. Report Service
+        url: /v3/api-docs/report-service
+
