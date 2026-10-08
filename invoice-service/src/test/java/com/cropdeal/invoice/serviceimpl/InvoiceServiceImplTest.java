@@ -1,8 +1,11 @@
 
 package com.cropdeal.invoice.serviceimpl;
 
+import com.cropdeal.invoice.client.OrderServiceClient;
+import com.cropdeal.invoice.dto.client.OrderDto;
 import com.cropdeal.invoice.dto.request.InvoiceCreateRequest;
 import com.cropdeal.invoice.dto.request.InvoiceItemRequest;
+import com.cropdeal.invoice.dto.request.InvoicePaymentRequest;
 import com.cropdeal.invoice.dto.response.InvoiceResponse;
 import com.cropdeal.invoice.entity.Invoice;
 import com.cropdeal.invoice.entity.InvoiceItem;
@@ -37,6 +40,9 @@ class InvoiceServiceImplTest {
 
     @Mock
     private PdfInvoiceService pdfInvoiceService;
+
+    @Mock
+    private OrderServiceClient orderServiceClient;
 
     @InjectMocks
     private InvoiceServiceImpl invoiceService;
@@ -200,5 +206,70 @@ class InvoiceServiceImplTest {
 
         verify(pdfInvoiceService, never())
                 .generateInvoicePdf(any(Invoice.class));
+    }
+
+    @Test
+    void generateInvoicePdfByOrderId_ShouldReturnPdf_WhenInvoiceExists() {
+        byte[] expectedPdf = "ORDER PDF".getBytes();
+
+        when(invoiceRepository.findByOrderId(1002L))
+                .thenReturn(Optional.of(invoice));
+
+        when(pdfInvoiceService.generateInvoicePdf(invoice))
+                .thenReturn(expectedPdf);
+
+        byte[] result = invoiceService.generateInvoicePdfByOrderId(1002L);
+
+        assertArrayEquals(expectedPdf, result);
+        verify(invoiceRepository).findByOrderId(1002L);
+        verify(pdfInvoiceService).generateInvoicePdf(invoice);
+    }
+
+    @Test
+    void generateInvoicePdfByOrderId_ShouldAutoCreateAndReturnPdf_WhenInvoiceDoesNotExist() {
+        byte[] expectedPdf = "AUTO PDF".getBytes();
+        OrderDto orderDto = new OrderDto();
+        orderDto.setId(1002L);
+        orderDto.setCropName("Rice");
+        orderDto.setQuantity(5);
+        orderDto.setUnitPrice(new BigDecimal("100.00"));
+        orderDto.setTotalAmount(new BigDecimal("500.00"));
+
+        when(invoiceRepository.findByOrderId(1002L))
+                .thenReturn(Optional.empty());
+        when(orderServiceClient.getOrderById(1002L))
+                .thenReturn(orderDto);
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenReturn(invoice);
+        when(pdfInvoiceService.generateInvoicePdf(any(Invoice.class)))
+                .thenReturn(expectedPdf);
+
+        byte[] result = invoiceService.generateInvoicePdfByOrderId(1002L);
+
+        assertArrayEquals(expectedPdf, result);
+        verify(orderServiceClient).getOrderById(1002L);
+        verify(invoiceRepository).save(any(Invoice.class));
+    }
+
+    @Test
+    void createInvoiceFromPayment_ShouldCreateInvoiceSuccessfully() {
+        InvoicePaymentRequest paymentRequest = new InvoicePaymentRequest();
+        paymentRequest.setOrderId(1002L);
+        paymentRequest.setPaymentId(501L);
+        paymentRequest.setAmount(new BigDecimal("500.00"));
+        paymentRequest.setDealerId(3002L);
+        paymentRequest.setFarmerId(2002L);
+
+        when(invoiceRepository.findByOrderId(1002L))
+                .thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class)))
+                .thenReturn(invoice);
+        when(invoiceMapper.toResponse(invoice))
+                .thenReturn(response);
+
+        InvoiceResponse result = invoiceService.createInvoiceFromPayment(paymentRequest);
+
+        assertNotNull(result);
+        verify(invoiceRepository).save(any(Invoice.class));
     }
 }

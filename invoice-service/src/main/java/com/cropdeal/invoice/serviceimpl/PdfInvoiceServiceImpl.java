@@ -85,33 +85,36 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
              * Basic invoice information.
              */
             document.add(new Paragraph(
-                    "Invoice Number: " + invoice.getInvoiceNumber(),
+                    "Invoice Number: " + (invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A"),
+                    normalFont
+            ));
+
+            String formattedDate = invoice.getInvoiceDate() != null
+                    ? invoice.getInvoiceDate().format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"))
+                    : java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm"));
+
+            document.add(new Paragraph(
+                    "Invoice Date: " + formattedDate,
                     normalFont
             ));
 
             document.add(new Paragraph(
-                    "Invoice Date: " + invoice.getInvoiceDate()
-                            .format(DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm")),
+                    "Order ID: " + (invoice.getOrderId() != null ? invoice.getOrderId() : "N/A"),
                     normalFont
             ));
 
             document.add(new Paragraph(
-                    "Order ID: " + invoice.getOrderId(),
+                    "Payment ID: " + (invoice.getPaymentId() != null ? invoice.getPaymentId() : "N/A"),
                     normalFont
             ));
 
             document.add(new Paragraph(
-                    "Payment ID: " + invoice.getPaymentId(),
+                    "Farmer ID: " + (invoice.getFarmerId() != null ? invoice.getFarmerId() : "N/A"),
                     normalFont
             ));
 
             document.add(new Paragraph(
-                    "Farmer ID: " + invoice.getFarmerId(),
-                    normalFont
-            ));
-
-            document.add(new Paragraph(
-                    "Dealer ID: " + invoice.getDealerId(),
+                    "Dealer ID: " + (invoice.getDealerId() != null ? invoice.getDealerId() : "N/A"),
                     normalFont
             ));
 
@@ -142,37 +145,46 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
             /*
              * Add each invoice item as one row in the table.
              */
-            for (InvoiceItem item : invoice.getItems()) {
+            if (invoice.getItems() != null && !invoice.getItems().isEmpty()) {
+                for (InvoiceItem item : invoice.getItems()) {
 
-                itemTable.addCell(new Phrase(
-                        String.valueOf(item.getId()),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            item.getId() != null ? String.valueOf(item.getId()) : "-",
+                            normalFont
+                    ));
 
-                itemTable.addCell(new Phrase(
-                        item.getCropName(),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            item.getCropName() != null ? item.getCropName() : "Crop Item",
+                            normalFont
+                    ));
 
-                itemTable.addCell(new Phrase(
-                        String.valueOf(item.getQuantity()),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            item.getQuantity() != null ? String.valueOf(item.getQuantity()) : "1",
+                            normalFont
+                    ));
 
-                itemTable.addCell(new Phrase(
-                        item.getUnit(),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            item.getUnit() != null ? item.getUnit() : "kg",
+                            normalFont
+                    ));
 
-                itemTable.addCell(new Phrase(
-                        formatAmount(item.getUnitPrice()),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            formatAmount(item.getUnitPrice()),
+                            normalFont
+                    ));
 
-                itemTable.addCell(new Phrase(
-                        formatAmount(item.getLineTotal()),
-                        normalFont
-                ));
+                    itemTable.addCell(new Phrase(
+                            formatAmount(item.getLineTotal()),
+                            normalFont
+                    ));
+                }
+            } else {
+                itemTable.addCell(new Phrase("1", normalFont));
+                itemTable.addCell(new Phrase("Crop Order #" + (invoice.getOrderId() != null ? invoice.getOrderId() : ""), normalFont));
+                itemTable.addCell(new Phrase("1", normalFont));
+                itemTable.addCell(new Phrase("lot", normalFont));
+                itemTable.addCell(new Phrase(formatAmount(invoice.getTotalAmount()), normalFont));
+                itemTable.addCell(new Phrase(formatAmount(invoice.getTotalAmount()), normalFont));
             }
 
             document.add(itemTable);
@@ -202,7 +214,7 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
             document.add(new Paragraph(" "));
 
             document.add(new Paragraph(
-                    "Invoice Status: " + invoice.getStatus(),
+                    "Invoice Status: " + (invoice.getStatus() != null ? invoice.getStatus().name() : "ISSUED"),
                     normalFont
             ));
 
@@ -223,9 +235,11 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
         } finally {
 
             /*
-             * Always close the document to complete the PDF file correctly.
+             * Always close the document if open to complete the PDF file correctly.
              */
-            document.close();
+            if (document.isOpen()) {
+                document.close();
+            }
         }
 
         return outputStream.toByteArray();
@@ -255,6 +269,6 @@ public class PdfInvoiceServiceImpl implements PdfInvoiceService {
             return "0.00";
         }
 
-        return amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+        return amount.setScale(2).toPlainString();
     }
 }

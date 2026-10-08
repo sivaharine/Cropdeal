@@ -8,7 +8,6 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 @Service
 public class SarvamClientService {
@@ -25,29 +24,22 @@ public class SarvamClientService {
             throw new ChatbotException("SARVAM_API_KEY is not configured");
         }
 
-        SarvamChatResponse response;
-        try {
-            SarvamChatRequest request = new SarvamChatRequest(config.getModel(), messages);
-            response = sarvamRestClient.post()
-                    .uri("/v1/chat/completions")
-                    .header("api-subscription-key", config.getSubscriptionKey())
-                    .body(request)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        throw new ChatbotException("Sarvam API request failed with status " + res.getStatusCode());
-                    })
-                    .body(SarvamChatResponse.class);
-        } catch (ChatbotException ex) {
-            throw ex;
-        } catch (RestClientException ex) {
-            throw new ChatbotException("Sarvam API is unavailable: " + ex.getMessage());
-        }
+        SarvamChatRequest request = new SarvamChatRequest(config.getModel(), messages);
+        SarvamChatResponse response = sarvamRestClient.post()
+                .uri("/v1/chat/completions")
+                .header("api-subscription-key", config.getSubscriptionKey())
+                .body(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new ChatbotException("Sarvam API request failed with status " + res.getStatusCode());
+                })
+                .body(SarvamChatResponse.class);
 
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
             throw new ChatbotException("Sarvam API returned an empty response");
         }
 
-        SarvamMessage message = response.choices().getFirst().message();
+        SarvamMessage message = response.choices().get(0).message();
         if (message == null || !StringUtils.hasText(message.content())) {
             throw new ChatbotException("Sarvam API returned no assistant message");
         }
