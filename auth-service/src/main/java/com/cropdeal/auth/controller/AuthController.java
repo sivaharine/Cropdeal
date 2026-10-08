@@ -3,6 +3,8 @@ package com.cropdeal.auth.controller;
 import com.cropdeal.auth.dto.*;
 import com.cropdeal.auth.enums.UserStatus;
 import com.cropdeal.auth.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Authentication, OAuth2, and User Management Endpoints")
 public class AuthController {
 
     private final AuthService authService;
@@ -19,6 +22,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Operation(summary = "Register new Farmer or Dealer")
     public ResponseEntity<MessageResponse> register(
             @Valid @RequestBody RegisterRequest request
     ) {
@@ -29,12 +33,25 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Login with Email and Password")
     public ResponseEntity<LoginResponse> login(
             @Valid @RequestBody LoginRequest request
     ) {
 
         return ResponseEntity.ok(
                 authService.login(request)
+        );
+    }
+
+    @PostMapping("/facebook")
+    @Operation(summary = "Login or Register with Facebook OAuth2 Access Token",
+               description = "Exchange a Facebook access token for a CropDeal JWT token. Auto-registers the user and creates their profile if new.")
+    public ResponseEntity<LoginResponse> loginWithFacebook(
+            @Valid @RequestBody FacebookLoginRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                authService.loginWithFacebook(request)
         );
     }
 
@@ -76,6 +93,26 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 authService.resetPassword(request)
+        );
+    }
+
+    @PostMapping("/verify-otp")
+    @Operation(summary = "Verify Password Reset OTP")
+    public ResponseEntity<MessageResponse> verifyOtp(
+            @RequestParam("otp") String otp
+    ) {
+        return ResponseEntity.ok(
+                authService.verifyOtp(otp)
+        );
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Change Password with Current Password Verification")
+    public ResponseEntity<MessageResponse> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        return ResponseEntity.ok(
+                authService.changePassword(request)
         );
     }
 

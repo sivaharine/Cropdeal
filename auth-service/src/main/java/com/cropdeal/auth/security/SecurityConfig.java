@@ -17,11 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
 
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.oauth2AuthenticationSuccessHandler = oauth2AuthenticationSuccessHandler;
     }
 
     @Bean
@@ -54,20 +57,23 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                		.requestMatchers(
-                		        "/api/auth/internal/**",
-                		        "/api/auth/register",
-                		        "/api/auth/login",
-                		        "/api/auth/logout",
-                		        "/api/auth/forgot-password",
-                		        "/api/auth/reset-password"
-                		).permitAll()
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/facebook",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/verify-otp",
+                                "/api/auth/change-password",
+                                "/oauth2/**",
+                                "/login/oauth2/**"
+                        ).permitAll()
 
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/actuator/health"
+                                "/actuator/**"
                         ).permitAll()
 
                         .requestMatchers(
@@ -75,6 +81,10 @@ public class SecurityConfig {
                         ).hasRole("ADMIN")
 
                         .anyRequest().authenticated()
+                )
+
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oauth2AuthenticationSuccessHandler)
                 )
 
                 .addFilterBefore(

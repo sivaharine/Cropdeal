@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+import com.cropdeal.auth.enums.AuthProvider;
 import com.cropdeal.auth.enums.Role;
 import com.cropdeal.auth.enums.UserStatus;
 
@@ -26,6 +27,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
+    @Column(unique = true, length = 100)
+    private String username;
+
     @Column(nullable = false)
     private String password;
 
@@ -36,6 +40,13 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(length = 100)
+    private String providerId;
 
     @Column(length = 255)
     private String resetToken;
@@ -58,6 +69,10 @@ public class User {
 
         if (status == null) {
             status = UserStatus.ACTIVE;
+        }
+
+        if (authProvider == null) {
+            authProvider = AuthProvider.LOCAL;
         }
     }
 
@@ -96,6 +111,14 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
     }
 
     public String getPassword() {
@@ -144,5 +167,21 @@ public class User {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public AuthProvider getAuthProvider() {
+        return authProvider;
+    }
+
+    public void setAuthProvider(AuthProvider authProvider) {
+        this.authProvider = authProvider;
+    }
+
+    public String getProviderId() {
+        return providerId;
+    }
+
+    public void setProviderId(String providerId) {
+        this.providerId = providerId;
     }
 }
