@@ -1,151 +1,103 @@
 package com.service;
 
-import com.config.NotificationRabbitConfig;
+import com.client.InvoiceServiceClient;
 import com.dto.*;
 import com.entity.Payment;
 import com.entity.PaymentStatus;
-import com.entity.Wallet;
-import com.entity.WalletTransaction;
+import com.entity.Refund;
+import com.entity.RefundStatus;
 import com.exception.PaymentNotFoundException;
+import com.exception.RefundException;
 import com.repository.PaymentRepository;
-import com.repository.WalletRepository;
-import com.repository.WalletTransactionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.repository.RefundRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class PaymentServiceImpl implements PaymentService {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
-
     private final PaymentRepository paymentRepository;
-    private final WalletRepository walletRepository;
-    private final WalletTransactionRepository walletTransactionRepository;
-    private final PaymentInvoiceClient paymentInvoiceClient;
-    private final RabbitTemplate rabbitTemplate;
+
+    private final RefundRepository refundRepository;
+
+    private final InvoiceServiceClient invoiceServiceClient;
 
     public PaymentServiceImpl(
             PaymentRepository paymentRepository,
-            WalletRepository walletRepository,
-            WalletTransactionRepository walletTransactionRepository,
-            PaymentInvoiceClient paymentInvoiceClient,
-            RabbitTemplate rabbitTemplate) {
+            RefundRepository refundRepository,
+            InvoiceServiceClient invoiceServiceClient) {
+
         this.paymentRepository = paymentRepository;
-        this.walletRepository = walletRepository;
-        this.walletTransactionRepository = walletTransactionRepository;
-        this.paymentInvoiceClient = paymentInvoiceClient;
-        this.rabbitTemplate = rabbitTemplate;
+        this.refundRepository = refundRepository;
+        this.invoiceServiceClient = invoiceServiceClient;
     }
 
     @Override
-    @Transactional
-    public PaymentResponse makePayment(PaymentRequest request) {
+    public PaymentResponse makePayment(
+            PaymentRequest request) {
 
-        if ("CASH_ON_DELIVERY".equalsIgnoreCase(request.getPaymentMethod())) {
-            throw new IllegalArgumentException(
-                    "Cash on delivery payments are processed upon delivery, not online payment");
+        Payment existingPayment =
+                paymentRepository
+                        .findByOrderId(request.getOrderId())
+                        .orElse(null);
+
+        if (existingPayment != null &&
+                existingPayment.getStatus() == PaymentStatus.SUCCESS) {
+
+            return convertToPaymentResponse(
+                    existingPayment);
         }
 
-        Optional<Payment> existingPayment =
-                paymentRepository.findByOrderId(request.getOrderId());
+        Payment payment;
 
-        if (existingPayment.isPresent()) {
-            Payment payment = existingPayment.get();
-            if (payment.getStatus() == PaymentStatus.SUCCESS) {
-                return mapToResponse(payment);
-            }
+        if (existingPayment != null) {
+            payment = existingPayment;
+        } else {
+            payment = new Payment();
         }
 
-        Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
         payment.setDealerId(request.getDealerId());
         payment.setFarmerId(request.getFarmerId());
         payment.setAmount(request.getAmount());
         payment.setPaymentMethod(request.getPaymentMethod());
+
         payment.setStatus(PaymentStatus.PENDING);
-        payment.setTransactionReference(
-                "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
 
-        Payment savedPayment = paymentRepository.save(payment);
+        Payment savedPayment =
+                paymentRepository.save(payment);
 
+        /*
+         * Dummy payment processing.
+         * In a real application this is where
+         * Razorpay/Stripe/etc. would be called.
+         */
         savedPayment.setStatus(PaymentStatus.SUCCESS);
-        savedPayment.setPaidAt(LocalDateTime.now());
-        Payment finalPayment = paymentRepository.save(savedPayment);
 
-        try {
-            InvoicePaymentRequest invoiceRequest = new InvoicePaymentRequest();
-            invoiceRequest.setOrderId(finalPayment.getOrderId());
-            invoiceRequest.setDealerId(finalPayment.getDealerId());
-            invoiceRequest.setFarmerId(finalPayment.getFarmerId());
-            invoiceRequest.setAmount(finalPayment.getAmount());
-            invoiceRequest.setPaymentMethod(finalPayment.getPaymentMethod());
-            invoiceRequest.setTransactionReference(
-                    finalPayment.getTransactionReference());
+        savedPayment.setTransactionReference(
+                "TXN-" +
+                        UUID.randomUUID()
+                                .toString()
+                                .substring(0, 8)
+                                .toUpperCase());
 
-            paymentInvoiceClient.generateInvoiceFromPayment(invoiceRequest);
-        } catch (Exception ignored) {
-        }
+        savedPayment.setPaidAt(
+                LocalDateTime.now());
 
-        publishPaymentCompleted(finalPayment);
+        savedPayment =
+                paymentRepository.save(savedPayment);
 
-        return mapToResponse(finalPayment);
-    }
+        generateInvoice(savedPayment);
 
-    @Override
-    public PaymentResponse getPaymentById(Long id) {
-
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new PaymentNotFoundException(
-                                "Payment not found with id: " + id));
-
-        return mapToResponse(payment);
-    }
-
-    @Override
-    public PaymentResponse getPaymentByOrderId(Long orderId) {
-
-        Payment payment = paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() ->
-                        new PaymentNotFoundException(
-                                "Payment not found for order id: " + orderId));
-
-        return mapToResponse(payment);
-    }
-
-    @Override
-    @Transactional
-    public PaymentResponse refundPaymentByOrderId(Long orderId) {
-
-        Payment payment = paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() ->
-                        new PaymentNotFoundException(
-                                "Payment not found for order id: " + orderId));
-
-        if (payment.getStatus() == PaymentStatus.REFUNDED) {
-            return mapToResponse(payment);
-        }
-
-        if (payment.getStatus() != PaymentStatus.SUCCESS) {
-            throw new IllegalStateException(
-                    "Only successful payments can be refunded");
-        }
-
-        payment.setStatus(PaymentStatus.REFUNDED);
-        Payment refundedPayment = paymentRepository.save(payment);
-
-        return mapToResponse(refundedPayment);
+        return convertToPaymentResponse(
+                savedPayment);
     }
 
     @Override
@@ -153,265 +105,422 @@ public class PaymentServiceImpl implements PaymentService {
 
         return paymentRepository.findAll()
                 .stream()
-                .map(this::mapToResponse)
+                .map(this::convertToPaymentResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
-    public PaymentResponse updatePayment(Long id, PaymentRequest request) {
+    public PaymentResponse getPaymentById(
+            Long id) {
 
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new PaymentNotFoundException(
-                                "Payment not found with id: " + id));
+        Payment payment =
+                paymentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new PaymentNotFoundException(
+                                        "Payment not found with id: "
+                                                + id));
 
-        if (payment.getStatus() == PaymentStatus.SUCCESS) {
-            throw new IllegalStateException(
-                    "Successful payments cannot be modified");
-        }
-
-        payment.setOrderId(request.getOrderId());
-        payment.setDealerId(request.getDealerId());
-        payment.setFarmerId(request.getFarmerId());
-        payment.setAmount(request.getAmount());
-        payment.setPaymentMethod(request.getPaymentMethod());
-
-        Payment updatedPayment = paymentRepository.save(payment);
-
-        return mapToResponse(updatedPayment);
+        return convertToPaymentResponse(payment);
     }
 
     @Override
-    @Transactional
+    public PaymentResponse updatePayment(
+            Long id,
+            UpdatePaymentRequest request) {
+
+        Payment payment =
+                paymentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new PaymentNotFoundException(
+                                        "Payment not found with id: "
+                                                + id));
+
+        /*
+         * A successful payment is a financial record.
+         * Do not modify a completed payment.
+         */
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+
+            throw new IllegalStateException(
+                    "Successful payment cannot be updated");
+        }
+
+        if (request.getDealerId() != null) {
+            payment.setDealerId(
+                    request.getDealerId());
+        }
+
+        if (request.getFarmerId() != null) {
+            payment.setFarmerId(
+                    request.getFarmerId());
+        }
+
+        if (request.getAmount() != null) {
+            payment.setAmount(
+                    request.getAmount());
+        }
+
+        if (request.getPaymentMethod() != null &&
+                !request.getPaymentMethod().isBlank()) {
+
+            payment.setPaymentMethod(
+                    request.getPaymentMethod());
+        }
+
+        return convertToPaymentResponse(
+                paymentRepository.save(payment));
+    }
+
+    @Override
     public void deletePayment(Long id) {
 
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new PaymentNotFoundException(
-                                "Payment not found with id: " + id));
+        Payment payment =
+                paymentRepository.findById(id)
+                        .orElseThrow(() ->
+                                new PaymentNotFoundException(
+                                        "Payment not found with id: "
+                                                + id));
 
-        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+        if (payment.getStatus() ==
+                PaymentStatus.SUCCESS) {
+
             throw new IllegalStateException(
-                    "Successful payments cannot be deleted");
+                    "Successful payment cannot be deleted");
         }
 
         paymentRepository.delete(payment);
     }
 
     @Override
-    @Transactional
-    public WalletResponse creditWallet(WalletSettlementRequest request) {
+    public RefundResponse refundPayment(
+            Long paymentId,
+            RefundRequest request) {
 
-        Optional<WalletTransaction> existingTx =
-                findExistingWalletTransaction(request.getReferenceId(), "SETTLEMENT");
+        Payment payment =
+                paymentRepository.findById(paymentId)
+                        .orElseThrow(() ->
+                                new PaymentNotFoundException(
+                                        "Payment not found with id: "
+                                                + paymentId));
 
-        if (existingTx.isPresent()) {
-            return getWallet(request.getUserId());
+        if (payment.getStatus() !=
+                PaymentStatus.SUCCESS) {
+
+            throw new RefundException(
+                    "Only successful payments can be refunded");
         }
 
-        Wallet wallet = getOrCreateWallet(request.getUserId(), request.getUserRole(), "ROLE_DELIVERY_PARTNER");
-        wallet.setBalance(wallet.getBalance().add(request.getAmount()));
-        Wallet savedWallet = walletRepository.save(wallet);
+        Refund existingRefund =
+                refundRepository
+                        .findByPaymentIdAndStatus(
+                                paymentId,
+                                RefundStatus.SUCCESS)
+                        .orElse(null);
 
-        WalletTransaction tx = new WalletTransaction();
-        tx.setWalletId(savedWallet.getId());
-        tx.setUserId(request.getUserId());
-        tx.setAmount(request.getAmount());
-        tx.setTransactionType("SETTLEMENT");
-        tx.setReferenceId(request.getReferenceId());
-        tx.setStatus("SUCCESS");
-        tx.setDescription(request.getDescription() != null ? request.getDescription() : "Delivery settlement for " + request.getReferenceId());
-        walletTransactionRepository.save(tx);
+        if (existingRefund != null) {
 
-        return mapToWalletResponse(savedWallet);
-    }
-
-    @Override
-    @Transactional
-    public WalletResponse creditWallet(WalletCreditRequest request) {
-        String txType = request.getTransactionType() != null ? request.getTransactionType() : "CREDIT";
-
-        Optional<WalletTransaction> existingTx =
-                findExistingWalletTransaction(request.getReferenceId(), txType);
-
-        if (existingTx.isPresent()) {
-            return getWallet(request.getUserId());
+            return convertToRefundResponse(
+                    existingRefund);
         }
 
-        Wallet wallet = getOrCreateWallet(request.getUserId(), request.getUserRole(), "ROLE_USER");
-        wallet.setBalance(wallet.getBalance().add(request.getAmount()));
-        Wallet savedWallet = walletRepository.save(wallet);
+        if (request.getRefundAmount()
+                .compareTo(payment.getAmount()) > 0) {
 
-        WalletTransaction tx = new WalletTransaction();
-        tx.setWalletId(savedWallet.getId());
-        tx.setUserId(request.getUserId());
-        tx.setAmount(request.getAmount());
-        tx.setTransactionType(txType);
-        tx.setReferenceId(request.getReferenceId());
-        tx.setStatus("SUCCESS");
-        tx.setDescription(request.getDescription() != null ? request.getDescription() : txType + " for " + request.getReferenceId());
-        walletTransactionRepository.save(tx);
-
-        return mapToWalletResponse(savedWallet);
-    }
-
-    @Override
-    @Transactional
-    public WalletResponse debitWallet(WalletDebitRequest request) {
-        Wallet wallet = getOrCreateWallet(request.getUserId(), request.getUserRole(), "ROLE_USER");
-
-        if (wallet.getBalance().compareTo(request.getAmount()) < 0) {
-            throw new IllegalStateException(
-                    String.format("Insufficient wallet balance: current balance is â‚¹%s, requested debit is â‚¹%s",
-                            wallet.getBalance().toPlainString(), request.getAmount().toPlainString()));
+            throw new RefundException(
+                    "Refund amount cannot be greater than payment amount");
         }
 
-        wallet.setBalance(wallet.getBalance().subtract(request.getAmount()));
-        Wallet savedWallet = walletRepository.save(wallet);
+        Refund refund = new Refund();
 
-        String txType = request.getTransactionType() != null ? request.getTransactionType() : "DEBIT";
-        WalletTransaction tx = new WalletTransaction();
-        tx.setWalletId(savedWallet.getId());
-        tx.setUserId(request.getUserId());
-        tx.setAmount(request.getAmount().negate());
-        tx.setTransactionType(txType);
-        tx.setReferenceId(request.getReferenceId());
-        tx.setStatus("SUCCESS");
-        tx.setDescription(request.getDescription() != null ? request.getDescription() : txType + " for " + request.getReferenceId());
-        walletTransactionRepository.save(tx);
+        refund.setPaymentId(payment.getId());
+        refund.setOrderId(payment.getOrderId());
+        refund.setDeliveryId(request.getDeliveryId());
+        refund.setRefundAmount(
+                request.getRefundAmount());
+        refund.setReason(request.getReason());
 
-        return mapToWalletResponse(savedWallet);
+        refund.setStatus(RefundStatus.PENDING);
+
+        Refund savedRefund =
+                refundRepository.save(refund);
+
+        /*
+         * Dummy refund processing.
+         */
+        savedRefund.setStatus(
+                RefundStatus.SUCCESS);
+
+        savedRefund.setRefundReference(
+                "REF-" +
+                        UUID.randomUUID()
+                                .toString()
+                                .substring(0, 8)
+                                .toUpperCase());
+
+        savedRefund.setRefundedAt(
+                LocalDateTime.now());
+
+        savedRefund =
+                refundRepository.save(savedRefund);
+
+        generateRefundInvoice(
+                payment,
+                savedRefund);
+
+        return convertToRefundResponse(
+                savedRefund);
     }
 
     @Override
-    @Transactional
-    public WalletResponse topUpWallet(WalletTopUpRequest request) {
-        Wallet wallet = getOrCreateWallet(request.getUserId(), request.getUserRole(), "ROLE_USER");
-        wallet.setBalance(wallet.getBalance().add(request.getAmount()));
-        Wallet savedWallet = walletRepository.save(wallet);
+    public RefundResponse getRefundByPaymentId(
+            Long paymentId) {
 
-        String ref = request.getTransactionReference() != null && !request.getTransactionReference().isBlank()
-                ? request.getTransactionReference()
-                : "TOPUP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        Refund refund =
+                refundRepository
+                        .findByPaymentIdAndStatus(
+                                paymentId,
+                                RefundStatus.SUCCESS)
+                        .orElseThrow(() ->
+                                new RefundException(
+                                        "Refund not found for payment id: "
+                                                + paymentId));
 
-        WalletTransaction tx = new WalletTransaction();
-        tx.setWalletId(savedWallet.getId());
-        tx.setUserId(request.getUserId());
-        tx.setAmount(request.getAmount());
-        tx.setTransactionType("WALLET_TOPUP");
-        tx.setReferenceId(ref);
-        tx.setStatus("SUCCESS");
-        tx.setDescription("Wallet top-up via " + (request.getPaymentMethod() != null ? request.getPaymentMethod() : "UPI"));
-        walletTransactionRepository.save(tx);
-
-        return mapToWalletResponse(savedWallet);
+        return convertToRefundResponse(refund);
     }
 
     @Override
-    public WalletResponse getWallet(Long userId) {
-        Wallet wallet = walletRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    Wallet emptyWallet = new Wallet();
-                    emptyWallet.setUserId(userId);
-                    emptyWallet.setUserRole("ROLE_USER");
-                    emptyWallet.setBalance(BigDecimal.ZERO);
-                    emptyWallet.setCurrency("INR");
-                    return emptyWallet;
-                });
+    public RefundResponse updateRefund(
+            Long paymentId,
+            UpdateRefundRequest request) {
 
-        return mapToWalletResponse(wallet);
+        Refund refund =
+                refundRepository
+                        .findByPaymentIdAndStatus(
+                                paymentId,
+                                RefundStatus.SUCCESS)
+                        .orElseThrow(() ->
+                                new RefundException(
+                                        "Successful refund not found for payment id: "
+                                                + paymentId));
+
+        Payment payment =
+                paymentRepository.findById(paymentId)
+                        .orElseThrow(() ->
+                                new PaymentNotFoundException(
+                                        "Payment not found with id: "
+                                                + paymentId));
+
+        /*
+         * For this college/demo project we allow
+         * updating the refund details.
+         *
+         * In a real payment system, a completed refund
+         * normally should not be edited.
+         */
+        if (request.getDeliveryId() != null) {
+            refund.setDeliveryId(
+                    request.getDeliveryId());
+        }
+
+        if (request.getRefundAmount() != null) {
+
+            if (request.getRefundAmount()
+                    .compareTo(payment.getAmount()) > 0) {
+
+                throw new RefundException(
+                        "Refund amount cannot be greater than payment amount");
+            }
+
+            refund.setRefundAmount(
+                    request.getRefundAmount());
+        }
+
+        if (request.getReason() != null) {
+            refund.setReason(
+                    request.getReason());
+        }
+
+        return convertToRefundResponse(
+                refundRepository.save(refund));
     }
 
-    private Wallet getOrCreateWallet(Long userId, String userRole, String defaultRole) {
-        return walletRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    Wallet newWallet = new Wallet();
-                    newWallet.setUserId(userId);
-                    newWallet.setUserRole(userRole != null ? userRole : defaultRole);
-                    newWallet.setBalance(BigDecimal.ZERO);
-                    newWallet.setCurrency("INR");
-                    return walletRepository.save(newWallet);
-                });
+    @Override
+    public RefundResponse cancelRefund(
+            Long paymentId) {
+
+        Refund refund =
+                refundRepository
+                        .findByPaymentIdAndStatus(
+                                paymentId,
+                                RefundStatus.SUCCESS)
+                        .orElseThrow(() ->
+                                new RefundException(
+                                        "Active refund not found for payment id: "
+                                                + paymentId));
+
+        /*
+         * DELETE refund does not physically delete
+         * the financial record.
+         *
+         * It marks the refund as CANCELLED.
+         */
+        refund.setStatus(
+                RefundStatus.CANCELLED);
+
+        refund.setRefundedAt(null);
+
+        Refund savedRefund =
+                refundRepository.save(refund);
+
+        return convertToRefundResponse(
+                savedRefund);
     }
 
-    private Optional<WalletTransaction> findExistingWalletTransaction(String referenceId, String transactionType) {
+    private void generateInvoice(
+            Payment payment) {
+
         try {
-            return walletTransactionRepository.findByReferenceIdAndTransactionType(referenceId, transactionType);
-        } catch (IncorrectResultSizeDataAccessException ex) {
-            return walletTransactionRepository.findFirstByReferenceIdAndTransactionTypeOrderByIdAsc(
-                    referenceId,
-                    transactionType);
-        }
-    }
 
-    private void publishPaymentCompleted(Payment payment) {
-        try {
-            PaymentCompletedEvent event = new PaymentCompletedEvent(
-                    payment.getId(),
-                    payment.getOrderId(),
-                    payment.getDealerId(),
-                    payment.getFarmerId(),
-                    payment.getAmount(),
-                    payment.getPaymentMethod(),
-                    payment.getTransactionReference()
-            );
+            InvoicePaymentRequest invoiceRequest =
+                    new InvoicePaymentRequest();
 
-            rabbitTemplate.convertAndSend(
-                    NotificationRabbitConfig.NOTIFICATION_EXCHANGE,
-                    NotificationRabbitConfig.PAYMENT_COMPLETED_ROUTING_KEY,
-                    event
-            );
+            invoiceRequest.setPaymentId(
+                    payment.getId());
+
+            invoiceRequest.setOrderId(
+                    payment.getOrderId());
+
+            invoiceRequest.setDealerId(
+                    payment.getDealerId());
+
+            invoiceRequest.setFarmerId(
+                    payment.getFarmerId());
+
+            invoiceRequest.setAmount(
+                    payment.getAmount());
+
+            invoiceRequest.setPaymentStatus(
+                    payment.getStatus().name());
+
+            invoiceRequest.setPaymentMethod(
+                    payment.getPaymentMethod());
+
+            invoiceRequest.setTransactionReference(
+                    payment.getTransactionReference());
+
+            invoiceServiceClient
+                    .generateInvoiceFromPayment(
+                            invoiceRequest);
+
         } catch (Exception e) {
-            log.warn("Failed to publish payment notification for order {}: {}",
-                    payment.getOrderId(), e.getMessage());
+
+            System.out.println(
+                    "Invoice Service unavailable: "
+                            + e.getMessage());
         }
     }
 
-    private PaymentResponse mapToResponse(Payment payment) {
-        PaymentResponse response = new PaymentResponse();
+    private void generateRefundInvoice(
+            Payment payment,
+            Refund refund) {
+
+        try {
+
+            InvoicePaymentRequest invoiceRequest =
+                    new InvoicePaymentRequest();
+
+            invoiceRequest.setPaymentId(
+                    payment.getId());
+
+            invoiceRequest.setOrderId(
+                    payment.getOrderId());
+
+            invoiceRequest.setDealerId(
+                    payment.getDealerId());
+
+            invoiceRequest.setFarmerId(
+                    payment.getFarmerId());
+
+            invoiceRequest.setAmount(
+                    refund.getRefundAmount());
+
+            invoiceRequest.setPaymentStatus(
+                    refund.getStatus().name());
+
+            invoiceRequest.setPaymentMethod(
+                    "REFUND");
+
+            invoiceRequest.setTransactionReference(
+                    refund.getRefundReference());
+
+            invoiceServiceClient
+                    .generateInvoiceFromPayment(
+                            invoiceRequest);
+
+        } catch (Exception e) {
+
+            System.out.println(
+                    "Invoice Service unavailable while processing refund: "
+                            + e.getMessage());
+        }
+    }
+
+    private PaymentResponse convertToPaymentResponse(
+            Payment payment) {
+
+        PaymentResponse response =
+                new PaymentResponse();
+
         response.setId(payment.getId());
         response.setOrderId(payment.getOrderId());
         response.setDealerId(payment.getDealerId());
         response.setFarmerId(payment.getFarmerId());
         response.setAmount(payment.getAmount());
-        response.setPaymentMethod(payment.getPaymentMethod());
-        response.setStatus(payment.getStatus().name());
-        response.setTransactionReference(payment.getTransactionReference());
-        response.setPaidAt(payment.getPaidAt());
+        response.setPaymentMethod(
+                payment.getPaymentMethod());
+
+        if (payment.getStatus() != null) {
+            response.setStatus(
+                    payment.getStatus().name());
+        }
+
+        response.setTransactionReference(
+                payment.getTransactionReference());
+
+        response.setPaidAt(
+                payment.getPaidAt());
+
         return response;
     }
 
-    private WalletResponse mapToWalletResponse(Wallet wallet) {
-        WalletResponse response = new WalletResponse();
-        response.setId(wallet.getId());
-        response.setUserId(wallet.getUserId());
-        response.setUserRole(wallet.getUserRole());
-        response.setBalance(wallet.getBalance());
-        response.setCurrency(wallet.getCurrency());
+    private RefundResponse convertToRefundResponse(
+            Refund refund) {
 
-        if (wallet.getId() != null) {
-            List<WalletTransaction> transactions =
-                    walletTransactionRepository.findByWalletId(wallet.getId());
+        RefundResponse response =
+                new RefundResponse();
 
-            List<WalletTransactionResponse> txResponses = transactions.stream()
-                    .map(tx -> {
-                        WalletTransactionResponse tr = new WalletTransactionResponse();
-                        tr.setId(tx.getId());
-                        tr.setWalletId(tx.getWalletId());
-                        tr.setUserId(tx.getUserId());
-                        tr.setAmount(tx.getAmount());
-                        tr.setTransactionType(tx.getTransactionType());
-                        tr.setReferenceId(tx.getReferenceId());
-                        tr.setStatus(tx.getStatus());
-                        tr.setDescription(tx.getDescription());
-                        tr.setCreatedAt(tx.getCreatedAt());
-                        return tr;
-                    })
-                    .collect(Collectors.toList());
+        response.setId(refund.getId());
+        response.setPaymentId(
+                refund.getPaymentId());
+        response.setOrderId(
+                refund.getOrderId());
+        response.setDeliveryId(
+                refund.getDeliveryId());
+        response.setRefundAmount(
+                refund.getRefundAmount());
+        response.setReason(
+                refund.getReason());
 
-            response.setTransactions(txResponses);
+        if (refund.getStatus() != null) {
+            response.setStatus(
+                    refund.getStatus().name());
         }
+
+        response.setRefundReference(
+                refund.getRefundReference());
+
+        response.setRefundedAt(
+                refund.getRefundedAt());
 
         return response;
     }

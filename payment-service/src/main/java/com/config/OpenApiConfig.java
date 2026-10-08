@@ -22,7 +22,7 @@ public class OpenApiConfig {
                                 )
                                 .version("1.0")
                                 .description(
-                                        "Payment and wallet settlement APIs"
+                                        "Payment and refund APIs"
                                 )
                 )
 
