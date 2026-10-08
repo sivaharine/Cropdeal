@@ -1,13 +1,13 @@
 package com.cropdeal.bidding.repository;
 
 import com.cropdeal.bidding.entity.Bid;
+import com.cropdeal.bidding.entity.BidStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
+import java.util.Optional;
 
-@Repository
 public interface BidRepository extends JpaRepository<Bid, Long> {
-    List<Bid> findBySessionIdOrderByBidTimeDesc(Long sessionId);
+    List<Bid> findByListingIdOrderByBidAmountDesc(Long listingId);
     List<Bid> findByDealerIdOrderByBidTimeDesc(Long dealerId);
+    Optional<Bid> findFirstByListingIdAndStatusOrderByBidAmountDesc(Long listingId, BidStatus status);
 }

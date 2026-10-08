@@ -1,9 +1,9 @@
 package com.cropdeal.bidding.entity;
 
 public enum BidStatus {
-    ACCEPTED,
+    ACTIVE,
     OUTBID,
-    WON,
-    CANCELLED,
-    REJECTED
+    WINNING,
+    REJECTED,
+    CANCELLED
 }

@@ -1,6 +1,11 @@
 package com.controller;
 
-import com.dto.*;
+import com.dto.PaymentRequest;
+import com.dto.PaymentResponse;
+import com.dto.RefundRequest;
+import com.dto.RefundResponse;
+import com.dto.UpdatePaymentRequest;
+import com.dto.UpdateRefundRequest;
 import com.service.PaymentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -15,7 +20,9 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(
+            PaymentService paymentService) {
+
         this.paymentService = paymentService;
     }
 
@@ -23,9 +30,16 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> makePayment(
             @Valid @RequestBody PaymentRequest request) {
 
-        return new ResponseEntity<>(
-                paymentService.makePayment(request),
-                HttpStatus.CREATED);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(paymentService.makePayment(request));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<PaymentResponse>> getAllPayments() {
+
+        return ResponseEntity.ok(
+                paymentService.getAllPayments());
     }
 
     @GetMapping("/{id}")
@@ -36,36 +50,15 @@ public class PaymentController {
                 paymentService.getPaymentById(id));
     }
 
-    @GetMapping("/order/{orderId}")
-    public ResponseEntity<PaymentResponse> getPaymentByOrderId(
-            @PathVariable Long orderId) {
-
-        return ResponseEntity.ok(
-                paymentService.getPaymentByOrderId(orderId));
-    }
-
-    @PostMapping("/order/{orderId}/refund")
-    public ResponseEntity<PaymentResponse> refundPaymentByOrderId(
-            @PathVariable Long orderId) {
-
-        return ResponseEntity.ok(
-                paymentService.refundPaymentByOrderId(orderId));
-    }
-
-    @GetMapping
-    public ResponseEntity<List<PaymentResponse>> getAllPayments() {
-
-        return ResponseEntity.ok(
-                paymentService.getAllPayments());
-    }
-
     @PutMapping("/{id}")
     public ResponseEntity<PaymentResponse> updatePayment(
             @PathVariable Long id,
-            @Valid @RequestBody PaymentRequest request) {
+            @Valid @RequestBody UpdatePaymentRequest request) {
 
         return ResponseEntity.ok(
-                paymentService.updatePayment(id, request));
+                paymentService.updatePayment(
+                        id,
+                        request));
     }
 
     @DeleteMapping("/{id}")
@@ -74,46 +67,49 @@ public class PaymentController {
 
         paymentService.deletePayment(id);
 
-        return ResponseEntity.ok("Payment deleted successfully");
+        return ResponseEntity.ok(
+                "Payment deleted successfully");
     }
 
-    @PostMapping("/wallet/settlement")
-    public ResponseEntity<WalletResponse> creditWallet(
-            @Valid @RequestBody WalletSettlementRequest request) {
+    @PostMapping("/{paymentId}/refund")
+    public ResponseEntity<RefundResponse> refundPayment(
+            @PathVariable Long paymentId,
+            @Valid @RequestBody RefundRequest request) {
 
-        return ResponseEntity.ok(
-                paymentService.creditWallet(request));
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        paymentService.refundPayment(
+                                paymentId,
+                                request));
     }
 
-    @PostMapping("/wallet/credit")
-    public ResponseEntity<WalletResponse> creditWalletGeneric(
-            @Valid @RequestBody WalletCreditRequest request) {
+    @GetMapping("/{paymentId}/refund")
+    public ResponseEntity<RefundResponse> getRefund(
+            @PathVariable Long paymentId) {
 
         return ResponseEntity.ok(
-                paymentService.creditWallet(request));
+                paymentService.getRefundByPaymentId(
+                        paymentId));
     }
 
-    @PostMapping("/wallet/debit")
-    public ResponseEntity<WalletResponse> debitWallet(
-            @Valid @RequestBody WalletDebitRequest request) {
+    @PutMapping("/{paymentId}/refund")
+    public ResponseEntity<RefundResponse> updateRefund(
+            @PathVariable Long paymentId,
+            @Valid @RequestBody UpdateRefundRequest request) {
 
         return ResponseEntity.ok(
-                paymentService.debitWallet(request));
+                paymentService.updateRefund(
+                        paymentId,
+                        request));
     }
 
-    @PostMapping("/wallet/topup")
-    public ResponseEntity<WalletResponse> topUpWallet(
-            @Valid @RequestBody WalletTopUpRequest request) {
+    @DeleteMapping("/{paymentId}/refund")
+    public ResponseEntity<RefundResponse> cancelRefund(
+            @PathVariable Long paymentId) {
 
         return ResponseEntity.ok(
-                paymentService.topUpWallet(request));
-    }
-
-    @GetMapping("/wallet/{userId}")
-    public ResponseEntity<WalletResponse> getWallet(
-            @PathVariable Long userId) {
-
-        return ResponseEntity.ok(
-                paymentService.getWallet(userId));
+                paymentService.cancelRefund(
+                        paymentId));
     }
 }

@@ -1,11 +1,9 @@
 package com.client;
 
 import com.config.FeignConfig;
-import com.dto.InvoicePaymentRequest;
-import com.dto.InvoiceResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @FeignClient(
         name = "invoice-service",
@@ -13,6 +11,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 )
 public interface InvoiceServiceClient {
 
-    @PostMapping("/api/invoices/payment")
-    InvoiceResponse generateInvoiceFromPayment(@RequestBody InvoicePaymentRequest request);
+    @GetMapping("/api/invoices/order/{orderId}/pdf")
+    byte[] downloadInvoicePdfByOrderId(@PathVariable("orderId") Long orderId);
 }

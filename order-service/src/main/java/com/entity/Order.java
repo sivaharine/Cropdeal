@@ -26,6 +26,20 @@ public class Order {
 
     private BigDecimal totalAmount;
 
+    private String dealerName;
+
+    private String farmerName;
+
+    private String deliveryAddress;
+
+    private String fulfillmentType;
+
+    private String paymentMethod;
+
+    private String transactionId;
+
+    private Boolean isBidding;
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
@@ -131,6 +145,27 @@ public class Order {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getDealerName() { return dealerName; }
+    public void setDealerName(String dealerName) { this.dealerName = dealerName; }
+
+    public String getFarmerName() { return farmerName; }
+    public void setFarmerName(String farmerName) { this.farmerName = farmerName; }
+
+    public String getDeliveryAddress() { return deliveryAddress; }
+    public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
+
+    public String getFulfillmentType() { return fulfillmentType; }
+    public void setFulfillmentType(String fulfillmentType) { this.fulfillmentType = fulfillmentType; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public String getTransactionId() { return transactionId; }
+    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
+
+    public Boolean getIsBidding() { return isBidding; }
+    public void setIsBidding(Boolean isBidding) { this.isBidding = isBidding; }
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;

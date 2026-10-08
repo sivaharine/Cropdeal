@@ -8,25 +8,27 @@ public interface PaymentService {
 
     PaymentResponse makePayment(PaymentRequest request);
 
-    PaymentResponse getPaymentById(Long id);
-
-    PaymentResponse getPaymentByOrderId(Long orderId);
-
-    PaymentResponse refundPaymentByOrderId(Long orderId);
-
     List<PaymentResponse> getAllPayments();
 
-    PaymentResponse updatePayment(Long id, PaymentRequest request);
+    PaymentResponse getPaymentById(Long id);
+
+    PaymentResponse updatePayment(
+            Long id,
+            UpdatePaymentRequest request);
 
     void deletePayment(Long id);
 
-    WalletResponse creditWallet(WalletSettlementRequest request);
+    RefundResponse refundPayment(
+            Long paymentId,
+            RefundRequest request);
 
-    WalletResponse creditWallet(WalletCreditRequest request);
+    RefundResponse getRefundByPaymentId(
+            Long paymentId);
 
-    WalletResponse debitWallet(WalletDebitRequest request);
+    RefundResponse updateRefund(
+            Long paymentId,
+            UpdateRefundRequest request);
 
-    WalletResponse topUpWallet(WalletTopUpRequest request);
-
-    WalletResponse getWallet(Long userId);
+    RefundResponse cancelRefund(
+            Long paymentId);
 }

@@ -1,377 +1,276 @@
 package com.cropdeal.bidding.service;
 
-import com.cropdeal.bidding.client.PaymentServiceClient;
-import com.cropdeal.bidding.config.RabbitMQConfig;
+import com.cropdeal.bidding.client.OrderClient;
+import com.cropdeal.bidding.client.WalletClient;
 import com.cropdeal.bidding.dto.*;
-import com.cropdeal.bidding.dto.WalletDto.*;
 import com.cropdeal.bidding.entity.*;
-import com.cropdeal.bidding.exception.BiddingExceptions.*;
+import com.cropdeal.bidding.exception.BiddingNotFoundException;
+import com.cropdeal.bidding.exception.InvalidBidException;
 import com.cropdeal.bidding.repository.BidRepository;
-import com.cropdeal.bidding.repository.BiddingSessionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.cropdeal.bidding.repository.BiddingListingRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
 @Service
+@Transactional
 public class BiddingServiceImpl implements BiddingService {
 
-    private static final Logger log = LoggerFactory.getLogger(BiddingServiceImpl.class);
-
-    private final BiddingSessionRepository sessionRepository;
+    private final BiddingListingRepository listingRepository;
     private final BidRepository bidRepository;
-    private final RabbitTemplate rabbitTemplate;
-    private final PaymentServiceClient paymentServiceClient;
+    private final WalletClient walletClient;
+    private final OrderClient orderClient;
 
-    public BiddingServiceImpl(
-            BiddingSessionRepository sessionRepository,
-            BidRepository bidRepository,
-            RabbitTemplate rabbitTemplate,
-            PaymentServiceClient paymentServiceClient) {
-        this.sessionRepository = sessionRepository;
+    @Value("${file.upload-dir:D:/Cropdeal/uploads/bidding}")
+    private String uploadDir;
+
+    public BiddingServiceImpl(BiddingListingRepository listingRepository,
+                              BidRepository bidRepository,
+                              WalletClient walletClient,
+                              OrderClient orderClient) {
+        this.listingRepository = listingRepository;
         this.bidRepository = bidRepository;
-        this.rabbitTemplate = rabbitTemplate;
-        this.paymentServiceClient = paymentServiceClient;
+        this.walletClient = walletClient;
+        this.orderClient = orderClient;
     }
 
     @Override
-    @Transactional
-    public BiddingSessionResponse createSession(CreateBiddingSessionRequest request, Long farmerId, String userRole) {
-        validateRole(userRole, "FARMER");
-        if (request.getEndTime().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Auction end time must be in the future");
-        }
+    public BiddingListingResponse createListing(CreateBiddingRequest request) {
+        BiddingListing listing = new BiddingListing();
+        listing.setFarmerId(request.farmerId());
+        listing.setCropName(request.cropName());
+        listing.setQuantity(request.quantity());
+        listing.setUnit(request.unit());
+        listing.setBasePrice(request.basePrice());
+        listing.setGuidelinePrice(request.guidelinePrice());
+        listing.setLocation(request.location());
+        listing.setDescription(request.description());
+        listing.setStatus(BiddingStatus.OPEN);
+        listing.setHighestBidAmount(BigDecimal.ZERO);
 
-        BiddingSession session = new BiddingSession();
-        session.setCropId(request.getCropId());
-        session.setFarmerId(farmerId != null ? farmerId : 1L);
-        session.setCropName(request.getCropName().trim());
-        session.setQuantity(request.getQuantity());
-        session.setUnit(request.getUnit() != null && !request.getUnit().isBlank() ? request.getUnit().trim().toUpperCase() : "KG");
-        session.setBasePrice(request.getBasePrice());
-        session.setMinIncrement(request.getMinIncrement() != null ? request.getMinIncrement() : BigDecimal.valueOf(1.00));
-        session.setStartTime(request.getStartTime() != null ? request.getStartTime() : LocalDateTime.now());
-        session.setEndTime(request.getEndTime());
-        session.setDistrict(request.getDistrict());
-        session.setState(request.getState());
-        session.setStatus(BiddingSessionStatus.ACTIVE);
-
-        BiddingSession saved = sessionRepository.save(session);
-        log.info("Created bidding session ID={} for crop={} by farmerId={}", saved.getId(), saved.getCropName(), saved.getFarmerId());
-        return mapToResponse(saved);
+        return toResponse(listingRepository.save(listing));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BiddingSessionResponse> getActiveSessions() {
-        return sessionRepository.findByStatusOrderByEndTimeAsc(BiddingSessionStatus.ACTIVE)
-                .stream().map(this::mapToResponse).toList();
+    public BiddingListingResponse getListing(Long id) {
+        return toResponse(findListing(id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public BiddingSessionResponse getSessionById(Long id) {
-        return mapToResponse(findSession(id));
+    public List<BiddingListingResponse> getOpenListings() {
+        return listingRepository.findByStatusOrderByCreatedAtDesc(BiddingStatus.OPEN).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BiddingSessionResponse> getSessionsByFarmer(Long farmerId) {
-        return sessionRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId)
-                .stream().map(this::mapToResponse).toList();
+    public List<BiddingListingResponse> getFarmerListings(Long farmerId) {
+        return listingRepository.findByFarmerIdOrderByCreatedAtDesc(farmerId).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override
-    @Transactional
-    public BidResponse placeBid(Long sessionId, PlaceBidRequest request, Long dealerId, String userRole) {
-        validateRole(userRole, "DEALER");
-        Long effectiveDealerId = dealerId != null ? dealerId : 1L;
-        BiddingSession session = findSession(sessionId);
+    public BidResponse placeBid(Long listingId, PlaceBidRequest request) {
+        BiddingListing listing = findListing(listingId);
 
-        if (session.getStatus() != BiddingSessionStatus.ACTIVE || session.getEndTime().isBefore(LocalDateTime.now())) {
-            throw new SessionClosedException("Bidding session is not active or has expired");
+        if (listing.getStatus() != BiddingStatus.OPEN) {
+            throw new InvalidBidException("Bidding is closed for listing id: " + listingId);
         }
 
-        if (session.getFarmerId().equals(effectiveDealerId)) {
-            throw new InvalidBidException("Farmer who listed the crop cannot bid on their own session");
+        // Validate bid amount
+        BigDecimal minRequired = listing.getHighestBidAmount().compareTo(BigDecimal.ZERO) > 0
+                ? listing.getHighestBidAmount()
+                : listing.getBasePrice();
+
+        if (request.bidAmount().compareTo(minRequired) <= 0) {
+            throw new InvalidBidException("Bid amount must be strictly higher than ₹" + minRequired);
         }
 
-        BigDecimal minAllowed;
-        if (session.getCurrentHighestBid() == null) {
-            minAllowed = session.getBasePrice();
-        } else {
-            minAllowed = session.getCurrentHighestBid().add(session.getMinIncrement());
-        }
+        String newRefId = "BID-" + listingId + "-" + request.dealerId();
 
-        if (request.getBidAmount().compareTo(minAllowed) < 0) {
-            throw new InvalidBidException(
-                    String.format("Bid amount â‚¹%s is below the minimum required bid of â‚¹%s",
-                            request.getBidAmount().toPlainString(), minAllowed.toPlainString()));
-        }
+        // 1. Reserve funds in dealer's wallet (throws InsufficientWalletBalanceException if low balance)
+        walletClient.reserveFunds(new WalletClient.ReserveRequest(request.dealerId(), newRefId, request.bidAmount()));
 
-        // 1. MANDATORY WALLET BALANCE CHECK
-        try {
-            WalletResponse wallet = paymentServiceClient.getWallet(effectiveDealerId);
-            if (wallet == null || wallet.getBalance() == null || wallet.getBalance().compareTo(request.getBidAmount()) < 0) {
-                BigDecimal currentBalance = (wallet != null && wallet.getBalance() != null) ? wallet.getBalance() : BigDecimal.ZERO;
-                throw new InsufficientWalletBalanceException(
-                        String.format("Insufficient wallet balance. Bidding is funded strictly through wallet. Current wallet balance: â‚¹%s, Required bid amount: â‚¹%s. Please top up your CropDeal wallet.",
-                                currentBalance.toPlainString(), request.getBidAmount().toPlainString()));
+        // 2. If previous active highest bid exists from another dealer, release their funds!
+        bidRepository.findFirstByListingIdAndStatusOrderByBidAmountDesc(listingId, BidStatus.ACTIVE).ifPresent(prev -> {
+            if (!prev.getDealerId().equals(request.dealerId())) {
+                prev.setStatus(BidStatus.OUTBID);
+                bidRepository.save(prev);
+                try {
+                    String prevRefId = "BID-" + listingId + "-" + prev.getDealerId();
+                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), prevRefId));
+                } catch (Exception e) {
+                    // Log release failure
+                }
+            } else {
+                prev.setStatus(BidStatus.OUTBID);
+                bidRepository.save(prev);
             }
-        } catch (InsufficientWalletBalanceException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("Wallet service check exception: {}", e.getMessage());
-            // If Feign throws direct business exception
-            if (e.getMessage() != null && e.getMessage().contains("Insufficient")) {
-                throw new InsufficientWalletBalanceException(e.getMessage());
-            }
+        });
+
+        // 3. Save new bid
+        Bid bid = new Bid();
+        bid.setListingId(listingId);
+        bid.setDealerId(request.dealerId());
+        bid.setBidAmount(request.bidAmount());
+        bid.setStatus(BidStatus.ACTIVE);
+        Bid savedBid = bidRepository.save(bid);
+
+        // 4. Update listing highest bid
+        listing.setHighestBidAmount(request.bidAmount());
+        listing.setWinningDealerId(request.dealerId());
+        listing.setWinningBidId(savedBid.getId());
+        listingRepository.save(listing);
+
+        return toBidResponse(savedBid);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BidResponse> getBidsForListing(Long listingId) {
+        return bidRepository.findByListingIdOrderByBidAmountDesc(listingId).stream()
+                .map(this::toBidResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BidResponse> getDealerBids(Long dealerId) {
+        return bidRepository.findByDealerIdOrderByBidTimeDesc(dealerId).stream()
+                .map(this::toBidResponse)
+                .toList();
+    }
+
+    @Override
+    public BiddingListingResponse closeBidding(Long listingId) {
+        BiddingListing listing = findListing(listingId);
+        if (listing.getStatus() != BiddingStatus.OPEN) {
+            throw new InvalidBidException("Listing is not open");
+        }
+        listing.setStatus(BiddingStatus.CLOSED);
+
+        bidRepository.findFirstByListingIdAndStatusOrderByBidAmountDesc(listingId, BidStatus.ACTIVE)
+                .ifPresent(winningBid -> {
+                    winningBid.setStatus(BidStatus.WINNING);
+                    bidRepository.save(winningBid);
+                });
+
+        return toResponse(listingRepository.save(listing));
+    }
+
+    @Override
+    public BiddingListingResponse sellListing(Long listingId) {
+        BiddingListing listing = findListing(listingId);
+        if (listing.getStatus() != BiddingStatus.CLOSED) {
+            throw new InvalidBidException("Bidding must be closed before selling to winner");
+        }
+        if (listing.getWinningDealerId() == null || listing.getHighestBidAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidBidException("No valid winning bid to sell to");
         }
 
-        // 2. HOLD / ESCROW FUNDS FROM DEALER WALLET
-        String holdRef = "BID_HOLD_SESSION_" + sessionId + "_DEALER_" + effectiveDealerId + "_" + UUID.randomUUID().toString().substring(0, 8);
+        // 1. Consume reserved wallet funds for the winning dealer
+        String refId = "BID-" + listingId + "-" + listing.getWinningDealerId();
+        walletClient.consumeFunds(new WalletClient.ConsumeRequest(listing.getWinningDealerId(), refId));
+
+        // 2. Create order via order-service
         try {
-            paymentServiceClient.debitWallet(new WalletDebitRequest(
-                    effectiveDealerId,
-                    "ROLE_DEALER",
-                    request.getBidAmount(),
-                    holdRef,
-                    "BID_HOLD",
-                    String.format("Held funds for bid of â‚¹%s on auction session #%d", request.getBidAmount().toPlainString(), sessionId)
+            orderClient.createOrder(new OrderClient.CreateOrderRequest(
+                    listing.getFarmerId(),
+                    listing.getWinningDealerId(),
+                    listing.getId(),
+                    listing.getCropName(),
+                    listing.getQuantity().intValue(),
+                    listing.getHighestBidAmount()
             ));
         } catch (Exception e) {
-            throw new InsufficientWalletBalanceException("Failed to hold wallet funds for bid: " + e.getMessage());
+            // Order creation logged
         }
 
-        // 3. REFUND PREVIOUS HIGHEST BIDDER'S HELD FUNDS
-        Long previousHighestBidder = session.getHighestBidderId();
-        BigDecimal previousHighestAmount = session.getCurrentHighestBid();
-        Long previousBidId = session.getHighestBidId();
+        listing.setStatus(BiddingStatus.SOLD);
+        return toResponse(listingRepository.save(listing));
+    }
 
-        if (previousHighestBidder != null && previousHighestAmount != null) {
-            // Refund previous bidder wallet
-            String refundRef = "BID_REFUND_SESSION_" + sessionId + "_BID_" + (previousBidId != null ? previousBidId : System.currentTimeMillis());
-            try {
-                paymentServiceClient.creditWallet(new WalletCreditRequest(
-                        previousHighestBidder,
-                        "ROLE_DEALER",
-                        previousHighestAmount,
-                        refundRef,
-                        "BID_REFUND",
-                        String.format("Automatic refund for outbid on session #%d (Higher bid â‚¹%s placed)", sessionId, request.getBidAmount().toPlainString())
-                ));
-            } catch (Exception e) {
-                log.error("Failed to refund previous highest bidder {}: {}", previousHighestBidder, e.getMessage());
-            }
-
-            // Mark previous bids as OUTBID
-            List<Bid> existingBids = bidRepository.findBySessionIdOrderByBidTimeDesc(sessionId);
-            for (Bid b : existingBids) {
-                if (b.getStatus() == BidStatus.ACCEPTED) {
-                    b.setStatus(BidStatus.OUTBID);
-                    bidRepository.save(b);
-                }
-            }
+    @Override
+    public String uploadPhoto(Long listingId, MultipartFile file) {
+        BiddingListing listing = findListing(listingId);
+        if (file.isEmpty()) {
+            throw new InvalidBidException("File cannot be empty");
         }
-
-        // 4. SAVE NEW ACCEPTED BID
-        Bid newBid = new Bid();
-        newBid.setSession(session);
-        newBid.setDealerId(effectiveDealerId);
-        newBid.setBidAmount(request.getBidAmount());
-        newBid.setWalletHoldRef(holdRef);
-        newBid.setNotes(request.getNotes());
-        newBid.setStatus(BidStatus.ACCEPTED);
-        Bid savedBid = bidRepository.save(newBid);
-
-        // 5. UPDATE SESSION STATE
-        session.setCurrentHighestBid(request.getBidAmount());
-        session.setHighestBidderId(effectiveDealerId);
-        session.setHighestBidId(savedBid.getId());
-        sessionRepository.save(session);
-
-        // 6. PUBLISH RABBITMQ EVENTS
         try {
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.BIDDING_EXCHANGE,
-                    RabbitMQConfig.BID_PLACED_ROUTING_KEY,
-                    new BidEvents.BidPlacedEvent(sessionId, session.getCropId(), session.getFarmerId(), effectiveDealerId, newBid.getBidAmount())
-            );
+            File dir = new File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
 
-            if (previousHighestBidder != null && !previousHighestBidder.equals(effectiveDealerId)) {
-                rabbitTemplate.convertAndSend(
-                        RabbitMQConfig.BIDDING_EXCHANGE,
-                        RabbitMQConfig.BID_OUTBID_ROUTING_KEY,
-                        new BidEvents.BidOutbidEvent(sessionId, previousHighestBidder, previousHighestAmount, newBid.getBidAmount())
-                );
+            String ext = "";
+            String orig = file.getOriginalFilename();
+            if (orig != null && orig.contains(".")) {
+                ext = orig.substring(orig.lastIndexOf("."));
             }
-        } catch (Exception e) {
-            log.error("Failed to publish bidding events to RabbitMQ: {}", e.getMessage());
-        }
+            String filename = "listing_" + listingId + "_" + UUID.randomUUID().toString().substring(0, 8) + ext;
+            Path targetPath = Paths.get(uploadDir, filename);
+            Files.copy(file.getInputStream(), targetPath);
 
-        log.info("Dealer {} placed wallet-backed bid â‚¹{} on session {}", effectiveDealerId, newBid.getBidAmount(), sessionId);
-        return mapToBidResponse(savedBid);
+            String photoUrl = "/uploads/bidding/" + filename;
+            listing.setPhotoUrl(photoUrl);
+            listingRepository.save(listing);
+            return photoUrl;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload photo: " + e.getMessage(), e);
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BidResponse> getBidsForSession(Long sessionId) {
-        return bidRepository.findBySessionIdOrderByBidTimeDesc(sessionId)
-                .stream().map(this::mapToBidResponse).toList();
+    public List<BiddingListingResponse> getAllListings() {
+        return listingRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<BidResponse> getBidsByDealer(Long dealerId) {
-        return bidRepository.findByDealerIdOrderByBidTimeDesc(dealerId)
-                .stream().map(this::mapToBidResponse).toList();
+    public void deleteListing(Long listingId) {
+        bidRepository.deleteAll(bidRepository.findByListingIdOrderByBidAmountDesc(listingId));
+        listingRepository.deleteById(listingId);
     }
 
     @Override
-    @Transactional
-    public BiddingSessionResponse closeSession(Long sessionId, Long farmerId, String userRole) {
-        BiddingSession session = findSession(sessionId);
-        verifyFarmerOwnership(session, farmerId, userRole);
-
-        session.setStatus(BiddingSessionStatus.COMPLETED);
-        sessionRepository.save(session);
-
-        if (session.getHighestBidderId() != null && session.getCurrentHighestBid() != null) {
-            // Update winning bid
-            List<Bid> bids = bidRepository.findBySessionIdOrderByBidTimeDesc(sessionId);
-            for (Bid b : bids) {
-                if (b.getDealerId().equals(session.getHighestBidderId()) && b.getStatus() == BidStatus.ACCEPTED) {
-                    b.setStatus(BidStatus.WON);
-                    bidRepository.save(b);
-                    break;
-                }
-            }
-
-            // Settle payment directly to Farmer's wallet
-            String settleRef = "BID_SETTLE_SESSION_" + session.getId();
-            try {
-                paymentServiceClient.creditWallet(new WalletCreditRequest(
-                        session.getFarmerId(),
-                        "ROLE_FARMER",
-                        session.getCurrentHighestBid(),
-                        settleRef,
-                        "BID_SETTLEMENT",
-                        String.format("Auction winning payout for crop %s (Session #%d)", session.getCropName(), session.getId())
-                ));
-            } catch (Exception e) {
-                log.error("Failed to credit farmer wallet on auction close: {}", e.getMessage());
-            }
-
-            try {
-                rabbitTemplate.convertAndSend(
-                        RabbitMQConfig.BIDDING_EXCHANGE,
-                        RabbitMQConfig.BID_WON_ROUTING_KEY,
-                        new BidEvents.BidWonEvent(session.getId(), session.getCropId(), session.getFarmerId(),
-                                session.getHighestBidderId(), session.getCurrentHighestBid(), session.getQuantity())
-                );
-            } catch (Exception e) {
-                log.error("Failed to publish BidWonEvent: {}", e.getMessage());
-            }
-        }
-
-        log.info("Bidding session {} awarded to dealer {}", sessionId, session.getHighestBidderId());
-        return mapToResponse(session);
+    public BiddingListingResponse toggleBlockListing(Long listingId, boolean block) {
+        BiddingListing listing = findListing(listingId);
+        listing.setStatus(block ? BiddingStatus.BLOCKED : BiddingStatus.OPEN);
+        return toResponse(listingRepository.save(listing));
     }
 
-    @Override
-    @Transactional
-    public void cancelSession(Long sessionId, Long farmerId, String userRole) {
-        BiddingSession session = findSession(sessionId);
-        verifyFarmerOwnership(session, farmerId, userRole);
-        session.setStatus(BiddingSessionStatus.CANCELLED);
-        sessionRepository.save(session);
-
-        // Refund active highest bidder if any
-        if (session.getHighestBidderId() != null && session.getCurrentHighestBid() != null) {
-            String refundRef = "BID_CANCEL_REFUND_SESSION_" + session.getId();
-            try {
-                paymentServiceClient.creditWallet(new WalletCreditRequest(
-                        session.getHighestBidderId(),
-                        "ROLE_DEALER",
-                        session.getCurrentHighestBid(),
-                        refundRef,
-                        "BID_REFUND",
-                        String.format("Refund for cancelled auction session #%d", session.getId())
-                ));
-            } catch (Exception e) {
-                log.error("Failed to refund bidder on session cancellation: {}", e.getMessage());
-            }
-
-            List<Bid> bids = bidRepository.findBySessionIdOrderByBidTimeDesc(sessionId);
-            for (Bid b : bids) {
-                if (b.getStatus() == BidStatus.ACCEPTED) {
-                    b.setStatus(BidStatus.CANCELLED);
-                    bidRepository.save(b);
-                }
-            }
-        }
-
-        log.info("Bidding session {} cancelled by farmer {}", sessionId, farmerId);
+    private BiddingListing findListing(Long id) {
+        return listingRepository.findById(id).orElseThrow(() -> new BiddingNotFoundException(id));
     }
 
-    private BiddingSession findSession(Long id) {
-        return sessionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Bidding session not found with id: " + id));
+    private BiddingListingResponse toResponse(BiddingListing l) {
+        List<BidResponse> bids = bidRepository.findByListingIdOrderByBidAmountDesc(l.getId()).stream()
+                .map(this::toBidResponse)
+                .toList();
+
+        return new BiddingListingResponse(
+                l.getId(), l.getFarmerId(), l.getCropName(), l.getQuantity(),
+                l.getUnit(), l.getBasePrice(), l.getGuidelinePrice(), l.getLocation(),
+                l.getDescription(), l.getPhotoUrl(), l.getStatus(), l.getHighestBidAmount(),
+                l.getWinningDealerId(), l.getCreatedAt(), bids
+        );
     }
 
-    private void verifyFarmerOwnership(BiddingSession session, Long farmerId, String role) {
-        if (role != null && role.contains("ADMIN")) return;
-        if (farmerId == null || !farmerId.equals(session.getFarmerId())) {
-            throw new UnauthorizedAccessException("You are not authorized to manage this bidding session");
-        }
-    }
-
-    private void validateRole(String role, String requiredRole) {
-        if (role == null) return;
-        String clean = role.replace("ROLE_", "").toUpperCase();
-        if (!clean.contains(requiredRole) && !clean.contains("ADMIN")) {
-            throw new UnauthorizedAccessException("Only " + requiredRole + " role can perform this operation");
-        }
-    }
-
-    private BiddingSessionResponse mapToResponse(BiddingSession s) {
-        BiddingSessionResponse r = new BiddingSessionResponse();
-        r.setId(s.getId());
-        r.setCropId(s.getCropId());
-        r.setFarmerId(s.getFarmerId());
-        r.setCropName(s.getCropName());
-        r.setQuantity(s.getQuantity());
-        r.setUnit(s.getUnit());
-        r.setBasePrice(s.getBasePrice());
-        r.setMinIncrement(s.getMinIncrement());
-        r.setCurrentHighestBid(s.getCurrentHighestBid());
-        r.setHighestBidderId(s.getHighestBidderId());
-        r.setStartTime(s.getStartTime());
-        r.setEndTime(s.getEndTime());
-        r.setStatus(s.getStatus());
-        r.setDistrict(s.getDistrict());
-        r.setState(s.getState());
-        r.setCreatedAt(s.getCreatedAt());
-        r.setUpdatedAt(s.getUpdatedAt());
-        return r;
-    }
-
-    private BidResponse mapToBidResponse(Bid b) {
-        BidResponse r = new BidResponse();
-        r.setId(b.getId());
-        r.setSessionId(b.getSession().getId());
-        r.setDealerId(b.getDealerId());
-        r.setBidAmount(b.getBidAmount());
-        r.setBidTime(b.getBidTime());
-        r.setStatus(b.getStatus());
-        r.setWalletHoldRef(b.getWalletHoldRef());
-        r.setNotes(b.getNotes());
-        return r;
+    private BidResponse toBidResponse(Bid b) {
+        return new BidResponse(b.getId(), b.getListingId(), b.getDealerId(), b.getBidAmount(), b.getStatus(), b.getBidTime());
     }
 }
