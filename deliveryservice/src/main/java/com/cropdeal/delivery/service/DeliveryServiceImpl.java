@@ -49,6 +49,15 @@ public class DeliveryServiceImpl implements DeliveryService {
         delivery.setDeliveryFee(java.math.BigDecimal.valueOf(100));
         delivery.setFeePaid(true);
         delivery.setFulfillmentType("DELIVERY_PARTNER");
+        delivery.setDealerId(request.getDealerId());
+        delivery.setDealerName(request.getDealerName());
+        delivery.setDealerPhone(request.getDealerPhone());
+        delivery.setFarmerId(request.getFarmerId());
+        delivery.setFarmerName(request.getFarmerName());
+        delivery.setFarmerPhone(request.getFarmerPhone());
+        delivery.setCropName(request.getCropName());
+        delivery.setCropQuantity(request.getCropQuantity());
+        delivery.setCropUnit(request.getCropUnit());
 
         if (request.getDeliveryAgentId() != null) {
             delivery.setStatus(DeliveryStatus.ASSIGNED);
@@ -242,6 +251,15 @@ public class DeliveryServiceImpl implements DeliveryService {
         response.setDeliveryFee(delivery.getDeliveryFee());
         response.setFeePaid(delivery.isFeePaid());
         response.setFulfillmentType(delivery.getFulfillmentType());
+        response.setDealerId(delivery.getDealerId());
+        response.setDealerName(delivery.getDealerName());
+        response.setDealerPhone(delivery.getDealerPhone());
+        response.setFarmerId(delivery.getFarmerId());
+        response.setFarmerName(delivery.getFarmerName());
+        response.setFarmerPhone(delivery.getFarmerPhone());
+        response.setCropName(delivery.getCropName());
+        response.setCropQuantity(delivery.getCropQuantity());
+        response.setCropUnit(delivery.getCropUnit());
 
         return response;
     }
@@ -293,6 +311,20 @@ public class DeliveryServiceImpl implements DeliveryService {
         Delivery saved = deliveryRepository.save(delivery);
         saveStatusHistory(saved, "Order designated for Self-Pickup by Dealer");
         return mapToResponse(saved);
+    }
+
+    @Override
+    public java.util.List<DeliveryResponse> getAllDeliveries() {
+        return deliveryRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    @Override
+    public java.util.List<DeliveryResponse> getDeliveriesByAgent(Long agentId) {
+        return deliveryRepository.findByDeliveryAgentId(agentId).stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private <T extends Enum<T>> T parseEnum(

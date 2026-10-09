@@ -62,4 +62,6 @@ public interface DeliveryService {
     DeliveryResponse claimDelivery(Long deliveryId, Long deliveryAgentId);
 
     DeliveryResponse createSelfPickup(Long orderId, String pickupAddress);
+    java.util.List<DeliveryResponse> getAllDeliveries();
+    java.util.List<DeliveryResponse> getDeliveriesByAgent(Long agentId);
 }

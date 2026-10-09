@@ -38,6 +38,20 @@ public class DeliveryController {
                 .body(response);
     }
 
+    // GET /api/deliveries
+    // Get all deliveries
+    @GetMapping
+    public ResponseEntity<List<DeliveryResponse>> getAllDeliveries() {
+        return ResponseEntity.ok(deliveryService.getAllDeliveries());
+    }
+
+    // GET /api/deliveries/agent/{agentId}
+    // Get deliveries for agent
+    @GetMapping("/agent/{agentId}")
+    public ResponseEntity<List<DeliveryResponse>> getDeliveriesByAgent(@PathVariable Long agentId) {
+        return ResponseEntity.ok(deliveryService.getDeliveriesByAgent(agentId));
+    }
+
     // GET /api/deliveries/{deliveryId}
     // Get delivery details
     @GetMapping("/{deliveryId}")
