@@ -50,6 +50,30 @@ public class PaymentController {
                 paymentService.getPaymentById(id));
     }
 
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<PaymentResponse> getPaymentByOrderId(
+            @PathVariable Long orderId) {
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentByOrderId(orderId));
+    }
+
+    @GetMapping("/dealer/{dealerId}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByDealer(
+            @PathVariable Long dealerId) {
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentsByDealer(dealerId));
+    }
+
+    @GetMapping("/farmer/{farmerId}")
+    public ResponseEntity<List<PaymentResponse>> getPaymentsByFarmer(
+            @PathVariable Long farmerId) {
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentsByFarmer(farmerId));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<PaymentResponse> updatePayment(
             @PathVariable Long id,
