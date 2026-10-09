@@ -12,11 +12,13 @@ import { SidebarService } from '../../core/services/sidebar.service';
 import { NegotiationService } from '../../core/services/negotiation.service';
 import { DeliveryService } from '../../core/services/delivery.service';
 import { InvoiceService } from '../../core/services/invoice.service';
+import { PaymentService } from '../../core/services/payment.service';
 import { CropService } from '../../core/services/crop.service';
 import { Crop } from '../../core/models/crop.model';
 import { Invoice } from '../../core/models/invoice.model';
 import { User } from '../../core/models/user.model';
 import { AuthModalComponent } from '../../shared/components/auth-modal.component';
+import { INDIAN_STATES, getDistrictsForState, matchesPlace } from '../../core/utils/india-locations.util';
 
 export interface CropCard {
   id: string;
@@ -27,6 +29,8 @@ export interface CropCard {
   pricePerKg: number;
   govMspPrice?: number;
   state: string;
+  district?: string;
+  rawLocation?: string;
   availableQuantity: number;
   unit: string;
   farmerName?: string;
@@ -62,6 +66,89 @@ export interface CropCard {
         <span>{{ actionMessage }}</span>
       </div>
 
+      <!-- State & District Harvest Search Bar Section -->
+      <section class="location-search-container">
+        <div class="search-bar-card shadow-sm">
+          <div class="search-bar-title-wrap">
+            <div class="search-title-main">
+              <i class="fa-solid fa-location-crosshairs text-emerald"></i>
+              <span>Find Crops by State & District</span>
+            </div>
+            <span class="search-title-sub">Explore fresh harvest listings across Indian states & APMC mandi hubs</span>
+          </div>
+
+          <div class="search-bar-grid">
+            <!-- 1. State Selector -->
+            <div class="search-field">
+              <label class="search-field-label">
+                <i class="fa-solid fa-map-location-dot text-emerald"></i> State
+              </label>
+              <select
+                [(ngModel)]="selectedSearchState"
+                (change)="onSearchStateChange()"
+                class="search-select">
+                <option value="All States">All States of India</option>
+                <option *ngFor="let st of allIndianStates" [value]="st">{{ st }}</option>
+              </select>
+            </div>
+
+            <!-- 2. District Selector (Cascading strictly for selected state) -->
+            <div class="search-field">
+              <label class="search-field-label">
+                <i class="fa-solid fa-city text-emerald"></i> District
+              </label>
+              <select
+                [(ngModel)]="selectedSearchDistrict"
+                (change)="onLocationSearch()"
+                class="search-select"
+                [disabled]="selectedSearchState === 'All States'">
+                <option value="All Districts">{{ selectedSearchState === 'All States' ? 'Select State first' : 'All Districts in ' + selectedSearchState }}</option>
+                <option *ngFor="let dist of availableSearchDistricts" [value]="dist">{{ dist }}</option>
+              </select>
+            </div>
+
+            <!-- 3. Commodity / Crop Input -->
+            <div class="search-field">
+              <label class="search-field-label">
+                <i class="fa-solid fa-wheat-awn text-emerald"></i> Crop / Commodity
+              </label>
+              <input
+                type="text"
+                [(ngModel)]="searchCommodity"
+                (keyup.enter)="onLocationSearch()"
+                placeholder="e.g. Rice, Sugarcane, Wheat..."
+                class="search-input"
+              />
+            </div>
+
+            <!-- 4. Action Buttons -->
+            <div class="search-buttons-group">
+              <button class="btn btn-primary btn-search-go" (click)="onLocationSearch()">
+                <i class="fa-solid fa-magnifying-glass"></i> Search
+              </button>
+              <button class="btn btn-secondary btn-search-reset" (click)="resetLocationSearch()" title="Reset search filters">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Filter Pill Strip -->
+          <div *ngIf="selectedSearchState !== 'All States' || selectedSearchDistrict !== 'All Districts' || searchCommodity" class="active-filter-strip">
+            <span class="active-filter-badge">
+              <i class="fa-solid fa-filter text-emerald"></i>
+              Filtered:
+              <strong *ngIf="selectedSearchState !== 'All States'">{{ selectedSearchState }}</strong>
+              <strong *ngIf="selectedSearchDistrict !== 'All Districts'"> &bull; {{ selectedSearchDistrict }}</strong>
+              <strong *ngIf="searchCommodity"> &bull; "{{ searchCommodity }}"</strong>
+              <span class="count-tag ms-1">({{ filteredCrops.length }} crops found)</span>
+            </span>
+            <button class="btn-clear-strip" (click)="resetLocationSearch()">
+              <i class="fa-solid fa-xmark"></i> Clear Filters
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- Available Crops Section -->
       <section class="crops-section">
         <div class="section-heading-row">
@@ -72,7 +159,7 @@ export interface CropCard {
           </div>
         </div>
 
-        <!-- Empty State when no crops are listed yet -->
+        <!-- Empty State when no crops are listed at all -->
         <div *ngIf="crops.length === 0" class="empty-crops-card shadow-sm">
           <div class="empty-icon-circle">
             <i class="fa-solid fa-wheat-awn-circle-exclamation text-emerald" style="font-size: 2.2rem;"></i>
@@ -91,8 +178,22 @@ export interface CropCard {
           </div>
         </div>
 
+        <!-- Empty State when filters yield no matches -->
+        <div *ngIf="crops.length > 0 && filteredCrops.length === 0" class="empty-crops-card shadow-sm">
+          <div class="empty-icon-circle">
+            <i class="fa-solid fa-map-location-dot text-emerald" style="font-size: 2.2rem;"></i>
+          </div>
+          <h3 class="font-bold text-dark mb-1" style="font-size: 1.3rem;">No Harvest Crops Found in this Location</h3>
+          <p class="text-muted mx-auto mb-3" style="max-width: 520px; font-size: 0.95rem; line-height: 1.5;">
+            There are currently no active harvest crops listed matching your filters (<strong *ngIf="selectedSearchState !== 'All States'">{{ selectedSearchState }}</strong><strong *ngIf="selectedSearchDistrict !== 'All Districts'"> &bull; {{ selectedSearchDistrict }}</strong><strong *ngIf="searchCommodity"> &bull; "{{ searchCommodity }}"</strong>).
+          </p>
+          <button (click)="resetLocationSearch()" class="btn btn-primary">
+            <i class="fa-solid fa-rotate-left"></i> View All Harvest Crops
+          </button>
+        </div>
+
         <!-- 12-Card Responsive Grid with Marketplace-styled Cards (No Wishlist Heart) -->
-        <div class="crops-grid" *ngIf="crops.length > 0">
+        <div class="crops-grid" *ngIf="filteredCrops.length > 0">
           <div *ngFor="let crop of paginatedCrops" class="card crop-card shadow-sm">
             <!-- Crop Image Wrapper (matches marketplace crop-card) -->
             <div class="crop-image-wrapper" (click)="openCropDetails(crop)" title="Click to view full inspection details & farmer reviews" style="cursor: pointer;">
@@ -123,7 +224,7 @@ export interface CropCard {
                 </div>
                 <div class="detail-item">
                   <i class="fa-solid fa-location-dot text-muted"></i>
-                  <span>Location: {{ crop.state }}</span>
+                  <span>Location: {{ crop.district ? (crop.district + ', ') : '' }}{{ crop.state }}</span>
                 </div>
                 <div class="detail-item">
                   <i class="fa-regular fa-user text-muted"></i>
@@ -171,7 +272,7 @@ export interface CropCard {
         </div>
 
         <!-- Dynamic Interactive Pagination Bar -->
-        <div class="pagination-row" *ngIf="crops.length > pageSize">
+        <div class="pagination-row" *ngIf="filteredCrops.length > pageSize">
           <button class="page-arrow" [disabled]="currentPage === 1" (click)="setPage(currentPage - 1)">
             <i class="fa-solid fa-angle-left"></i>
           </button>
@@ -1117,6 +1218,162 @@ export interface CropCard {
       margin: 0;
     }
 
+    /* Geographic Harvest Search Toolbar */
+    .location-search-container {
+      max-width: 1360px;
+      width: 100%;
+      margin: 1.5rem auto 0;
+      padding: 0 1.5rem;
+    }
+    .search-bar-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.85rem;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    }
+    .search-bar-title-wrap {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .search-title-main {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .search-title-sub {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    .search-bar-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr 1.4fr auto;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+    .search-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .search-field-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin: 0;
+    }
+    .search-select, .search-input {
+      width: 100%;
+      height: 42px;
+      padding: 0.45rem 0.75rem;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      color: #1e293b;
+      background-color: #f8fafc;
+      transition: all 0.2s ease-in-out;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .search-select:focus, .search-input:focus {
+      border-color: #16a34a;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+    }
+    .search-select:disabled {
+      background-color: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+      border-color: #e2e8f0;
+    }
+    .search-buttons-group {
+      display: flex;
+      gap: 0.5rem;
+      height: 42px;
+    }
+    .btn-search-go {
+      background: #15803d;
+      color: #ffffff;
+      font-weight: 700;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-search-go:hover {
+      background: #166534;
+    }
+    .btn-search-reset {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 600;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 0.5rem;
+      padding: 0 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-search-reset:hover {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+    .active-filter-strip {
+      margin-top: 0.85rem;
+      padding-top: 0.75rem;
+      border-top: 1px dashed #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .active-filter-badge {
+      font-size: 0.825rem;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .count-tag {
+      color: #15803d;
+      font-weight: 700;
+    }
+    .btn-clear-strip {
+      background: none;
+      border: none;
+      color: #dc2626;
+      font-size: 0.775rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+    }
+    .btn-clear-strip:hover {
+      background: #fee2e2;
+    }
+
     /* Available Crops */
     .crops-section {
       max-width: 1360px;
@@ -1952,6 +2209,59 @@ export class LandingComponent implements OnInit {
 
   crops: CropCard[] = [];
 
+  // State & District Cascading Location Search Bar
+  allIndianStates: string[] = [...INDIAN_STATES];
+  selectedSearchState = 'All States';
+  selectedSearchDistrict = 'All Districts';
+  availableSearchDistricts: string[] = [];
+  searchCommodity = '';
+
+  onSearchStateChange(): void {
+    if (this.selectedSearchState && this.selectedSearchState !== 'All States') {
+      this.availableSearchDistricts = getDistrictsForState(this.selectedSearchState);
+    } else {
+      this.availableSearchDistricts = [];
+    }
+    this.selectedSearchDistrict = 'All Districts';
+    this.currentPage = 1;
+  }
+
+  onLocationSearch(): void {
+    this.currentPage = 1;
+  }
+
+  resetLocationSearch(): void {
+    this.selectedSearchState = 'All States';
+    this.selectedSearchDistrict = 'All Districts';
+    this.availableSearchDistricts = [];
+    this.searchCommodity = '';
+    this.currentPage = 1;
+  }
+
+  get filteredCrops(): CropCard[] {
+    return this.crops.filter(crop => {
+      // 1. Check Location Match
+      const locMatches = matchesPlace(
+        crop.rawLocation || crop.state,
+        crop.state,
+        crop.district,
+        this.selectedSearchState,
+        this.selectedSearchDistrict
+      );
+      if (!locMatches) return false;
+
+      // 2. Check Commodity Query
+      if (this.searchCommodity && this.searchCommodity.trim()) {
+        const query = this.searchCommodity.trim().toLowerCase();
+        const nameMatches = (crop.name || '').toLowerCase().includes(query) ||
+                            (crop.category || '').toLowerCase().includes(query);
+        if (!nameMatches) return false;
+      }
+
+      return true;
+    });
+  }
+
   constructor(
     private authService: AuthService,
     public authModalService: AuthModalService,
@@ -1963,6 +2273,7 @@ export class LandingComponent implements OnInit {
     private negotiationService: NegotiationService,
     private deliveryService: DeliveryService,
     private invoiceService: InvoiceService,
+    private paymentService: PaymentService,
     private cropService: CropService,
     private router: Router
   ) {}
@@ -1979,19 +2290,19 @@ export class LandingComponent implements OnInit {
     });
 
     this.cropService.crops$.subscribe((cropsList: Crop[]) => {
-      const deletedIds = this.cropService.getDeletedCropIds();
       this.crops = (cropsList || [])
-        .filter((c: Crop) => {
-          const cId = String(c.id || c.cropId || '');
-          if (deletedIds.has(cId)) return false;
-          if (c.status === 'BLOCKED') return false;
-          return true;
-        })
+        .filter((c: Crop) => c.status !== 'DELETED' && c.status !== 'BLOCKED')
         .map((c: Crop) => this.mapCropToCard(c));
     });
 
     this.cropService.getAllCrops().subscribe({
-      next: () => {},
+      next: (data) => {
+        if (data && data.length > 0) {
+          this.crops = data
+            .filter((c: Crop) => c.status !== 'DELETED' && c.status !== 'BLOCKED')
+            .map((c: Crop) => this.mapCropToCard(c));
+        }
+      },
       error: () => {}
     });
   }
@@ -2000,6 +2311,9 @@ export class LandingComponent implements OnInit {
     const cropName = crop.cropName || (crop as any).commodity || 'Fresh Harvest';
     const qty = Number(crop.quantity !== undefined ? crop.quantity : (crop.availableQuantity || 0));
     const price = Number(crop.pricePerUnit !== undefined ? crop.pricePerUnit : ((crop as any).pricePerKg || 0));
+    const loc = crop.location || '';
+    const st = crop.state || this.parseStateFromLoc(loc) || 'India';
+    const dist = crop.district || this.parseDistrictFromLoc(loc) || '';
     return {
       id: crop.id || crop.cropId || ('cr-' + Date.now()),
       name: cropName,
@@ -2008,7 +2322,9 @@ export class LandingComponent implements OnInit {
       image: crop.imageUrl || this.getDefaultImageForCrop(cropName),
       pricePerKg: price,
       govMspPrice: crop.govMspPrice,
-      state: crop.location || 'Local Yard, India',
+      state: st,
+      district: dist,
+      rawLocation: loc || (dist ? `${dist}, ${st}` : st),
       availableQuantity: qty,
       unit: crop.unit || 'Kg',
       farmerName: crop.farmerName || 'Verified Farmer',
@@ -2016,6 +2332,20 @@ export class LandingComponent implements OnInit {
       farmerPhone: crop.farmerPhone || '+91 98000 00000',
       description: crop.description || (crop.variety ? `Variety: ${crop.variety}` : '')
     };
+  }
+
+  private parseStateFromLoc(loc: string): string {
+    if (!loc) return '';
+    const parts = loc.split(',').map(s => s.trim());
+    return parts.length > 1 ? parts[parts.length - 1] : parts[0];
+  }
+
+  private parseDistrictFromLoc(loc: string): string {
+    if (!loc) return '';
+    const parts = loc.split(',').map(s => s.trim());
+    if (parts.length >= 3) return parts[1];
+    if (parts.length === 2) return parts[0];
+    return '';
   }
 
   private getDefaultImageForCrop(name: string): string {
@@ -2036,7 +2366,7 @@ export class LandingComponent implements OnInit {
   }
 
   get totalPages(): number {
-    return Math.max(1, Math.ceil(this.crops.length / this.pageSize));
+    return Math.max(1, Math.ceil(this.filteredCrops.length / this.pageSize));
   }
 
   get totalPagesArray(): number[] {
@@ -2045,7 +2375,7 @@ export class LandingComponent implements OnInit {
 
   get paginatedCrops(): CropCard[] {
     const start = (this.currentPage - 1) * this.pageSize;
-    return this.crops.slice(start, start + this.pageSize);
+    return this.filteredCrops.slice(start, start + this.pageSize);
   }
 
   setPage(page: number): void {
@@ -2338,6 +2668,16 @@ export class LandingComponent implements OnInit {
     this.completedOrder = orderReq;
     this.completedInvoice = inv;
 
+    // Debit Dealer's Wallet if paying via wallet
+    if (this.paymentMethod === 'WALLET') {
+      const buyerId = String(this.currentUser?.id || this.currentUser?.userId || 'dealer-1');
+      this.walletService.debitWallet(
+        buyerId,
+        finalTotal,
+        `Crop Purchase: ${cropName} (${this.orderQuantity} ${cropUnit}) - Order #${orderId}`
+      ).subscribe();
+    }
+
     // Credit Farmer's Digital Wallet for crop purchase proceeds
     const farmerTargetId = String(crop.farmerId || 'farmer-1');
     const farmerProceeds = this.cropSubtotal;
@@ -2370,18 +2710,51 @@ export class LandingComponent implements OnInit {
         cropName: cropName,
         cropQuantity: this.orderQuantity,
         cropUnit: cropUnit,
-        farmerName: crop.farmerName || 'Sardar Gurpreet Singh',
-        farmerPhone: crop.farmerPhone || '+91 98140 11223',
-        pickupAddress: crop.state,
-        dealerName: this.currentUser?.fullName || this.currentUser?.username || 'Apex Agro Mills Ltd',
-        dealerPhone: this.currentUser?.phone || '+91 98722 55667',
+        farmerName: crop.farmerName || null,
+        farmerPhone: crop.farmerPhone || null,
+        pickupAddress: crop.state || null,
+        dealerName: this.currentUser?.fullName || this.currentUser?.username || null,
+        dealerPhone: this.currentUser?.phone || null,
         dropAddress: effectiveDropAddress,
         distanceKm: this.distanceKm,
         deliveryFee: deliveryFee,
         fulfillmentType: 'DELIVERY_AGENT',
         status: 'PENDING_ASSIGNMENT'
       }).subscribe();
+    } else {
+      this.deliveryService.createDelivery({
+        orderId: orderId,
+        fulfillmentType: 'SELF_PICKUP',
+        dealerId: this.currentUser?.id || this.currentUser?.userId || null,
+        farmerId: crop.farmerId || null,
+        cropName: cropName,
+        cropQuantity: this.orderQuantity,
+        cropUnit: cropUnit,
+        farmerName: crop.farmerName || null,
+        farmerPhone: crop.farmerPhone || null,
+        pickupAddress: crop.state || null,
+        dealerName: this.currentUser?.fullName || this.currentUser?.username || null,
+        dealerPhone: this.currentUser?.phone || null,
+        dropAddress: 'Self Pickup by Dealer',
+        status: 'DELIVERED'
+      }).subscribe();
     }
+
+    const numOrderId = parseInt(String(orderId).replace(/\D/g, ''), 10) || 1001;
+    const numDealerId = parseInt(String(this.currentUser?.id || this.currentUser?.userId || '2').replace(/\D/g, ''), 10) || 2;
+    const numFarmerId = parseInt(String(crop.farmerId || '1').replace(/\D/g, ''), 10) || 1;
+
+    // Persist Payment in PaymentService
+    this.paymentService.makePayment({
+      orderId: numOrderId,
+      dealerId: numDealerId,
+      farmerId: numFarmerId,
+      amount: finalTotal,
+      paymentMethod: this.paymentMethod
+    }).subscribe();
+
+    // Persist Invoice in InvoiceService
+    this.invoiceService.createInvoice(inv).subscribe();
 
     // Persist order in OrderService
     this.orderService.createOrder(orderReq).subscribe({
@@ -2398,20 +2771,22 @@ export class LandingComponent implements OnInit {
     // Send notifications to Dealer and Farmer
     const dealerId = this.currentUser?.id || this.currentUser?.userId || 'dealer-1';
     const farmerId = crop.farmerId || 'farmer-1';
-    const dealerName = this.currentUser?.fullName || this.currentUser?.username || 'Apex Agro Mills Ltd';
-    const farmerName = crop.farmerName || 'Sardar Gurpreet Singh';
+    const dealerName = this.currentUser?.fullName || this.currentUser?.username || 'Commercial Dealer';
+    const farmerName = crop.farmerName || 'Farmer';
 
     this.notificationService.sendNotification(
       dealerId,
       '📦 Order Confirmed & Paid',
       `Your order #${orderId} for ${cropName} (${this.orderQuantity} ${cropUnit}) has been confirmed and paid. Total: ₹${finalTotal.toLocaleString()}.`,
-      'ORDER'
+      'ORDER',
+      'dealer'
     );
     this.notificationService.sendNotification(
       farmerId,
-      '🎉 New Order Received',
-      `Dealer ${dealerName} placed an order #${orderId} for ${cropName} (${this.orderQuantity} ${cropUnit}). Total: ₹${finalTotal.toLocaleString()}.`,
-      'ORDER'
+      '🎉 Crop Purchased by Dealer',
+      `Dealer ${dealerName} purchased your crop "${cropName}" (${this.orderQuantity} ${cropUnit}). Total earned: ₹${this.cropSubtotal.toLocaleString()}. Check your wallet for credited funds!`,
+      'ORDER',
+      'farmer'
     );
   }
 
@@ -2527,8 +2902,12 @@ export class LandingComponent implements OnInit {
 
     this.negotiationService.createNegotiation({
       cropId: crop.id || 'crop-101',
+      cropName: crop.name || 'Produce',
       dealerId: dealerId,
+      dealerName: dealerName,
       farmerId: farmerId,
+      farmerName: farmerName,
+      originalPrice: crop.pricePerKg,
       quantity: crop.availableQuantity || 100,
       offeredPrice: this.proposedPrice,
       notes: this.negotiationNotes

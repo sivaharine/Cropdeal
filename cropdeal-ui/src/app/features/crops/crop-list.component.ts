@@ -11,6 +11,7 @@ import { InvoiceService } from '../../core/services/invoice.service';
 import { WalletService } from '../../core/services/wallet.service';
 import { AuthModalService } from '../../core/services/auth-modal.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { PaymentService } from '../../core/services/payment.service';
 import { Crop } from '../../core/models/crop.model';
 import { Invoice } from '../../core/models/invoice.model';
 import { User } from '../../core/models/user.model';
@@ -1583,6 +1584,7 @@ export class CropListComponent implements OnInit {
     private authService: AuthService,
     private invoiceService: InvoiceService,
     private walletService: WalletService,
+    private paymentService: PaymentService,
     public authModalService: AuthModalService,
     private notificationService: NotificationService,
     private router: Router,
@@ -1629,10 +1631,8 @@ export class CropListComponent implements OnInit {
   }
 
   get filteredCrops(): Crop[] {
-    const deletedIds = this.cropService.getDeletedCropIds();
     return this.crops.filter(c => {
-      const cId = String(c.id || c.cropId || '');
-      if (deletedIds.has(cId)) return false;
+      if (c.status === 'DELETED') return false;
       // Hide blocked crops for all normal marketplace viewers
       if (this.user?.role !== 'ADMIN' && c.status === 'BLOCKED') {
         return false;
@@ -1902,6 +1902,17 @@ export class CropListComponent implements OnInit {
     this.completedInvoice = inv;
 
     // Credit Farmer's Digital Wallet for crop purchase proceeds
+    // Debit Dealer's Wallet if paying via wallet
+    if (this.paymentMethod === 'WALLET') {
+      const buyerId = String(this.user?.id || this.user?.userId || 'dealer-1');
+      this.walletService.debitWallet(
+        buyerId,
+        finalTotal,
+        `Crop Purchase: ${cropName} (${this.orderQuantity} ${cropUnit}) - Order #${orderId}`
+      ).subscribe();
+    }
+
+    // Credit Farmer's Digital Wallet for crop purchase proceeds
     const farmerTargetId = String(crop.farmerId || 'farmer-1');
     const farmerProceeds = this.cropSubtotal;
     this.walletService.creditWallet(
@@ -1940,18 +1951,51 @@ export class CropListComponent implements OnInit {
         cropName: cropName,
         cropQuantity: this.orderQuantity,
         cropUnit: cropUnit,
-        farmerName: crop.farmerName || 'Sardar Gurpreet Singh',
-        farmerPhone: '+91 98140 11223',
-        pickupAddress: crop.location,
-        dealerName: this.user?.fullName || this.user?.username || 'Apex Agro Mills Ltd',
-        dealerPhone: this.user?.phone || '+91 98722 55667',
+        farmerName: crop.farmerName || null,
+        farmerPhone: crop.farmerPhone || null,
+        pickupAddress: crop.location || null,
+        dealerName: this.user?.fullName || this.user?.username || null,
+        dealerPhone: this.user?.phone || null,
         dropAddress: effectiveDropAddress,
         distanceKm: this.distanceKm,
         deliveryFee: deliveryFee,
         fulfillmentType: 'DELIVERY_AGENT',
         status: 'PENDING_ASSIGNMENT'
       }).subscribe();
+    } else {
+      this.deliveryService.createDelivery({
+        orderId: orderId,
+        fulfillmentType: 'SELF_PICKUP',
+        dealerId: this.user?.id || this.user?.userId || null,
+        farmerId: crop.farmerId || null,
+        cropName: cropName,
+        cropQuantity: this.orderQuantity,
+        cropUnit: cropUnit,
+        farmerName: crop.farmerName || null,
+        farmerPhone: crop.farmerPhone || null,
+        pickupAddress: crop.location || null,
+        dealerName: this.user?.fullName || this.user?.username || null,
+        dealerPhone: this.user?.phone || null,
+        dropAddress: 'Self Pickup by Dealer',
+        status: 'DELIVERED'
+      }).subscribe();
     }
+
+    const numOrderId = parseInt(String(orderId).replace(/\D/g, ''), 10) || 1001;
+    const numDealerId = parseInt(String(this.user?.id || this.user?.userId || '2').replace(/\D/g, ''), 10) || 2;
+    const numFarmerId = parseInt(String(crop.farmerId || '1').replace(/\D/g, ''), 10) || 1;
+
+    // Persist Payment in PaymentService
+    this.paymentService.makePayment({
+      orderId: numOrderId,
+      dealerId: numDealerId,
+      farmerId: numFarmerId,
+      amount: finalTotal,
+      paymentMethod: this.paymentMethod
+    }).subscribe();
+
+    // Persist Invoice in InvoiceService
+    this.invoiceService.createInvoice(inv).subscribe();
 
     // Persist order in OrderService
     this.orderService.createOrder(orderReq).subscribe({
@@ -1968,20 +2012,22 @@ export class CropListComponent implements OnInit {
     // Send real-time in-app notifications to Dealer and Farmer
     const dealerId = this.user?.id || this.user?.userId || 'dealer-1';
     const farmerId = crop.farmerId || 'farmer-1';
-    const dealerName = this.user?.fullName || this.user?.username || 'Apex Agro Mills Ltd';
-    const farmerName = crop.farmerName || 'Sardar Gurpreet Singh';
+    const dealerName = this.user?.fullName || this.user?.username || 'Commercial Dealer';
+    const farmerName = crop.farmerName || 'Farmer';
 
     this.notificationService.sendNotification(
       dealerId,
       '📦 Order Confirmed & Paid',
       `Your order #${orderId} for ${cropName} (${this.orderQuantity} ${cropUnit}) has been confirmed and paid. Total: ₹${finalTotal.toLocaleString()}.`,
-      'ORDER'
+      'ORDER',
+      'dealer'
     );
     this.notificationService.sendNotification(
       farmerId,
-      '🎉 New Order Received',
-      `Dealer ${dealerName} placed an order #${orderId} for ${cropName} (${this.orderQuantity} ${cropUnit}). Total: ₹${finalTotal.toLocaleString()}.`,
-      'ORDER'
+      '🎉 Crop Purchased by Dealer',
+      `Dealer ${dealerName} purchased your crop "${cropName}" (${this.orderQuantity} ${cropUnit}). Total earned: ₹${this.cropSubtotal.toLocaleString()}. Check your wallet for credited funds!`,
+      'ORDER',
+      'farmer'
     );
   }
 
@@ -2096,8 +2142,12 @@ export class CropListComponent implements OnInit {
 
     this.negotiationService.createNegotiation({
       cropId: this.selectedCropForNeg.id || 'crop-101',
+      cropName: crop.cropName || 'Produce',
       dealerId: dealerId,
+      dealerName: dealerName,
       farmerId: farmerId,
+      farmerName: farmerName,
+      originalPrice: crop.pricePerUnit,
       quantity: crop.quantity !== undefined ? crop.quantity : (crop.availableQuantity || 100),
       offeredPrice: this.proposedPrice,
       notes: this.negotiationNotes

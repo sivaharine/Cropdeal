@@ -16,14 +16,24 @@ export class BiddingService {
   public biddings$ = this.biddingsSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    this.biddingsSubject.next(this.loadStoredAuctions());
     if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(this.STORAGE_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const filtered = arr.filter(a => !['AUCT-101', 'AUCT-102', 'AUCT-103', 'AUCT-104'].includes(String(a.id)));
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered));
+          }
+        }
+      } catch {}
       window.addEventListener('storage', (e: StorageEvent) => {
         if (e.key === this.STORAGE_KEY) {
           this.biddingsSubject.next(this.loadStoredAuctions());
         }
       });
     }
+    this.biddingsSubject.next(this.loadStoredAuctions());
   }
 
   public getDeletedAuctionIds(): Set<string> {
@@ -46,104 +56,7 @@ export class BiddingService {
   }
 
   private getDefaultAuctions(): BiddingAuction[] {
-    return [
-      {
-        id: 'AUCT-101',
-        cropId: 'crop-101',
-        cropName: 'Basmati Rice (1121 Pusa)',
-        farmerId: 'farmer-1',
-        farmerName: 'Sardar Gurpreet Singh',
-        startingPrice: 38.00,
-        currentHighestBid: 41.50,
-        highestBidderId: 'dealer-1',
-        highestBidderName: 'Apex Agro Mills Ltd',
-        quantity: 5000,
-        unit: 'Kg',
-        endTime: new Date(Date.now() + 14 * 3600000).toISOString(),
-        status: 'OPEN',
-        bidsCount: 3,
-        minIncrement: 1,
-        location: 'Khanna Mandi Yard, Ludhiana',
-        variety: 'Pusa 1121 Export Grade',
-        createdAt: new Date().toISOString(),
-        bidsHistory: [
-          { bidderName: 'Apex Agro Mills Ltd', bidPriceKg: 41.50, bidTime: '10:45 AM' },
-          { bidderName: 'Kisan Supply Chain Corp', bidPriceKg: 40.00, bidTime: '10:30 AM' },
-          { bidderName: 'Golden Grain Exporters', bidPriceKg: 39.00, bidTime: '10:15 AM' }
-        ]
-      },
-      {
-        id: 'AUCT-102',
-        cropId: 'crop-102',
-        cropName: 'Sharbati Golden Wheat',
-        farmerId: 'farmer-2',
-        farmerName: 'Rameshwar Patel',
-        startingPrice: 28.00,
-        currentHighestBid: 30.00,
-        highestBidderId: 'dealer-2',
-        highestBidderName: 'Kisan Supply Chain Corp',
-        quantity: 8000,
-        unit: 'Kg',
-        endTime: new Date(Date.now() + 18 * 3600000).toISOString(),
-        status: 'OPEN',
-        bidsCount: 2,
-        minIncrement: 1,
-        location: 'Sehore APMC Yard, MP',
-        variety: 'Sharbati Grade A',
-        createdAt: new Date().toISOString(),
-        bidsHistory: [
-          { bidderName: 'Kisan Supply Chain Corp', bidPriceKg: 30.00, bidTime: '11:10 AM' },
-          { bidderName: 'Purity Agro Traders', bidPriceKg: 29.00, bidTime: '10:50 AM' }
-        ]
-      },
-      {
-        id: 'AUCT-103',
-        cropId: 'crop-103',
-        cropName: 'Organic Hybrid Tomato',
-        farmerId: 'farmer-3',
-        farmerName: 'Venkatesh Rao',
-        startingPrice: 18.00,
-        currentHighestBid: 21.00,
-        highestBidderId: 'dealer-3',
-        highestBidderName: 'FreshBasket Wholesale',
-        quantity: 3000,
-        unit: 'Kg',
-        endTime: new Date(Date.now() + 8 * 3600000).toISOString(),
-        status: 'OPEN',
-        bidsCount: 4,
-        minIncrement: 0.5,
-        location: 'Madanapalle APMC, AP',
-        variety: 'Hybrid F1 Export Quality',
-        createdAt: new Date().toISOString(),
-        bidsHistory: [
-          { bidderName: 'FreshBasket Wholesale', bidPriceKg: 21.00, bidTime: '11:25 AM' },
-          { bidderName: 'Apex Agro Mills Ltd', bidPriceKg: 20.50, bidTime: '11:15 AM' },
-          { bidderName: 'Southern Organics', bidPriceKg: 19.50, bidTime: '11:00 AM' },
-          { bidderName: 'Kisan Supply Chain Corp', bidPriceKg: 18.50, bidTime: '10:40 AM' }
-        ]
-      },
-      {
-        id: 'AUCT-104',
-        cropId: 'crop-104',
-        cropName: 'Nasik Red Onion (Export Quality)',
-        farmerId: 'farmer-4',
-        farmerName: 'Dattatray Shinde',
-        startingPrice: 24.00,
-        currentHighestBid: 24.00,
-        highestBidderId: undefined,
-        highestBidderName: undefined,
-        quantity: 6000,
-        unit: 'Kg',
-        endTime: new Date(Date.now() + 22 * 3600000).toISOString(),
-        status: 'OPEN',
-        bidsCount: 0,
-        minIncrement: 1,
-        location: 'Lasalgaon Mandi Yard, Nashik',
-        variety: 'Garwa Export Red',
-        createdAt: new Date().toISOString(),
-        bidsHistory: []
-      }
-    ];
+    return [];
   }
 
   public loadStoredAuctions(): BiddingAuction[] {
@@ -153,13 +66,17 @@ export class BiddingService {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter(a => !deleted.has(String(a.id)) && a.status !== 'CLOSED' && (a.status as string) !== 'AWARDED');
+          const now = Date.now();
+          return parsed.filter(a =>
+            !deleted.has(String(a.id)) &&
+            a.status !== 'CLOSED' &&
+            (a.status as string) !== 'AWARDED' &&
+            (!a.endTime || new Date(a.endTime).getTime() > now)
+          );
         }
       } catch (e) {}
     }
-    const defaults = this.getDefaultAuctions().filter(a => !deleted.has(String(a.id)));
-    this.saveStoredAuctions(defaults);
-    return defaults;
+    return [];
   }
 
   private saveStoredAuctions(auctions: BiddingAuction[]): void {
@@ -180,8 +97,31 @@ export class BiddingService {
         if (data && data.length > 0) {
           data.forEach(a => {
             const sid = String(a.id);
-            if (!deleted.has(sid) && !mapById.has(sid)) {
-              mapById.set(sid, a);
+            if (!deleted.has(sid)) {
+              const highest = a.highestBidAmount != null && Number(a.highestBidAmount) > 0
+                ? Number(a.highestBidAmount)
+                : (Number(a.currentHighestBid || a.basePrice || a.startingPrice || 0));
+              const bidsCount = (a.bids && a.bids.length > 0) ? a.bids.length : (a.bidsCount || 0);
+              const existing = mapById.get(sid);
+              if (existing) {
+                existing.currentHighestBid = Math.max(highest, existing.currentHighestBid || 0);
+                existing.bidsCount = Math.max(bidsCount, existing.bidsCount || 0);
+                if (a.bids && a.bids.length > 0) {
+                  existing.bidsHistory = a.bids.map((b: any) => ({
+                    bidderName: b.dealerName || b.bidderName || ('Dealer #' + b.dealerId),
+                    bidPriceKg: Number(b.bidAmount),
+                    bidTime: b.bidTime || 'Recent'
+                  }));
+                }
+                mapById.set(sid, existing);
+              } else {
+                mapById.set(sid, {
+                  ...a,
+                  startingPrice: Number(a.basePrice || a.startingPrice || 20),
+                  currentHighestBid: highest,
+                  bidsCount: bidsCount
+                });
+              }
             }
           });
         }
@@ -192,7 +132,7 @@ export class BiddingService {
 
   getActiveAuctions(): Observable<BiddingAuction[]> {
     const deleted = this.getDeletedAuctionIds();
-    return this.http.get<BiddingAuction[]>(this.baseUrl).pipe(
+    return this.http.get<any[]>(this.baseUrl).pipe(
       catchError(() => of(this.loadStoredAuctions())),
       map(data => {
         const local = this.loadStoredAuctions();
@@ -201,13 +141,42 @@ export class BiddingService {
         if (data && data.length > 0) {
           data.forEach(a => {
             const sid = String(a.id);
-            if (!deleted.has(sid) && !mapById.has(sid)) {
-              mapById.set(sid, a);
+            if (!deleted.has(sid)) {
+              const highest = a.highestBidAmount != null && Number(a.highestBidAmount) > 0
+                ? Number(a.highestBidAmount)
+                : (Number(a.currentHighestBid || a.basePrice || a.startingPrice || 0));
+              const bidsCount = (a.bids && a.bids.length > 0) ? a.bids.length : (a.bidsCount || 0);
+              const existing = mapById.get(sid);
+              if (existing) {
+                existing.currentHighestBid = Math.max(highest, existing.currentHighestBid || 0);
+                existing.bidsCount = Math.max(bidsCount, existing.bidsCount || 0);
+                if (a.bids && a.bids.length > 0) {
+                  existing.bidsHistory = a.bids.map((b: any) => ({
+                    bidderName: b.dealerName || b.bidderName || ('Dealer #' + b.dealerId),
+                    bidPriceKg: Number(b.bidAmount),
+                    bidTime: b.bidTime || 'Recent'
+                  }));
+                }
+                mapById.set(sid, existing);
+              } else {
+                mapById.set(sid, {
+                  ...a,
+                  startingPrice: Number(a.basePrice || a.startingPrice || 20),
+                  currentHighestBid: highest,
+                  bidsCount: bidsCount
+                });
+              }
             }
           });
         }
-        // Exclude BLOCKED, CLOSED, AWARDED biddings completely from active bidding floor
-        return Array.from(mapById.values()).filter(a => !deleted.has(String(a.id)) && (a.status === 'OPEN' || !a.status));
+        const now = Date.now();
+        // Exclude BLOCKED, CLOSED, AWARDED biddings and any bidding whose timing has completed
+        return Array.from(mapById.values()).filter(a => {
+          if (deleted.has(String(a.id))) return false;
+          if (a.status && a.status !== 'OPEN') return false;
+          if (a.endTime && new Date(a.endTime).getTime() <= now) return false;
+          return true;
+        });
       })
     );
   }
@@ -261,7 +230,7 @@ export class BiddingService {
 
   placeBid(bid: BidOffer): Observable<BiddingAuction> {
     const list = this.loadStoredAuctions();
-    const index = list.findIndex(a => a.id === bid.biddingId);
+    const index = list.findIndex(a => String(a.id) === String(bid.biddingId));
     if (index !== -1) {
       list[index].currentHighestBid = Number(bid.bidAmount);
       list[index].highestBidderId = bid.dealerId;
@@ -276,15 +245,35 @@ export class BiddingService {
         bidTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
       });
       this.saveStoredAuctions(list);
-
-      this.http.post<BiddingAuction>(`${this.baseUrl}/${bid.biddingId}/bid`, bid).subscribe({
-        next: () => {},
-        error: () => {}
-      });
-
-      return of(list[index]);
     }
-    return of({} as BiddingAuction);
+
+    let numericDealerId = Number(bid.dealerId);
+    if (isNaN(numericDealerId) || numericDealerId <= 0) {
+      numericDealerId = 2; // Default seeded Dealer ID
+    }
+
+    const payload = {
+      dealerId: numericDealerId,
+      bidAmount: Number(bid.bidAmount)
+    };
+
+    return this.http.post<any>(`${this.baseUrl}/${bid.biddingId}/bids`, payload).pipe(
+      tap((res) => {
+        if (res) {
+          const updated = this.loadStoredAuctions();
+          const idx = updated.findIndex(a => String(a.id) === String(bid.biddingId));
+          if (idx !== -1) {
+            updated[idx].currentHighestBid = Number(bid.bidAmount);
+            updated[idx].bidsCount = (updated[idx].bidsCount || 0) + 1;
+            this.saveStoredAuctions(updated);
+          }
+        }
+      }),
+      catchError(() => {
+        return of(index !== -1 ? list[index] : ({} as BiddingAuction));
+      }),
+      map(() => index !== -1 ? list[index] : ({} as BiddingAuction))
+    );
   }
 
   toggleBlockAuction(auctionId: string, block: boolean): Observable<BiddingAuction> {

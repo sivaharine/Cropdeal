@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { Invoice } from '../models/invoice.model';
 import { environment } from '../../../environments/environment';
 
@@ -54,14 +54,79 @@ export class InvoiceService {
   }
 
   createInvoice(inv: Partial<Invoice>): Observable<Invoice> {
-    const newInv = {
+    const rawOrderId = String(inv.orderId || '').replace(/\D/g, '');
+    const numericOrderId = parseInt(rawOrderId, 10) || Math.floor(1000 + Math.random() * 9000);
+    const numericFarmerId = parseInt(String(inv.farmerId || '').replace(/\D/g, ''), 10) || 1;
+    const numericDealerId = parseInt(String(inv.dealerId || '').replace(/\D/g, ''), 10) || 2;
+    const qty = Number(inv.quantity || 1);
+    const unitPrice = Number(inv.pricePerUnit || 100);
+    const subtotal = Number(inv.totalAmount || (qty * unitPrice));
+    const tax = Number(inv.taxAmount || ((inv.cgstAmount || 0) + (inv.sgstAmount || 0)) || 0);
+    const total = Number(inv.finalAmount || (subtotal + tax));
+
+    const backendPayload = {
+      orderId: numericOrderId,
+      paymentId: String(inv.transactionId || ('PAY-' + numericOrderId)),
+      farmerId: numericFarmerId,
+      dealerId: numericDealerId,
+      items: [
+        {
+          cropName: inv.cropName || 'Agricultural Produce',
+          quantity: qty,
+          unit: inv.unit || 'Kg',
+          unitPrice: unitPrice
+        }
+      ],
+      subtotal: subtotal,
+      taxAmount: tax,
+      totalAmount: total
+    };
+
+    const localInv: Invoice = {
       ...inv,
-      id: inv.id || 'INV-' + (inv.orderId || Date.now()),
-      invoiceNumber: inv.invoiceNumber || 'CD-INV-2026-' + (inv.orderId ? inv.orderId.replace('ORD-', '') : String(Date.now()).substring(6)),
+      id: inv.id || 'INV-' + numericOrderId,
+      invoiceNumber: inv.invoiceNumber || 'CD-INV-2026-' + numericOrderId,
+      orderId: 'ORD-' + numericOrderId,
       issuedAt: inv.issuedAt || new Date().toISOString()
     } as Invoice;
-    return this.http.post<Invoice>(this.baseUrl, newInv).pipe(
-      catchError(() => of(newInv))
+
+    return this.http.post<any>(this.baseUrl, backendPayload).pipe(
+      map(res => {
+        if (res) {
+          return {
+            ...localInv,
+            id: res.id ? 'INV-' + res.id : localInv.id,
+            invoiceNumber: res.invoiceNumber || localInv.invoiceNumber,
+            issuedAt: res.createdAt || res.invoiceDate || localInv.issuedAt
+          };
+        }
+        return localInv;
+      }),
+      catchError(() => of(localInv))
+    );
+  }
+
+  getAllInvoices(): Observable<Invoice[]> {
+    return this.http.get<any[]>(this.baseUrl).pipe(
+      map((list: any[]) => {
+        if (!list || list.length === 0) return [];
+        return list.map((item: any) => ({
+          id: 'INV-' + item.id,
+          invoiceNumber: item.invoiceNumber,
+          orderId: 'ORD-' + item.orderId,
+          farmerId: String(item.farmerId),
+          dealerId: String(item.dealerId),
+          cropName: item.items && item.items.length > 0 ? item.items[0].cropName : 'Agricultural Commodity',
+          quantity: item.items && item.items.length > 0 ? item.items[0].quantity : 1,
+          unit: item.items && item.items.length > 0 ? item.items[0].unit : 'Kg',
+          pricePerUnit: item.items && item.items.length > 0 ? item.items[0].unitPrice : 0,
+          totalAmount: item.subtotal,
+          taxAmount: item.taxAmount,
+          finalAmount: item.totalAmount,
+          issuedAt: item.invoiceDate || item.createdAt
+        } as Invoice));
+      }),
+      catchError(() => of([]))
     );
   }
 

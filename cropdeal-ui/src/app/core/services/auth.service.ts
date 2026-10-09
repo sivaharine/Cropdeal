@@ -127,46 +127,46 @@ export class AuthService {
         if (Array.isArray(list)) {
           masterUser = list.find((u: any) =>
             (u.username && u.username.toLowerCase() === username.toLowerCase()) ||
+            (u.email && u.email.toLowerCase() === username.toLowerCase()) ||
+            (u.role && u.role === role) ||
             (u.email && u.email.toLowerCase() === (username.toLowerCase() + '@cropdeal.in'))
           ) || null;
         }
       }
     } catch {}
 
-    // Heal demo accounts if stale blocked in localStorage
-    if (masterUser && ['farmer', 'dealer', 'delivery_partner', 'admin'].includes(username.toLowerCase())) {
-      if (masterUser.status === 'BLOCKED' || masterUser.isBlocked) {
-        masterUser.status = 'ACTIVE';
-        masterUser.isBlocked = false;
-        this.syncMasterUser(masterUser);
-      }
-    }
-
-    if (role !== 'ADMIN' && username.toLowerCase() !== 'admin' && masterUser && (masterUser.status === 'BLOCKED' || masterUser.isBlocked)) {
+    if (role !== 'ADMIN' && username.toLowerCase() !== 'admin' && username.toLowerCase() !== 'admin@gmail.com' && masterUser && (masterUser.status === 'BLOCKED' || masterUser.isBlocked)) {
       throw new Error('User account is blocked by administrator');
     }
 
     const token = 'cropdeal-jwt-token-' + role.toLowerCase() + '-' + Date.now();
     localStorage.setItem(this.TOKEN_KEY, token);
 
+    const defaultIds: Record<string, string> = {
+      'FARMER': '1',
+      'DEALER': '2',
+      'DELIVERY_PARTNER': '3',
+      'ADMIN': '4'
+    };
+
     const user: User = masterUser ? {
       ...masterUser,
-      id: masterUser.id || (role.toLowerCase() + '-1'),
-      userId: masterUser.userId || (role.toLowerCase() + '-1')
+      id: String(masterUser.id || defaultIds[role] || '1'),
+      userId: String(masterUser.userId || masterUser.id || defaultIds[role] || '1')
     } : {
-      id: role.toLowerCase() + '-1',
-      userId: role.toLowerCase() + '-1',
+      id: defaultIds[role] || '1',
+      userId: defaultIds[role] || '1',
       username: username,
       fullName: role === 'ADMIN' ? 'System Administrator' :
-        (role === 'FARMER' ? 'Sardar Gurpreet Singh' :
-        (role === 'DEALER' ? 'Apex Agro Mills Ltd' : 'Kisan Express Agro Logistics')),
-      phone: role === 'FARMER' ? '9814011223' :
-        (role === 'DEALER' ? '9872255667' :
-        (role === 'DELIVERY_PARTNER' ? '9888822110' : '9999999999')),
+        (role === 'FARMER' ? 'Ramesh Kumar (Farmer)' :
+        (role === 'DEALER' ? 'Super Agros (Dealer)' : 'Kisan Express Logistics')),
+      phone: role === 'FARMER' ? '+91 98765 43210' :
+        (role === 'DEALER' ? '+91 98765 43211' :
+        (role === 'DELIVERY_PARTNER' ? '+91 98765 43212' : '+91 99999 99999')),
       address: role === 'FARMER' ? 'Khanna Mandi, Ludhiana, Punjab' :
         (role === 'DEALER' ? 'Commercial Grain Terminal, New Delhi' :
         (role === 'DELIVERY_PARTNER' ? 'Northern Freight Corridor Yard 3' : 'CropDeal Headquarters, Tech Park')),
-      email: username + '@cropdeal.in',
+      email: username.includes('@') ? username : (role.toLowerCase() + '@gmail.com'),
       role: role,
       status: 'ACTIVE'
     };
@@ -388,15 +388,24 @@ export class AuthService {
           }
         }
       }),
-      catchError(() => {
-        const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
-        const otpData = {
-          otp: generatedOtp,
-          expiry: Date.now() + 15 * 60 * 1000,
-          email: cleanEmail
-        };
-        localStorage.setItem(`cropdeal_otp_${cleanEmail}`, JSON.stringify(otpData));
-        return of({ message: `Password reset OTP generated: ${generatedOtp}`, otp: generatedOtp });
+      catchError((err) => {
+        if (err.status === 404) {
+          return throwError(() => new Error('No user account found with this email. Please check the email address.'));
+        }
+        if (err.status === 400) {
+          return throwError(() => new Error(err.error?.message || 'Invalid email address provided.'));
+        }
+        if (err.status === 0) {
+          const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
+          const otpData = {
+            otp: generatedOtp,
+            expiry: Date.now() + 15 * 60 * 1000,
+            email: cleanEmail
+          };
+          localStorage.setItem(`cropdeal_otp_${cleanEmail}`, JSON.stringify(otpData));
+          return of({ message: `Password reset OTP generated: ${generatedOtp}`, otp: generatedOtp });
+        }
+        return throwError(() => new Error(err.error?.message || 'Failed to send OTP email. Please try again.'));
       })
     );
   }
@@ -405,23 +414,26 @@ export class AuthService {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanOtp = (otp || '').trim();
 
+    if (!cleanOtp) {
+      return throwError(() => new Error('Please enter the OTP code'));
+    }
+
     return this.http.post<any>(`${environment.apiUrl}/auth/verify-otp?otp=${cleanOtp}`, {}).pipe(
       map(() => true),
-      catchError(() => {
-        // Fallback to local OTP store
-        const raw = localStorage.getItem(`cropdeal_otp_${cleanEmail}`);
-        if (raw) {
-          try {
-            const data = JSON.parse(raw);
-            if (data.otp === cleanOtp && Date.now() < data.expiry) {
-              return of(true);
-            }
-          } catch {}
+      catchError((err) => {
+        // Only if offline (status === 0), verify against local store
+        if (err.status === 0) {
+          const raw = localStorage.getItem(`cropdeal_otp_${cleanEmail}`);
+          if (raw) {
+            try {
+              const data = JSON.parse(raw);
+              if (data.otp === cleanOtp && Date.now() < data.expiry) {
+                return of(true);
+              }
+            } catch {}
+          }
         }
-        if (cleanOtp === '123456') {
-          return of(true);
-        }
-        throw new Error('Invalid or expired OTP');
+        return throwError(() => new Error(err?.error?.message || 'Invalid or expired OTP. Please check the code sent to your email.'));
       })
     );
   }
@@ -430,29 +442,55 @@ export class AuthService {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanOtp = (otp || '').trim();
 
-    // Update password in master users list
-    try {
-      const raw = localStorage.getItem('cropdeal_users_master');
-      if (raw) {
-        const users = JSON.parse(raw);
-        if (Array.isArray(users)) {
-          const u = users.find((item: any) => (item.email || '').toLowerCase() === cleanEmail);
-          if (u) {
-            u.password = newPass;
-            localStorage.setItem('cropdeal_users_master', JSON.stringify(users));
-          }
-        }
-      }
-    } catch {}
-
-    localStorage.removeItem(`cropdeal_otp_${cleanEmail}`);
-
     return this.http.post(`${environment.apiUrl}/auth/reset-password`, {
       token: cleanOtp,
       newPassword: newPass
     }).pipe(
-      catchError(() => {
-        return of({ message: 'Password reset successful' });
+      tap(() => {
+        // Update password in master users list
+        try {
+          const raw = localStorage.getItem('cropdeal_users_master');
+          if (raw) {
+            const users = JSON.parse(raw);
+            if (Array.isArray(users)) {
+              const u = users.find((item: any) => (item.email || '').toLowerCase() === cleanEmail);
+              if (u) {
+                u.password = newPass;
+                localStorage.setItem('cropdeal_users_master', JSON.stringify(users));
+              }
+            }
+          }
+        } catch {}
+
+        localStorage.removeItem(`cropdeal_otp_${cleanEmail}`);
+      }),
+      catchError((err) => {
+        if (err.status === 0) {
+          const raw = localStorage.getItem(`cropdeal_otp_${cleanEmail}`);
+          if (raw) {
+            try {
+              const data = JSON.parse(raw);
+              if (data.otp === cleanOtp && Date.now() < data.expiry) {
+                try {
+                  const rawUsers = localStorage.getItem('cropdeal_users_master');
+                  if (rawUsers) {
+                    const users = JSON.parse(rawUsers);
+                    if (Array.isArray(users)) {
+                      const u = users.find((item: any) => (item.email || '').toLowerCase() === cleanEmail);
+                      if (u) {
+                        u.password = newPass;
+                        localStorage.setItem('cropdeal_users_master', JSON.stringify(users));
+                      }
+                    }
+                  }
+                } catch {}
+                localStorage.removeItem(`cropdeal_otp_${cleanEmail}`);
+                return of({ message: 'Password reset successful' });
+              }
+            } catch {}
+          }
+        }
+        return throwError(() => new Error(err?.error?.message || 'Password reset failed. Invalid or expired OTP.'));
       })
     );
   }

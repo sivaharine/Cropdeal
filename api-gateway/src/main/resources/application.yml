@@ -12,182 +12,181 @@ spring:
           lower-case-service-id: true
       routes:
         - id: auth-service
-          uri: lb://auth-service
+          uri: http://localhost:8081
           predicates:
             - Path=/api/auth/**, /oauth2/**, /login/oauth2/**
 
-
         - id: user-service
-          uri: lb://user-service
+          uri: http://localhost:8082
           predicates:
             - Path=/api/users/**, /api/farmers/**, /api/dealers/**, /api/delivery-partners/**, /api/reviews/**, /api/admin/**
 
         - id: crop-service
-          uri: lb://crop-service
+          uri: http://localhost:8083
           predicates:
             - Path=/api/crops/**
 
         - id: price-service
-          uri: lb://price-service
+          uri: http://localhost:8084
           predicates:
             - Path=/api/pricing/**, /api/prices/**
 
         - id: negotiation-service
-          uri: lb://negotiation-service
+          uri: http://localhost:8085
           predicates:
             - Path=/api/negotiations/**
 
         - id: bidding-service
-          uri: lb://bidding-service
+          uri: http://localhost:8086
           predicates:
             - Path=/api/biddings/**, /api/bids/**
 
         - id: wallet-service
-          uri: lb://wallet-service
+          uri: http://localhost:8087
           predicates:
             - Path=/api/wallet/**, /api/wallets/**
 
         - id: order-service
-          uri: lb://order-service
+          uri: http://localhost:8088
           predicates:
             - Path=/api/orders/**
 
         - id: payment-service
-          uri: lb://payment-service
+          uri: http://localhost:8089
           predicates:
             - Path=/api/payments/**, /api/refunds/**
 
         - id: invoice-service
-          uri: lb://invoice-service
+          uri: http://localhost:8090
           predicates:
             - Path=/api/invoices/**
 
         - id: delivery-service
-          uri: lb://deliveryservice
+          uri: http://localhost:8091
           predicates:
             - Path=/api/deliveries/**,/api/delivery-agents/**
 
         - id: notification-service
-          uri: lb://notification-service
+          uri: http://localhost:8092
           predicates:
             - Path=/api/notifications/**
 
         - id: chatbot-service
-          uri: lb://chatbot-service
+          uri: http://localhost:8096
           predicates:
             - Path=/api/chat/**,/api/chatbot/**,/api/v1/chatbot/**
 
         - id: price-alert-service
-          uri: lb://price-alert-service
+          uri: http://localhost:8094
           predicates:
             - Path=/api/price-alerts/**,/api/buying-requests/**
 
         - id: report-service
-          uri: lb://report-service
+          uri: http://localhost:8095
           predicates:
             - Path=/api/reports/**
 
         # Swagger OpenAPI documentation routes for microservices
         - id: auth-service-v3-docs
-          uri: lb://auth-service
+          uri: http://localhost:8081
           predicates:
             - Path=/v3/api-docs/auth-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: user-service-v3-docs
-          uri: lb://user-service
+          uri: http://localhost:8082
           predicates:
             - Path=/v3/api-docs/user-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: crop-service-v3-docs
-          uri: lb://crop-service
+          uri: http://localhost:8083
           predicates:
             - Path=/v3/api-docs/crop-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: price-service-v3-docs
-          uri: lb://price-service
+          uri: http://localhost:8084
           predicates:
             - Path=/v3/api-docs/price-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: price-alert-service-v3-docs
-          uri: lb://price-alert-service
+          uri: http://localhost:8094
           predicates:
             - Path=/v3/api-docs/price-alert-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: negotiation-service-v3-docs
-          uri: lb://negotiation-service
+          uri: http://localhost:8085
           predicates:
             - Path=/v3/api-docs/negotiation-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: bidding-service-v3-docs
-          uri: lb://bidding-service
+          uri: http://localhost:8086
           predicates:
             - Path=/v3/api-docs/bidding-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: wallet-service-v3-docs
-          uri: lb://wallet-service
+          uri: http://localhost:8087
           predicates:
             - Path=/v3/api-docs/wallet-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: order-service-v3-docs
-          uri: lb://order-service
+          uri: http://localhost:8088
           predicates:
             - Path=/v3/api-docs/order-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: payment-service-v3-docs
-          uri: lb://payment-service
+          uri: http://localhost:8089
           predicates:
             - Path=/v3/api-docs/payment-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: invoice-service-v3-docs
-          uri: lb://invoice-service
+          uri: http://localhost:8090
           predicates:
             - Path=/v3/api-docs/invoice-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: delivery-service-v3-docs
-          uri: lb://deliveryservice
+          uri: http://localhost:8091
           predicates:
             - Path=/v3/api-docs/delivery-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: notification-service-v3-docs
-          uri: lb://notification-service
+          uri: http://localhost:8092
           predicates:
             - Path=/v3/api-docs/notification-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: chatbot-service-v3-docs
-          uri: lb://chatbot-service
+          uri: http://localhost:8096
           predicates:
             - Path=/v3/api-docs/chatbot-service
           filters:
             - SetPath=/v3/api-docs
 
         - id: report-service-v3-docs
-          uri: lb://report-service
+          uri: http://localhost:8095
           predicates:
             - Path=/v3/api-docs/report-service
           filters:

@@ -137,7 +137,7 @@ interface MandiPriceBenchmark {
                 </div>
                 <div class="detail-line text-emerald font-semibold">
                   <span class="d-label">Max Allowed Farmer Price:</span>
-                  <strong class="d-val text-emerald">&lt; ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }} / Kg</strong>
+                  <strong class="d-val text-emerald">&le; ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }} / Kg</strong>
                 </div>
               </div>
             </div>
@@ -146,19 +146,19 @@ interface MandiPriceBenchmark {
             <div class="gov-validation-bar" [ngClass]="getValidationStatusClass()">
               <ng-container *ngIf="!crop.pricePerUnit">
                 <i class="fa-solid fa-circle-info"></i>
-                <span>Please enter your selling price below. It <strong>must be lesser than ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }} / Kg</strong>.</span>
+                <span>Please enter your selling price below. It <strong>must be equal to or lesser than ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }} / Kg</strong>.</span>
               </ng-container>
               <ng-container *ngIf="crop.pricePerUnit && isPriceHigherThanGov()">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <span>
-                  <strong>Price Too High!</strong> ₹{{ crop.pricePerUnit }}/Kg exceeds or equals the Government Mandhi price of ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg.
-                  Please specify an amount <strong>lesser than ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg</strong> (e.g. ₹{{ (matchedGovPrice.modalPricePerKg - 1) | number:'1.2-2' }}/Kg).
+                  <strong>Price Too High!</strong> ₹{{ crop.pricePerUnit }}/Kg exceeds the Government Mandhi price of ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg.
+                  Please specify an amount <strong>less than or equal to ₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg</strong>.
                 </span>
               </ng-container>
               <ng-container *ngIf="crop.pricePerUnit && !isPriceHigherThanGov()">
                 <i class="fa-solid fa-circle-check"></i>
                 <span>
-                  <strong>Approved!</strong> Your price of ₹{{ crop.pricePerUnit }}/Kg is lower than Government Mandhi rate (₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg).
+                  <strong>Approved!</strong> Your price of ₹{{ crop.pricePerUnit }}/Kg is within or lower than the Government Mandhi rate (₹{{ matchedGovPrice.modalPricePerKg | number:'1.2-2' }}/Kg).
                   Commercial dealers save ₹{{ (matchedGovPrice.modalPricePerKg - crop.pricePerUnit) | number:'1.2-2' }}/Kg!
                 </span>
               </ng-container>
@@ -191,17 +191,17 @@ interface MandiPriceBenchmark {
                   name="pricePerUnit"
                   min="0.5"
                   step="0.5"
-                  [placeholder]="matchedGovPrice ? 'Max allowed: < ' + matchedGovPrice.modalPricePerKg : 'e.g. 23'"
+                  [placeholder]="matchedGovPrice ? 'Max allowed: <= ' + matchedGovPrice.modalPricePerKg : 'e.g. 23'"
                   class="form-control"
                   [class.is-invalid]="crop.pricePerUnit && isPriceHigherThanGov()"
                   [class.is-valid]="crop.pricePerUnit && !isPriceHigherThanGov()"
                   required />
               </div>
               <small *ngIf="matchedGovPrice && isPriceHigherThanGov()" class="text-danger font-semibold mt-1 d-block">
-                Must be strictly less than ₹{{ matchedGovPrice.modalPricePerKg }}/Kg
+                Must be less than or equal to ₹{{ matchedGovPrice.modalPricePerKg }}/Kg
               </small>
               <small *ngIf="matchedGovPrice && !isPriceHigherThanGov() && crop.pricePerUnit" class="text-success font-semibold mt-1 d-block">
-                ✓ Valid rate: lower than Govt Mandhi rate
+                ✓ Valid rate: equal to or lower than Govt Mandhi rate
               </small>
             </div>
           </div>
@@ -213,8 +213,12 @@ interface MandiPriceBenchmark {
             </div>
 
             <div class="form-group">
-              <label class="form-label">Image URL</label>
-              <input type="url" [(ngModel)]="crop.imageUrl" name="imageUrl" placeholder="https://images.unsplash.com/..." class="form-control" />
+              <label class="form-label">Crop Image (URL)</label>
+              <input type="url" [(ngModel)]="crop.imageUrl" name="imageUrl" placeholder="Enter Image URL (e.g. https://...)" class="form-control" />
+              <div *ngIf="crop.imageUrl" class="d-flex align-center gap-2 mt-1">
+                <img [src]="crop.imageUrl" alt="Crop preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1.5px solid #86efac;" />
+                <span class="text-xs text-muted">Preview ready for listing</span>
+              </div>
             </div>
           </div>
 
@@ -622,7 +626,7 @@ export class CropAddComponent implements OnInit {
   onPriceChange(): void {
     if (this.matchedGovPrice && this.crop.pricePerUnit) {
       if (this.isPriceHigherThanGov()) {
-        this.errorMessage = `Price must be strictly LESS than the Government Mandhi price of ₹${this.matchedGovPrice.modalPricePerKg}/Kg.`;
+        this.errorMessage = `Price must be equal to or less than the Government Mandhi price of ₹${this.matchedGovPrice.modalPricePerKg}/Kg.`;
       } else {
         this.errorMessage = '';
       }
@@ -633,7 +637,7 @@ export class CropAddComponent implements OnInit {
     if (!this.matchedGovPrice || this.crop.pricePerUnit === undefined || this.crop.pricePerUnit === null) {
       return false;
     }
-    return Number(this.crop.pricePerUnit) >= this.matchedGovPrice.modalPricePerKg;
+    return Number(this.crop.pricePerUnit) > this.matchedGovPrice.modalPricePerKg;
   }
 
   getValidationStatusClass(): string {
@@ -658,17 +662,19 @@ export class CropAddComponent implements OnInit {
       return;
     }
 
-    // Strict validation: Farmer selling price MUST be lesser than Government Mandhi price
+    // Validation: Farmer selling price MUST be equal to or lesser than Government Mandhi price
     if (this.matchedGovPrice && this.isPriceHigherThanGov()) {
-      this.errorMessage = `Violation: Your selling price (₹${this.crop.pricePerUnit}/Kg) must be strictly LESS than the Government Mandhi price of ₹${this.matchedGovPrice.modalPricePerKg}/Kg. Please lower your price.`;
+      this.errorMessage = `Violation: Your selling price (₹${this.crop.pricePerUnit}/Kg) must be equal to or less than the Government Mandhi price of ₹${this.matchedGovPrice.modalPricePerKg}/Kg. Please lower your price.`;
       return;
     }
 
     this.submitting = true;
     this.errorMessage = '';
+    this.saveCrop(this.crop.imageUrl || resolveCropImage(this.crop.cropName));
+  }
 
+  private saveCrop(finalImageUrl: string): void {
     const govRate = this.matchedGovPrice ? this.matchedGovPrice.modalPricePerKg : 25.0;
-
     const user = this.authService.currentUserValue;
     const fId = (user && (user.id || user.userId)) ? String(user.id || user.userId) : (this.crop.farmerId || '1');
     const fName = (user && (user.fullName || user.username)) ? (user.fullName || user.username) : (this.crop.farmerName || 'Farmer Producer');
@@ -684,7 +690,7 @@ export class CropAddComponent implements OnInit {
       farmerId: fId,
       farmerName: fName,
       description: this.crop.description,
-      imageUrl: this.crop.imageUrl || resolveCropImage(this.crop.cropName),
+      imageUrl: finalImageUrl,
       govMspPrice: govRate,
       status: 'AVAILABLE',
       createdAt: new Date().toISOString()
@@ -695,14 +701,14 @@ export class CropAddComponent implements OnInit {
         this.subscriptionService.notifySubscribersOnNewCrop(savedCrop || cropToSave);
         this.cropService.getAllCrops().subscribe();
         this.submitting = false;
-        this.successMessage = `Crop "${cropToSave.cropName}" published successfully at ₹${cropToSave.pricePerUnit}/Kg (Below Government Mandhi rate of ₹${govRate}/Kg)! Subscribed dealers have been notified.`;
+        this.successMessage = `Crop "${cropToSave.cropName}" published successfully at ₹${cropToSave.pricePerUnit}/Kg (within Government Mandhi rate of ₹${govRate}/Kg)! Subscribed dealers have been notified.`;
         setTimeout(() => this.router.navigate(['/crops']), 1500);
       },
       error: () => {
         this.subscriptionService.notifySubscribersOnNewCrop(cropToSave);
         this.cropService.getAllCrops().subscribe();
         this.submitting = false;
-        this.successMessage = `Crop "${cropToSave.cropName}" published successfully at ₹${cropToSave.pricePerUnit}/Kg (Below Government Mandhi rate of ₹${govRate}/Kg)! Subscribed dealers have been notified.`;
+        this.successMessage = `Crop "${cropToSave.cropName}" published successfully at ₹${cropToSave.pricePerUnit}/Kg (within Government Mandhi rate of ₹${govRate}/Kg)! Subscribed dealers have been notified.`;
         setTimeout(() => this.router.navigate(['/crops']), 1500);
       }
     });

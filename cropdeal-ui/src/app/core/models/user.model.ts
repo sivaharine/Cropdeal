@@ -4,11 +4,11 @@ export interface User {
   id?: string;
   userId?: string;
   username: string;
-  email: string;
-  fullName?: string;
-  phone?: string;
+  email?: string | null;
+  fullName?: string | null;
+  phone?: string | null;
   role: UserRole;
-  address?: string;
+  address?: string | null;
   status?: 'ACTIVE' | 'BLOCKED' | 'PENDING';
   isBlocked?: boolean;
   avatar?: string;
