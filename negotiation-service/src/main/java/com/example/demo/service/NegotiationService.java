@@ -16,4 +16,10 @@ public interface NegotiationService {
     NegotiationStatusResponse getStatus(Long negotiationId);
 
     NegotiationStatusResponse closeNegotiation(Long negotiationId);
+
+    List<NegotiationResponse> getAllNegotiations();
+
+    NegotiationResponse acceptNegotiation(Long negotiationId);
+
+    NegotiationResponse rejectNegotiation(Long negotiationId);
 }

@@ -40,6 +40,15 @@ public class Negotiation {
     @Column(nullable = false)
     private BigDecimal targetPrice;
 
+    @Column(length = 200)
+    private String cropName;
+
+    @Column(length = 200)
+    private String buyerName;
+
+    @Column(length = 200)
+    private String sellerName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private NegotiationStatus status = NegotiationStatus.OPEN;
@@ -134,5 +143,29 @@ public class Negotiation {
 
     public void setOffers(List<NegotiationOffer> offers) {
         this.offers = offers;
+    }
+
+    public String getCropName() {
+        return cropName;
+    }
+
+    public void setCropName(String cropName) {
+        this.cropName = cropName;
+    }
+
+    public String getBuyerName() {
+        return buyerName;
+    }
+
+    public void setBuyerName(String buyerName) {
+        this.buyerName = buyerName;
+    }
+
+    public String getSellerName() {
+        return sellerName;
+    }
+
+    public void setSellerName(String sellerName) {
+        this.sellerName = sellerName;
     }
 }

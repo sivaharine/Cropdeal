@@ -38,6 +38,9 @@ public class NegotiationServiceImpl implements NegotiationService {
         negotiation.setSellerId(request.sellerId());
         negotiation.setQuantity(request.quantity());
         negotiation.setTargetPrice(request.targetPrice());
+        negotiation.setCropName(request.cropName());
+        negotiation.setBuyerName(request.buyerName());
+        negotiation.setSellerName(request.sellerName());
         negotiation.setStatus(NegotiationStatus.OPEN);
         return toResponse(negotiationRepository.save(negotiation));
     }
@@ -74,6 +77,28 @@ public class NegotiationServiceImpl implements NegotiationService {
         return new NegotiationStatusResponse(savedNegotiation.getId(), savedNegotiation.getStatus());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<NegotiationResponse> getAllNegotiations() {
+        return negotiationRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    public NegotiationResponse acceptNegotiation(Long negotiationId) {
+        Negotiation negotiation = findNegotiation(negotiationId);
+        negotiation.setStatus(NegotiationStatus.ACCEPTED);
+        return toResponse(negotiationRepository.save(negotiation));
+    }
+
+    @Override
+    public NegotiationResponse rejectNegotiation(Long negotiationId) {
+        Negotiation negotiation = findNegotiation(negotiationId);
+        negotiation.setStatus(NegotiationStatus.REJECTED);
+        return toResponse(negotiationRepository.save(negotiation));
+    }
+
     private Negotiation findNegotiation(Long negotiationId) {
         return negotiationRepository.findById(negotiationId)
                 .orElseThrow(() -> new NegotiationNotFoundException(negotiationId));
@@ -94,7 +119,10 @@ public class NegotiationServiceImpl implements NegotiationService {
                 negotiation.getStatus(),
                 negotiation.getCreatedAt(),
                 negotiation.getUpdatedAt(),
-                offers
+                offers,
+                negotiation.getCropName(),
+                negotiation.getBuyerName(),
+                negotiation.getSellerName()
         );
     }
 

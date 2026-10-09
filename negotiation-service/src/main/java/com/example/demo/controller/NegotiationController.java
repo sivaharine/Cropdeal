@@ -38,12 +38,17 @@ public class NegotiationController {
         return negotiationService.createNegotiation(request);
     }
 
+    @GetMapping
+    public List<NegotiationResponse> getAllNegotiations() {
+        return negotiationService.getAllNegotiations();
+    }
+
     @GetMapping("/{negotiationId}")
     public NegotiationResponse getNegotiation(@PathVariable Long negotiationId) {
         return negotiationService.getNegotiation(negotiationId);
     }
 
-    @GetMapping("/users/{userId}")
+    @GetMapping({"/users/{userId}", "/user/{userId}"})
     public List<NegotiationResponse> getNegotiationsForUser(@PathVariable Long userId) {
         return negotiationService.getNegotiationsForUser(userId);
     }
@@ -56,6 +61,27 @@ public class NegotiationController {
     @PatchMapping("/{negotiationId}/close")
     public NegotiationStatusResponse closeNegotiation(@PathVariable Long negotiationId) {
         return negotiationService.closeNegotiation(negotiationId);
+    }
+
+    @PatchMapping({"/{negotiationId}/accept", "/{negotiationId}/agree"})
+    public NegotiationResponse acceptNegotiationDirect(@PathVariable Long negotiationId) {
+        return negotiationService.acceptNegotiation(negotiationId);
+    }
+
+    @PatchMapping({"/{negotiationId}/reject", "/{negotiationId}/decline"})
+    public NegotiationResponse rejectNegotiationDirect(@PathVariable Long negotiationId) {
+        return negotiationService.rejectNegotiation(negotiationId);
+    }
+
+    @PostMapping({"/{negotiationId}/counter", "/{negotiationId}/counter-offer"})
+    @ResponseStatus(HttpStatus.CREATED)
+    public OfferResponse counterNegotiationDirect(
+            @PathVariable Long negotiationId,
+            @RequestBody java.util.Map<String, Object> body) {
+        Long offeredBy = body.get("offeredBy") != null ? Long.valueOf(body.get("offeredBy").toString()) : 1L;
+        java.math.BigDecimal amount = new java.math.BigDecimal(body.getOrDefault("counterPrice", body.getOrDefault("amount", "100")).toString());
+        String notes = body.get("notes") != null ? body.get("notes").toString() : "Counter proposal";
+        return offerService.createCounterOffer(negotiationId, new CounterOfferRequest(offeredBy, amount, notes));
     }
 
     @PostMapping("/{negotiationId}/offers")
