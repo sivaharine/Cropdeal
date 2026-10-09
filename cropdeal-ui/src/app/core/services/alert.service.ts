@@ -84,8 +84,21 @@ export class AlertService {
     this.alertCountSubject.next(current.length);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(current));
 
-    // Try posting to backend if online, catching any error gracefully
-    this.http.post(`${environment.apiUrl}/price-alerts`, alert)
+    const numericUserId = parseInt(String(alert.userId || '').replace(/\D/g, ''), 10) || 1;
+    const cond = alert.condition === 'BELOW' ? 'LESS_THAN' : 'GREATER_THAN';
+    const subPayload = {
+      userId: numericUserId,
+      userRole: numericUserId === 2 ? 'DEALER' : 'FARMER',
+      cropName: alert.cropName || 'Wheat',
+      targetPrice: alert.targetPrice || 25,
+      priceCondition: cond,
+      district: 'Mandi',
+      state: 'Punjab',
+      unit: 'kg'
+    };
+
+    // Post subscription to backend MySQL
+    this.http.post(`${environment.apiUrl}/price-alerts/subscriptions`, subPayload)
       .pipe(catchError(() => of(null)))
       .subscribe();
   }
@@ -106,8 +119,10 @@ export class AlertService {
     this.alertCountSubject.next(filtered.length);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(filtered));
 
-    // Gracefully notify backend without throwing error
-    return this.http.delete(`${environment.apiUrl}/price-alerts/${alertId}`).pipe(
+    const cleanId = parseInt(String(alertId || '').replace(/\D/g, ''), 10);
+    const deleteUrl = cleanId ? `${environment.apiUrl}/price-alerts/subscriptions/${cleanId}` : `${environment.apiUrl}/price-alerts/${alertId}`;
+
+    return this.http.delete(deleteUrl).pipe(
       catchError(() => of(true))
     ) as Observable<any>;
   }

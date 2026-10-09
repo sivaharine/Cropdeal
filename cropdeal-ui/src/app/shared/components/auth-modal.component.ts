@@ -99,7 +99,7 @@ import { UserRole } from '../../core/models/user.model';
             </div>
 
             <div class="quick-roles-grid">
-              <button class="role-quick-btn farmer" (click)="quickLogin('farmer', 'FARMER')">
+              <button class="role-quick-btn farmer" (click)="quickLogin('farmer@gmail.com', 'FARMER')">
                 <div class="role-icon">🌾</div>
                 <div class="role-info">
                   <div class="role-title">Farmer Account</div>
@@ -109,17 +109,17 @@ import { UserRole } from '../../core/models/user.model';
                 <i class="fa-solid fa-angle-right arrow-icon"></i>
               </button>
 
-              <button class="role-quick-btn dealer" (click)="quickLogin('dealer', 'DEALER')">
+              <button class="role-quick-btn dealer" (click)="quickLogin('dealer@gmail.com', 'DEALER')">
                 <div class="role-icon">🏢</div>
                 <div class="role-info">
                   <div class="role-title">Dealer Account</div>
                   <div class="role-desc">{{ getRoleDesc('DEALER') }}</div>
-                  <span class="role-tag">Buy Crops, Bid Live, Escrow Wallet</span>
+                  <span class="role-tag">Buy Crops, Bid Live, Wallet</span>
                 </div>
                 <i class="fa-solid fa-angle-right arrow-icon"></i>
               </button>
 
-              <button class="role-quick-btn delivery" (click)="quickLogin('delivery', 'DELIVERY_PARTNER')">
+              <button class="role-quick-btn delivery" (click)="quickLogin('delivery@gmail.com', 'DELIVERY_PARTNER')">
                 <div class="role-icon">🚚</div>
                 <div class="role-info">
                   <div class="role-title">Delivery Partner</div>
@@ -129,7 +129,7 @@ import { UserRole } from '../../core/models/user.model';
                 <i class="fa-solid fa-angle-right arrow-icon"></i>
               </button>
 
-              <button class="role-quick-btn admin" (click)="quickLogin('admin', 'ADMIN')">
+              <button class="role-quick-btn admin" (click)="quickLogin('admin@gmail.com', 'ADMIN')">
                 <div class="role-icon">🛡️</div>
                 <div class="role-info">
                   <div class="role-title">Administrator</div>
@@ -153,7 +153,7 @@ import { UserRole } from '../../core/models/user.model';
                 <label>Email Address or Username</label>
                 <div class="input-wrap">
                   <i class="fa-regular fa-envelope input-icon"></i>
-                  <input type="text" [(ngModel)]="loginEmail" name="email" placeholder="Enter your email or username" required />
+                  <input type="text" [(ngModel)]="loginEmail" name="email" placeholder="Enter your email or username" autocomplete="off" required />
                 </div>
               </div>
 
@@ -161,7 +161,7 @@ import { UserRole } from '../../core/models/user.model';
                 <label>Password</label>
                 <div class="input-wrap">
                   <i class="fa-solid fa-lock input-icon"></i>
-                  <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="loginPassword" name="password" placeholder="Enter your password" required />
+                  <input [type]="showPassword ? 'text' : 'password'" [(ngModel)]="loginPassword" name="password" placeholder="Enter your password" autocomplete="new-password" required />
                   <button type="button" class="eye-toggle" (click)="showPassword = !showPassword">
                     <i class="fa-regular" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
                   </button>
@@ -207,7 +207,7 @@ import { UserRole } from '../../core/models/user.model';
                 <label>Registered Email Address</label>
                 <div class="input-wrap">
                   <i class="fa-regular fa-envelope input-icon"></i>
-                  <input type="email" [(ngModel)]="forgotEmail" placeholder="Enter your registered email (e.g. mohantest0002@gmail.com)" required />
+                  <input type="email" [(ngModel)]="forgotEmail" placeholder="Enter your registered email address" autocomplete="off" required />
                 </div>
               </div>
               <button type="button" class="btn-submit-green mt-4" (click)="sendForgotOtp()" [disabled]="isSendingOtp || !forgotEmail">
@@ -225,7 +225,7 @@ import { UserRole } from '../../core/models/user.model';
                 <label>Enter 6-Digit OTP</label>
                 <div class="input-wrap">
                   <i class="fa-solid fa-shield-halved input-icon"></i>
-                  <input type="text" [(ngModel)]="forgotOtp" placeholder="Enter 6-digit OTP (e.g. 123456)" maxlength="6" required />
+                  <input type="text" [(ngModel)]="forgotOtp" placeholder="Enter 6-digit OTP sent to your email" maxlength="6" autocomplete="off" required />
                 </div>
               </div>
               <div class="d-flex justify-content-between align-center mt-2">
@@ -247,14 +247,14 @@ import { UserRole } from '../../core/models/user.model';
                 <label>New Password</label>
                 <div class="input-wrap">
                   <i class="fa-solid fa-lock input-icon"></i>
-                  <input type="password" [(ngModel)]="forgotNewPassword" placeholder="Minimum 6 characters" required />
+                  <input type="password" [(ngModel)]="forgotNewPassword" placeholder="Enter new password (min. 6 characters)" autocomplete="new-password" required />
                 </div>
               </div>
               <div class="input-field mt-3">
                 <label>Confirm New Password</label>
                 <div class="input-wrap">
                   <i class="fa-solid fa-lock-open input-icon"></i>
-                  <input type="password" [(ngModel)]="forgotConfirmPassword" placeholder="Re-enter password" required />
+                  <input type="password" [(ngModel)]="forgotConfirmPassword" placeholder="Confirm your new password" autocomplete="new-password" required />
                 </div>
               </div>
               <button type="button" class="btn-submit-green mt-4" (click)="submitNewPassword()" [disabled]="isResettingPassword || !forgotNewPassword">
@@ -303,7 +303,7 @@ import { UserRole } from '../../core/models/user.model';
                   <label>Full Name</label>
                   <div class="input-wrap">
                     <i class="fa-regular fa-user input-icon"></i>
-                    <input type="text" [(ngModel)]="regFullName" name="regFullName" placeholder="Enter your full name" required />
+                    <input type="text" [(ngModel)]="regFullName" name="regFullName" placeholder="Enter your full name" autocomplete="off" required />
                   </div>
                 </div>
 
@@ -311,7 +311,7 @@ import { UserRole } from '../../core/models/user.model';
                   <label>Email Address</label>
                   <div class="input-wrap">
                     <i class="fa-regular fa-envelope input-icon"></i>
-                    <input type="email" [(ngModel)]="regEmail" name="regEmail" placeholder="Enter your email address" required />
+                    <input type="email" [(ngModel)]="regEmail" name="regEmail" placeholder="Enter your email address" autocomplete="off" required />
                   </div>
                 </div>
               </div>
@@ -321,7 +321,7 @@ import { UserRole } from '../../core/models/user.model';
                   <label>Phone Number</label>
                   <div class="input-wrap">
                     <i class="fa-solid fa-phone input-icon"></i>
-                    <input type="tel" [(ngModel)]="regPhone" name="regPhone" placeholder="Enter your phone number" required />
+                    <input type="tel" [(ngModel)]="regPhone" name="regPhone" placeholder="Enter 10-digit mobile number" maxlength="14" autocomplete="off" required />
                   </div>
                 </div>
 
@@ -329,7 +329,7 @@ import { UserRole } from '../../core/models/user.model';
                   <label>Password</label>
                   <div class="input-wrap">
                     <i class="fa-solid fa-lock input-icon"></i>
-                    <input type="password" [(ngModel)]="regPassword" name="regPassword" placeholder="Create a password" required />
+                    <input type="password" [(ngModel)]="regPassword" name="regPassword" placeholder="Create password (min. 8 characters)" autocomplete="new-password" required />
                   </div>
                 </div>
               </div>
@@ -829,12 +829,33 @@ export class AuthModalComponent implements OnInit {
     return `${u.fullName} • Platform Supervisor`;
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.isOpen$.subscribe(isOpen => {
+      if (isOpen) {
+        this.resetAllForms();
+      }
+    });
+  }
+
+  resetAllForms(): void {
+    this.loginEmail = '';
+    this.loginPassword = '';
+    this.forgotEmail = '';
+    this.forgotOtp = '';
+    this.forgotNewPassword = '';
+    this.forgotConfirmPassword = '';
+    this.forgotStep = 1;
+    this.regFullName = '';
+    this.regEmail = '';
+    this.regPhone = '';
+    this.regPassword = '';
+    this.errorMsg = '';
+    this.successMsg = '';
+  }
 
   close(): void {
     this.authModalService.close();
-    this.errorMsg = '';
-    this.successMsg = '';
+    this.resetAllForms();
   }
 
   onBackdropClick(event: MouseEvent): void {
@@ -866,7 +887,7 @@ export class AuthModalComponent implements OnInit {
       this.successMsg = `Logged in successfully as ${role}!`;
       setTimeout(() => {
         this.close();
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard']);
       }, 400);
     } catch (e: any) {
       const msg = e?.message || '';
@@ -906,21 +927,21 @@ export class AuthModalComponent implements OnInit {
       }
     } catch {}
 
-    // Support quick demo logins only when matching exact demo credentials
-    if (input.toLowerCase() === 'farmer' && pass === 'farmer123') {
-      this.quickLogin('farmer', 'FARMER');
+    // Support quick demo logins with professional credentials
+    if ((input.toLowerCase() === 'farmer@gmail.com' && pass === 'pass-farmer124') || (input.toLowerCase() === 'farmer' && (pass === 'pass-farmer124' || pass === 'farmer123'))) {
+      this.quickLogin('farmer@gmail.com', 'FARMER');
       this.isSubmitting = false;
       return;
-    } else if (input.toLowerCase() === 'dealer' && pass === 'dealer123') {
-      this.quickLogin('dealer', 'DEALER');
+    } else if ((input.toLowerCase() === 'dealer@gmail.com' && pass === 'pass-dealer124') || (input.toLowerCase() === 'dealer' && (pass === 'pass-dealer124' || pass === 'dealer123'))) {
+      this.quickLogin('dealer@gmail.com', 'DEALER');
       this.isSubmitting = false;
       return;
-    } else if ((input.toLowerCase() === 'delivery' || input.toLowerCase() === 'delivery_partner') && pass === 'partner123') {
-      this.quickLogin('delivery', 'DELIVERY_PARTNER');
+    } else if ((input.toLowerCase() === 'delivery@gmail.com' && pass === 'pass-delivery124') || (['delivery', 'delivery_partner'].includes(input.toLowerCase()) && (pass === 'pass-delivery124' || pass === 'partner123'))) {
+      this.quickLogin('delivery@gmail.com', 'DELIVERY_PARTNER');
       this.isSubmitting = false;
       return;
-    } else if (input.toLowerCase() === 'admin' && pass === 'admin123') {
-      this.quickLogin('admin', 'ADMIN');
+    } else if ((input.toLowerCase() === 'admin@gmail.com' && pass === 'pass-admin124') || (input.toLowerCase() === 'admin' && (pass === 'pass-admin124' || pass === 'admin123'))) {
+      this.quickLogin('admin@gmail.com', 'ADMIN');
       this.isSubmitting = false;
       return;
     }
@@ -934,7 +955,7 @@ export class AuthModalComponent implements OnInit {
       next: () => {
         this.isSubmitting = false;
         this.close();
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard']);
       },
       error: (err: any) => {
         this.isSubmitting = false;
@@ -1020,14 +1041,14 @@ export class AuthModalComponent implements OnInit {
           next: () => {
             setTimeout(() => {
               this.close();
-              this.router.navigate(['/']);
+              this.router.navigate(['/dashboard']);
             }, 600);
           },
           error: () => {
             setTimeout(() => {
               this.activeTab = 'login';
-              this.loginEmail = emailTrim;
-              this.loginPassword = this.regPassword;
+              this.loginEmail = '';
+              this.loginPassword = '';
             }, 800);
           }
         });
@@ -1049,28 +1070,30 @@ export class AuthModalComponent implements OnInit {
     this.forgotStep = 1;
     this.errorMsg = '';
     this.successMsg = '';
-    if (this.loginEmail && this.loginEmail.includes('@')) {
-      this.forgotEmail = this.loginEmail;
-    }
+    this.forgotEmail = '';
+    this.forgotOtp = '';
+    this.forgotNewPassword = '';
+    this.forgotConfirmPassword = '';
   }
 
   sendForgotOtp(): void {
     if (!this.forgotEmail.trim()) {
-      this.errorMsg = 'Please enter your registered email.';
+      this.errorMsg = 'Please enter your registered email address.';
       return;
     }
     this.isSendingOtp = true;
     this.errorMsg = '';
+    this.successMsg = '';
     this.authService.sendPasswordResetOtp(this.forgotEmail.trim()).subscribe({
       next: () => {
         this.isSendingOtp = false;
         this.forgotStep = 2;
-        this.successMsg = 'OTP code sent successfully to ' + this.forgotEmail;
+        this.forgotOtp = '';
+        this.successMsg = 'A 6-digit OTP code has been sent to ' + this.forgotEmail.trim() + '. Please check your email inbox.';
       },
-      error: () => {
+      error: (err: any) => {
         this.isSendingOtp = false;
-        this.forgotStep = 2;
-        this.successMsg = 'OTP sent! Please check your email inbox.';
+        this.errorMsg = err.error?.message || err.message || 'Could not send OTP. Please check your registered email address.';
       }
     });
   }
@@ -1087,14 +1110,16 @@ export class AuthModalComponent implements OnInit {
         this.isVerifyingOtp = false;
         if (isValid) {
           this.forgotStep = 3;
-          this.successMsg = 'OTP verified successfully! Set your new password.';
+          this.forgotNewPassword = '';
+          this.forgotConfirmPassword = '';
+          this.successMsg = 'OTP verified successfully! Please enter your new password.';
         } else {
-          this.errorMsg = 'Invalid OTP code. Please check and try again.';
+          this.errorMsg = 'Invalid OTP code. Please enter the OTP sent to your email.';
         }
       },
-      error: () => {
+      error: (err: any) => {
         this.isVerifyingOtp = false;
-        this.errorMsg = 'Verification failed. Please check the OTP code.';
+        this.errorMsg = err.error?.message || err.message || 'Invalid or expired OTP. Please check the code sent to your email.';
       }
     });
   }
@@ -1113,17 +1138,21 @@ export class AuthModalComponent implements OnInit {
     this.authService.resetPasswordWithOtp(this.forgotEmail.trim(), this.forgotOtp.trim(), this.forgotNewPassword).subscribe({
       next: () => {
         this.isResettingPassword = false;
-        this.successMsg = 'Password updated successfully! Logging you in...';
+        this.successMsg = 'Password updated successfully! Please login with your new password.';
         setTimeout(() => {
           this.activeTab = 'login';
-          this.loginEmail = this.forgotEmail;
-          this.loginPassword = this.forgotNewPassword;
-          this.submitLogin();
+          this.forgotStep = 1;
+          this.loginEmail = '';
+          this.loginPassword = '';
+          this.forgotEmail = '';
+          this.forgotOtp = '';
+          this.forgotNewPassword = '';
+          this.forgotConfirmPassword = '';
         }, 1200);
       },
-      error: () => {
+      error: (err: any) => {
         this.isResettingPassword = false;
-        this.errorMsg = 'Failed to reset password. Please try again.';
+        this.errorMsg = err.error?.message || err.message || 'Failed to reset password. Please check your OTP and try again.';
       }
     });
   }
@@ -1134,7 +1163,7 @@ export class AuthModalComponent implements OnInit {
       this.successMsg = `Welcome, ${res.user?.fullName || 'Verified User'}! Logged in with Facebook.`;
       setTimeout(() => {
         this.close();
-        this.router.navigate(['/']);
+        this.router.navigate(['/dashboard']);
       }, 500);
     } else if (res.error && res.error !== 'Cancelled') {
       this.errorMsg = res.error;
