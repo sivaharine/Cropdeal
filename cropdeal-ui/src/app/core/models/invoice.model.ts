@@ -1,0 +1,38 @@
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  orderId: string;
+  dealerId?: string;
+  dealerName?: string;
+  dealerPhone?: string;
+  dealerAddress?: string;
+  dealerGstin?: string;
+  farmerId?: string;
+  farmerName?: string;
+  farmerPhone?: string;
+  farmerAddress?: string;
+  farmerPan?: string;
+  cropName: string;
+  cropVariety?: string;
+  hsnCode?: string;
+  quantity: number;
+  unit?: string;
+  pricePerUnit: number;
+  govMspPrice?: number;
+  totalAmount: number;
+  taxAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  fulfillmentType?: 'DELIVERY_AGENT' | 'SELF_PICKUP';
+  deliveryFee?: number;
+  deliveryDistanceKm?: number;
+  deliveryAddress?: string;
+  finalAmount: number;
+  amountInWords?: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  status: 'PAID' | 'PENDING' | 'GENERATED';
+  issuedAt: string;
+  pdfUrl?: string;
+}
