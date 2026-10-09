@@ -25,7 +25,9 @@ public class SecurityConfig {
 
                         // Notification APIs
                         .requestMatchers(
-                                "/api/notifications/**"
+                                "/api/notifications",
+                                "/api/notifications/**",
+                                "/actuator/**"
                         ).permitAll()
 
                         .anyRequest()

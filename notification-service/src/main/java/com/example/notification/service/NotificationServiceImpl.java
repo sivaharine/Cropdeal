@@ -6,6 +6,8 @@ import com.example.notification.entity.Notification;
 import com.example.notification.exception.NotificationException;
 import com.example.notification.repository.NotificationRepository;
 
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.example.notification.config.RabbitMQConfig;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,15 +19,18 @@ public class NotificationServiceImpl
     private final NotificationRepository notificationRepository;
     private final TemplateService templateService;
     private final EmailService emailService;
+    private final RabbitTemplate rabbitTemplate;
 
     public NotificationServiceImpl(
             NotificationRepository notificationRepository,
             TemplateService templateService,
-            EmailService emailService) {
+            EmailService emailService,
+            RabbitTemplate rabbitTemplate) {
 
         this.notificationRepository = notificationRepository;
         this.templateService = templateService;
         this.emailService = emailService;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @Override
@@ -33,6 +38,19 @@ public class NotificationServiceImpl
             NotificationRequest request) {
 
         try {
+            // Explicitly publish to RabbitMQ exchange to flow through queue
+            try {
+                if (rabbitTemplate != null) {
+                    rabbitTemplate.convertAndSend(
+                            RabbitMQConfig.EXCHANGE,
+                            RabbitMQConfig.ROUTING_KEY,
+                            request
+                    );
+                }
+            } catch (Exception rmqEx) {
+                System.err.println("RabbitMQ publish notice: " + rmqEx.getMessage());
+            }
+
             Notification notification =
                     new Notification();
 
@@ -53,14 +71,6 @@ public class NotificationServiceImpl
             );
 
             notification.setStatus("SENT");
-
-            if (isEmailAddress(request.getRecipient())) {
-                emailService.sendEmail(
-                        request.getRecipient(),
-                        buildSubject(request.getType()),
-                        request.getMessage()
-                );
-            }
 
             Notification saved =
                     notificationRepository.save(notification);
@@ -210,16 +220,5 @@ public class NotificationServiceImpl
         );
 
         return response;
-    }
-
-    private boolean isEmailAddress(String recipient) {
-        return recipient != null && recipient.contains("@");
-    }
-
-    private String buildSubject(String type) {
-        if (type == null || type.isBlank()) {
-            return "CropDeal Notification";
-        }
-        return "CropDeal - " + type.replace('_', ' ');
     }
 }
