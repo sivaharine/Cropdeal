@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +40,7 @@ public class BiddingCommandService {
     private final BidRepository bidRepository;
     private final WalletClient walletClient;
     private final OrderClient orderClient;
+    private final com.cropdeal.bidding.service.CloudinaryService cloudinaryService;
 
     @Value("${file.upload-dir:D:/Cropdeal/uploads/bidding}")
     private String uploadDir;
@@ -46,11 +48,13 @@ public class BiddingCommandService {
     public BiddingCommandService(BiddingListingRepository listingRepository,
                                  BidRepository bidRepository,
                                  WalletClient walletClient,
-                                 OrderClient orderClient) {
+                                 OrderClient orderClient,
+                                 com.cropdeal.bidding.service.CloudinaryService cloudinaryService) {
         this.listingRepository = listingRepository;
         this.bidRepository = bidRepository;
         this.walletClient = walletClient;
         this.orderClient = orderClient;
+        this.cloudinaryService = cloudinaryService;
     }
 
     public BiddingListingResponse createListing(CreateBiddingRequest request) {
@@ -63,6 +67,9 @@ public class BiddingCommandService {
         listing.setGuidelinePrice(request.guidelinePrice());
         listing.setLocation(request.location());
         listing.setDescription(request.description());
+        if (request.photoUrl() != null && !request.photoUrl().isBlank()) {
+            listing.setPhotoUrl(request.photoUrl());
+        }
         listing.setStatus(BiddingStatus.OPEN);
         listing.setHighestBidAmount(BigDecimal.ZERO);
 
@@ -167,31 +174,38 @@ public class BiddingCommandService {
         return toResponse(listingRepository.save(listing));
     }
 
-    public String uploadPhoto(Long listingId, MultipartFile file) {
-        BiddingListing listing = findListing(listingId);
+    public String uploadImage(MultipartFile file) {
         if (file.isEmpty()) {
             throw new InvalidBidException("File cannot be empty");
         }
         try {
-            File dir = new File(uploadDir);
-            if (!dir.exists()) dir.mkdirs();
-
-            String ext = "";
-            String orig = file.getOriginalFilename();
-            if (orig != null && orig.contains(".")) {
-                ext = orig.substring(orig.lastIndexOf("."));
+            return cloudinaryService.uploadImage(file, "cropdeal/bidding");
+        } catch (Exception e) {
+            // Local fallback
+            try {
+                File dir = new File(uploadDir);
+                if (!dir.exists()) dir.mkdirs();
+                String ext = "";
+                String orig = file.getOriginalFilename();
+                if (orig != null && orig.contains(".")) {
+                    ext = orig.substring(orig.lastIndexOf("."));
+                }
+                String filename = "bidding_" + UUID.randomUUID().toString().substring(0, 8) + ext;
+                Path targetPath = Paths.get(uploadDir, filename);
+                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+                return "/uploads/bidding/" + filename;
+            } catch (IOException ioEx) {
+                throw new RuntimeException("Failed to store image: " + ioEx.getMessage(), ioEx);
             }
-            String filename = "listing_" + listingId + "_" + UUID.randomUUID().toString().substring(0, 8) + ext;
-            Path targetPath = Paths.get(uploadDir, filename);
-            Files.copy(file.getInputStream(), targetPath);
-
-            String photoUrl = "/uploads/bidding/" + filename;
-            listing.setPhotoUrl(photoUrl);
-            listingRepository.save(listing);
-            return photoUrl;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to upload photo: " + e.getMessage(), e);
         }
+    }
+
+    public String uploadPhoto(Long listingId, MultipartFile file) {
+        BiddingListing listing = findListing(listingId);
+        String photoUrl = uploadImage(file);
+        listing.setPhotoUrl(photoUrl);
+        listingRepository.save(listing);
+        return photoUrl;
     }
 
     public void deleteListing(Long listingId) {

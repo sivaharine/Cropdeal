@@ -62,10 +62,16 @@ public class BiddingController {
         return ResponseEntity.ok(biddingService.sellListing(id));
     }
 
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String url = biddingService.uploadImage(file);
+        return ResponseEntity.ok(Map.of("imageUrl", url, "photoUrl", url));
+    }
+
     @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadPhoto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
         String url = biddingService.uploadPhoto(id, file);
-        return ResponseEntity.ok(Map.of("photoUrl", url));
+        return ResponseEntity.ok(Map.of("photoUrl", url, "imageUrl", url));
     }
 
     @GetMapping("/all")
