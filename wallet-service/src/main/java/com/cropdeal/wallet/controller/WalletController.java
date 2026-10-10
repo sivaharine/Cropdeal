@@ -29,6 +29,11 @@ public class WalletController {
         return ResponseEntity.status(HttpStatus.CREATED).body(walletService.creditWallet(request));
     }
 
+    @PostMapping("/debit")
+    public ResponseEntity<WalletResponse> debitWallet(@Valid @RequestBody DebitWalletRequest request) {
+        return ResponseEntity.ok(walletService.debitWallet(request.userId(), request.amount(), request.description()));
+    }
+
     @PostMapping("/reserve")
     public ResponseEntity<WalletResponse> reserveFunds(@Valid @RequestBody ReserveFundsRequest request) {
         return ResponseEntity.ok(walletService.reserveFunds(request));

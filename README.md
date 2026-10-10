@@ -15,9 +15,9 @@
 
 **CropDeal** is an enterprise-grade, distributed B2B AgriTech e-commerce, auction bidding, and supply chain logistics platform engineered with a **microservices architecture** using **Spring Boot 3.3.13**, **Spring Cloud 2023.0.6**, and an **Angular 18+ Standalone** responsive web client.
 
-The platform eliminates exploitative agricultural middlemen by providing a transparent, direct digital corridor between **Farmers (Producers)**, **Dealers (Commercial Buyers)**, **Logistics & Delivery Partners**, and **Platform Administrators**. 
+The platform eliminates exploitative agricultural middlemen by providing a transparent, direct digital corridor between **Farmers (Producers)**, **Dealers (Commercial Buyers)**, **Logistics & Delivery Partners**, and **Platform Administrators**.
 
-Equipped with **live Government of India Mandi price benchmarks (AGMARKNET)**, **CQRS (Command Query Responsibility Segregation)** in core domains, dynamic price bargaining, live real-time auction bidding floors, automated Rule 46 CGST tax invoicing, dual-fulfillment logistics, and distributed audit tracking, CropDeal delivers a robust, secure, and production-ready solution for digital agriculture.
+Equipped with **live Government of India Mandi price benchmarks (AGMARKNET / data.gov.in)**, **CQRS (Command Query Responsibility Segregation)** in core domains, dynamic price bargaining, real-time auction bidding floors, automated Rule 46 CGST tax invoicing, dual-fulfillment logistics with responsive live tracking, and secure OTP verification via SMTP, CropDeal delivers a robust, secure, and production-ready solution for digital agriculture.
 
 ---
 
@@ -28,7 +28,7 @@ CropDeal adheres to the **Database-per-Service** design pattern, ensuring comple
 ```mermaid
 flowchart TD
     subgraph Client_Layer [Client Layer]
-        UI["Angular 18+ Web Application<br/>(Port 4200)<br/>• Role Dashboards • Glassmorphism UI"]
+        UI["Angular 18+ Web Application<br/>(Port 4200)<br/>• Role Dashboards • Glassmorphism UI • Indian Geo-Hierarchy"]
     end
 
     subgraph Gateway_Discovery [Gateway & Service Discovery Mesh]
@@ -42,26 +42,27 @@ flowchart TD
     end
 
     subgraph Core_Microservices [Domain Microservices Cluster]
-        AUTH["auth-service (8081)<br/>JWT • BCrypt • RBAC"]
-        USER["user-service (8082)<br/>Profiles • KYC • Bank Settlement"]
-        CROP["crop-service [CQRS] (8083)<br/>Command & Query Segregation"]
-        PRICE["price-service (8084)<br/>37,800+ APMC Mandi Records"]
+        AUTH["auth-service (8081)<br/>JWT • BCrypt • SMTP OTP Verification"]
+        USER["user-service (8082)<br/>Profiles • KYC • Bank Settlement • User Moderation"]
+        CROP["crop-service [CQRS] (8083)<br/>Command & Query Segregation • Produce Catalog"]
+        PRICE["price-service (8084)<br/>37,800+ APMC Mandi Records • AGMARKNET"]
         NEG["negotiation-service (8085)<br/>Direct Price Bargaining Engine"]
-        BID["bidding-service [CQRS] (8086)<br/>Real-Time Auction Floor"]
+        BID["bidding-service [CQRS] (8086)<br/>Real-Time Auction Floor • Auto-Expiry Window"]
         WALLET["wallet-service (8087)<br/>Optimistic Lock Escrow Wallet"]
         ORDER["order-service (8088)<br/>Order Placement & Inventory Depletion"]
         PAY["payment-service (8089)<br/>Payment Capture & Audit Stamps"]
         INV["invoice-service (8090)<br/>OpenPDF Rule 46 CGST Tax Invoicing"]
-        DEL["deliveryservice (8091)<br/>Global Delivery Pool & Logistics"]
+        DEL["deliveryservice (8091)<br/>Global Delivery Pool & Milestone Logistics"]
         NOTIF["notification-service (8092)<br/>Event-Driven In-App Alerts"]
         ALERT["price-alert-service (8094)<br/>Target Price Subscriptions"]
         REPORT["report-service (8095)<br/>Platform Analytics & Metrics"]
         CHAT["chatbot-service (8096)<br/>Sarvam AI Agricultural LLM"]
     end
 
-    subgraph External_Integrations [External Data Providers & AI]
+    subgraph External_Integrations [External Data Providers, AI & Mail]
         DATA_GOV["Govt. of India Mandi API<br/>(AGMARKNET / data.gov.in)"]
         SARVAM["Sarvam AI Agricultural LLM"]
+        SMTP["Gmail SMTP Server<br/>(Real Email OTP Delivery)"]
     end
 
     UI -->|REST / JSON| GATEWAY
@@ -71,6 +72,7 @@ flowchart TD
 
     PRICE -->|Fetch Mandi Benchmarks| DATA_GOV
     CHAT -->|Natural Language Advisory| SARVAM
+    AUTH -->|Send One-Time Passwords| SMTP
 
     CROP -.->|Publish Price Events| RABBIT
     ORDER -.->|Publish Order Events| RABBIT
@@ -88,7 +90,7 @@ To handle high transactional throughput and guarantee fast read responsiveness, 
 #### 1. Crop Domain (`crop-service`)
 - **`CropCommandService`**: Handles write-intensive operations:
   - Publishing new crop lots with validation against mandi benchmarks.
-  - Updating listing pricing, description, and quantity.
+  - Updating listing pricing, description, variety, and harvest quantity.
   - Inventory stock deduction upon verified purchase orders.
   - **Soft-Delete Lifecycle**: Marking crops as `DELETED` to exclude them from public discovery while preserving historical records for orders and invoicing.
 - **`CropQueryService`**: Optimized read models:
@@ -105,7 +107,7 @@ To handle high transactional throughput and guarantee fast read responsiveness, 
   - Auction lot close and winner award declaration.
 - **`BiddingQueryService`**: High-performance auction views:
   - Live bidding floor boards with **dynamic highest bid resolution**—guaranteeing that the current highest bid amount and total bid counts are computed and reflected immediately without stale 0-bid delays.
-  - Full auction history inspection for dealers and farmers.
+  - **Automatic Expiry Filtering**: Expired lots (`endTime <= now`) are automatically excluded from the active bidding floor UI so dealers only bid on currently valid auctions.
 
 ---
 
@@ -118,12 +120,12 @@ The platform operates **17 Spring Boot microservices** backed by **15 dedicated 
 | **`eureka-server`** | `8761` | — | Dynamic service registration, health heartbeats, and cluster discovery. |
 | **`config-server`** | `8888` | — | Centralized native configuration management across all environments. |
 | **`api-gateway`** | `8080` | — | Spring Cloud Gateway, JWT authentication filter, CORS handler, reverse proxy routing. |
-| **`auth-service`** | `8081` | `cropdeal_auth_db` | User authentication, BCrypt password hashing, JWT token generation, role assignments. |
-| **`user-service`** | `8082` | `cropdeal_user_db` | Farmer/Dealer profiles, KYC documents, farm & banking enrichment, reviews & admin audits. |
+| **`auth-service`** | `8081` | `cropdeal_auth_db` | User authentication, BCrypt password hashing, JWT token generation, SMTP email OTP dispatch. |
+| **`user-service`** | `8082` | `cropdeal_user_db` | Farmer/Dealer profiles, KYC documents, farm & banking enrichment, admin moderation & user blocking. |
 | **`crop-service`** | `8083` | `cropdeal_crop_db` | **CQRS** inventory engine: Command (create, update, soft-delete) & Query (search, filter). |
 | **`price-service`** | `8084` | `cropdeal_price_db` | **37,800+ AGMARKNET Mandi Price records**, multi-page sync, benchmark median calculations. |
 | **`negotiation-service`** | `8085` | `cropdeal_negotiation_db` | Direct buyer-seller bargaining engine, discount ceiling validations, counter-offers. |
-| **`bidding-service`** | `8086` | `cropdeal_bidding_db` | **CQRS** live auction floor, dynamic real-time highest bid engine, escrow synchronization. |
+| **`bidding-service`** | `8086` | `cropdeal_bidding_db` | **CQRS** live auction floor, dynamic real-time highest bid engine, escrow synchronization, auto-expiry. |
 | **`wallet-service`** | `8087` | `cropdeal_wallet_db` | Digital wallet, `@Version` optimistic locking, credit/debit/escrow balance holds. |
 | **`order-service`** | `8088` | `cropdeal_order_db` | Purchase orders, itemized order lines, inventory deduction triggers. |
 | **`payment-service`** | `8089` | `cropdeal_payment_db` | Payment processing, transaction audit stamps (`paid_at`), gateway webhooks. |
@@ -137,48 +139,49 @@ The platform operates **17 Spring Boot microservices** backed by **15 dedicated 
 
 ---
 
-## 🚀 Key Business Capabilities & Engineering Highlights
+## 🚀 Key Business Capabilities & Recent Engineering Highlights
 
-### 1. 🛡️ Role-Based Access Control & Two-Phase Frictionless Onboarding
-- **Strict Role Boundaries**:
-  - `ROLE_FARMER` — Producer dashboard, crop listing management, live auction lot creation, negotiation responses.
-  - `ROLE_DEALER` — Buyer dashboard, catalog purchasing, price bargaining, auction bidding, tax invoice downloads.
-  - `ROLE_DELIVERY_PARTNER` — Logistics dashboard, Global Delivery Pool job claiming, milestone stepper updates.
-  - `ROLE_ADMIN` — System oversight, user moderation, dispute resolution, review auditing.
-- **Two-Phase Registration Architecture**:
-  - **Phase 1 (Instant Registration)**: Collects strictly essential credentials to minimize drop-off: Role, Full Name, Username, Email, Phone Number, and Password.
-  - **Phase 2 (Profile Enrichment)**: Once authenticated, users enrich their profiles directly through the Profile Section (Farm coordinates, Business/Dealer entity, Vehicle type & registration, Bank Account & IFSC details). All enriched fields are validated and persisted to `cropdeal_user_db`.
+### 1. 🇮🇳 Comprehensive Indian Agricultural Geography (36 States & UTs with Real Districts)
+- **Hierarchy Utility (`india-locations.util.ts`)**: Embedded comprehensive mapping for all 28 Indian States and 8 Union Territories with official district lists.
+- **Dynamic Cascading Search**: Selecting a State (e.g., *Tamil Nadu*) dynamically scopes the District dropdown strictly to that state's 38 official districts (*Chennai, Coimbatore, Madurai, Erode, etc.*).
+- **Location-Specific Produce Query**: Clicking Search on Home or the Mandi Price portal filters crops strictly by the chosen State and District, allowing buyers to discover local harvests with precision.
 
-### 2. 📊 High-Density Mandi Benchmark Dataset (37,800+ Records)
-- Pre-populated with **37,827 official AGMARKNET Mandi price records** covering **270 distinct agricultural commodities** across all Indian states and districts in `cropdeal_price_db.market_prices`.
-- Automated multi-page government API sync with intelligent commodity grouping ensuring no records are dropped due to varying arrival dates.
+### 2. 📧 Secure Real Email OTP Verification (SMTP Integration)
+- **Production Email Delivery**: Passwords resets and user verifications trigger genuine 6-digit numeric OTPs dispatched via `JavaMailSender` configured with Google App Password authentication.
+- **Zero Mock Bypass**: Hardcoded bypass values (such as `123456`) are strictly disabled; verification succeeds only when the code matches the cryptographic token generated in the database.
 
-### 3. 🏷️ Real-Time Live Bidding Floor & Dynamic Highest-Bid Engine
-- Time-boxed auctions with base price safeguards and minimum bid increments.
-- **Dynamic Highest-Bid Computation**: The `BiddingQueryService` evaluates active bids and guarantees the highest bid amount and bid count update immediately on the live bidding floor without displaying stale zero-bid states.
-- **Escrow Wallet Synchronization**: Placing a bid automatically reserves funds from the dealer's digital wallet; outbid dealers have reserved capital released immediately.
+### 3. 🧼 Clean, Professional Form Design
+- **Empty Initial Form State**: Login, Register, Forgot Password, Reset Password, and Listing forms now initialize completely empty with descriptive placeholder text.
+- **Zero Ghost Data**: No pre-filled dummy credentials or pre-selected values interfere with user input, ensuring an enterprise feel.
 
-### 4. 🗃️ Soft-Delete Architecture & Database History Preservation
-- When a farmer deletes a crop or closes an auction, the entity is **soft-deleted** (`status = 'DELETED'` or `'CLOSED'`) rather than permanently purged from MySQL.
-- Public marketplace queries and bidding boards automatically filter out soft-deleted listings.
-- Complete historical audit records remain intact in MySQL for invoicing, tax compliance, and order dispute resolution.
+### 4. 🚚 Responsive 5-Stage Live Delivery Tracking Modal
+- **High-Performance Architecture**: Fixed recursive subscription loops and template parsing bottlenecks in dealer order tracking.
+- **5-Stage Interactive Milestone Stepper**:
+  $$\text{Placed} \longrightarrow \text{Assigned} \longrightarrow \text{Picked Up} \longrightarrow \text{In Transit} \longrightarrow \text{Delivered}$$
+- **Live Tracking Features**:
+  - Waybill badge and one-click copy button with instant `"Copied!"` feedback.
+  - Real-time ETA indicator reflecting the current consignment milestone.
+  - Dedicated Carrier Fleet card with driver phone link for direct telephone contact.
+  - Consignment Route card displaying Farm Origin (Mandi/Village) &rarr; Warehouse Drop Destination.
+  - Async **Refresh** button with spin animation to pull live status on demand.
+  - 100% mobile-responsive layout designed for handheld and desktop screens.
 
-### 5. 🤝 Direct Price Negotiation Engine
-- Dealers can submit direct bargaining requests for listed crops strictly below the listed rate.
-- Farmers can counter-offer, accept, or reject directly from their dashboard.
-- Accepted agreements allow immediate checkout at the agreed unit rate with automated order, delivery, and payment records creation.
+### 5. 🛡️ User Moderation & Quick Login Account Blocking
+- **Full Administrative Control**: System administrators can view, activate, or block any user on the platform.
+- **Quick Login Parity**: Even pre-seeded demo/quick-login users are subject to admin blocking; blocked users are immediately barred from authenticating or accessing secured APIs.
+- **Streamlined Catalog Oversight**: The Admin crop management section offers clean inspection tools and listing controls.
 
-### 6. 🚚 Dual-Fulfillment Logistics Architecture
-- **Path A — Farmer Direct Self-Pickup (₹0 Fee)**: Immediate order transition for local buyers without agent assignment.
-- **Path B — Global Delivery Pool (₹100 Flat Fee)**:
-  - Jobs enter the open delivery pool as `AVAILABLE_FOR_PICKUP`.
-  - Verified delivery agents claim orders and advance milestones:
-    $$\text{ORDERED} \longrightarrow \text{PICKED\_UP} \longrightarrow \text{IN\_TRANSIT} \longrightarrow \text{DELIVERED}$$
-  - Full timestamp tracking (`created_at`, `updated_at`, `delivery_date`) in `cropdeal_delivery_db`.
+### 6. ⏱️ Active Bidding Window & Auto-Expiry Floor
+- **Time-Bounded Bidding**: Auction lots include start and end timestamps.
+- **Automatic Expiration Filter**: Auctions whose timer has expired (`endTime <= now`) are automatically hidden from the active bidding floor.
+- **Dynamic Valuation**: Highest bid and bid counter update in real-time, backed by escrow reservations in `wallet-service`.
 
-### 7. 📄 CGST Rule 46 Compliant Tax Invoices
-- Itemized tax invoices generated via OpenPDF with HSN codes, SGST/CGST breakdown, dealer GSTIN, farmer location, and unique invoice numbers (`CD-INV-2026-XXXX`).
-- Saved in `cropdeal_invoice_db` with `invoice_date` and download capabilities.
+### 7. 🌾 Streamlined Standardized Crop Listings
+- **Standardized Produce Imagery**: Produces high-resolution, curated commodity imagery tied to crop categories, removing distorted local file uploads for uniform marketplace visual presentation.
+- **Mandi Benchmark Ceiling Check**: Farmer pricing is validated against live AGMARKNET mandi rates to ensure competitive marketplace valuation.
+
+### 8. 📄 Rule 46 CGST Tax Invoicing
+- **OpenPDF Generation**: Automated PDF tax invoice streaming featuring itemized HSN codes, CGST (2.5%), SGST (2.5%), verified dealer GSTIN, and unique invoice serials (`CD-INV-2026-XXXX`).
 
 ---
 
@@ -194,7 +197,7 @@ The database is initialized with **4 clean professional accounts** across all pl
 | **🛡️ Administrator** | `admin@gmail.com` | `pass-admin124` | `4` | `ROLE_ADMIN` |
 
 > [!TIP]
-> On the login page, you can use the **Quick Demo Login chips** to autofill and authenticate into any of the 4 roles with a single click. Upon authentication, users are redirected directly to their tailored role dashboard.
+> On the login page, you can use the **Quick Demo Login chips** to autofill and authenticate into any of the 4 roles with a single click.
 
 ---
 
@@ -203,13 +206,13 @@ The database is initialized with **4 clean professional accounts** across all pl
 ### 📋 Prerequisites
 - **Java 21 (LTS)** (Eclipse Adoptium / OpenJDK)
 - **Node.js 18+ or 20+** and **npm**
-- **MySQL 8.0** running on `localhost:3306` (Credentials: `naresh` / `vnaresh2004` or configure via `application.properties`)
+- **MySQL 8.0** running on `localhost:3306` (Credentials: `naresh` / `vnaresh2004` or configured via `application.properties`)
 - **RabbitMQ 3.13+** (Optional for async notifications; core REST APIs function independently)
 
 ---
 
 ### Step 1: Database Initialization
-If configuring MySQL for the first time, run [`init.sql`](file:///D:/cropdealnaresh/init.sql) in MySQL CLI or Workbench:
+If configuring MySQL for the first time, run [`init.sql`](init.sql) in MySQL CLI or Workbench:
 ```sql
 SOURCE D:/cropdealnaresh/init.sql;
 ```
@@ -228,15 +231,22 @@ Compile and package all microservices into production JARs using the included Ma
 
 ### Step 3: Launch the Platform
 
-#### Option A: One-Click Master Startup Script (Recommended)
-Launch all 17 microservices, discovery server, config server, gateway, and frontend in titled background windows:
+#### Option A: Background Master Daemon (Recommended for Development)
+Launches Eureka, Config Server, all 15 microservices, API Gateway, and the Angular UI with optimized JVM memory footprints (`-Xms32m -Xmx130m`):
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\run-all-services.ps1
+```
+All service logs are piped cleanly into `D:\cropdealnaresh\logs\`.
+
+#### Option B: Multi-Window Console Launcher
+Launches all microservices in separate titled Command Prompt windows:
 ```powershell
 .\start-all.ps1
 ```
 *(Or double-click `start-all.bat` from File Explorer).*
 
-#### Option B: Manual Startup Sequence
-If launching services individually, adhere to this strict initialization order:
+#### Option C: Manual Startup Sequence
+If launching services individually, adhere to this initialization order:
 1. **Service Discovery**:
    ```powershell
    cd D:\cropdealnaresh\eureka-server; java -jar target\eureka-server-1.0.0.jar
@@ -271,7 +281,7 @@ If launching services individually, adhere to this strict initialization order:
 ### Step 5: Graceful Shutdown
 To terminate all running Java microservices, Node processes, and free all associated ports:
 ```powershell
-.\stop-all.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\stop-all.ps1
 ```
 *(Or double-click `stop-all.bat`).*
 
@@ -302,7 +312,7 @@ Every microservice exposes OpenAPI 3 documentation with interactive Swagger UI e
 
 ## 🧪 Postman Automated Test Suite
 
-An automated Postman collection [`CropDeal.postman_collection.json`](file:///D:/cropdealnaresh/CropDeal.postman_collection.json) is included in the project root containing **39+ test scenarios** covering:
+An automated Postman collection [`CropDeal.postman_collection.json`](CropDeal.postman_collection.json) is included in the project root containing **39+ test scenarios** covering:
 - Authentication & JWT validation across all 4 personas
 - Mandi benchmark lookups and crop listing creation
 - Direct price bargaining proposals and counter-offers
@@ -340,9 +350,10 @@ cropdealnaresh/
 ├── docker-compose.yml         # Containerized cluster orchestration
 ├── init.sql                   # MySQL 15-database schema initialization
 ├── pom.xml                    # Root Maven multi-module parent POM
-├── start-all.ps1              # PowerShell master system launcher
+├── run-all-services.ps1       # Master background daemon launcher
+├── start-all.ps1              # Multi-window startup launcher
 ├── start-all.bat              # Windows batch launcher
-├── stop-all.ps1               # PowerShell master shutdown script
+├── stop-all.ps1               # Master shutdown script
 ├── stop-all.bat               # Windows batch shutdown script
 └── README.md                  # Comprehensive platform documentation
 ```

@@ -1,26 +1,29 @@
 package com.cropdeal.chatbotservice.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ChatResponse {
     private String sessionId;
     private String query;
     private String answer;
     private String reply;
     private String intent;
-
-    @Builder.Default
     private List<String> suggestedActions = new ArrayList<>();
     private String apiReference;
+
+    public ChatResponse() {
+    }
+
+    public ChatResponse(String sessionId, String query, String answer, String reply, String intent, List<String> suggestedActions, String apiReference) {
+        this.sessionId = sessionId;
+        this.query = query;
+        this.answer = answer;
+        this.reply = reply != null ? reply : answer;
+        this.intent = intent;
+        this.suggestedActions = suggestedActions != null ? new ArrayList<>(suggestedActions) : new ArrayList<>();
+        this.apiReference = apiReference;
+    }
 
     public ChatResponse(String sessionId, String answer) {
         this.sessionId = sessionId;
@@ -31,19 +34,132 @@ public class ChatResponse {
         this.suggestedActions = new ArrayList<>();
     }
 
-    public String sessionId() {
-        return this.sessionId != null ? this.sessionId : this.query;
+    public static Builder builder() {
+        return new Builder();
     }
 
-    public String reply() {
-        return this.reply != null ? this.reply : this.answer;
+    public static class Builder {
+        private String sessionId;
+        private String query;
+        private String answer;
+        private String reply;
+        private String intent;
+        private List<String> suggestedActions = new ArrayList<>();
+        private String apiReference;
+
+        public Builder sessionId(String sessionId) {
+            this.sessionId = sessionId;
+            return this;
+        }
+
+        public Builder query(String query) {
+            this.query = query;
+            return this;
+        }
+
+        public Builder answer(String answer) {
+            this.answer = answer;
+            if (this.reply == null) {
+                this.reply = answer;
+            }
+            return this;
+        }
+
+        public Builder reply(String reply) {
+            this.reply = reply;
+            if (this.answer == null) {
+                this.answer = reply;
+            }
+            return this;
+        }
+
+        public Builder intent(String intent) {
+            this.intent = intent;
+            return this;
+        }
+
+        public Builder suggestedActions(List<String> suggestedActions) {
+            this.suggestedActions = suggestedActions != null ? new ArrayList<>(suggestedActions) : new ArrayList<>();
+            return this;
+        }
+
+        public Builder apiReference(String apiReference) {
+            this.apiReference = apiReference;
+            return this;
+        }
+
+        public ChatResponse build() {
+            return new ChatResponse(sessionId, query, answer, reply, intent, suggestedActions, apiReference);
+        }
     }
 
     public String getSessionId() {
-        return this.sessionId != null ? this.sessionId : this.query;
+        return sessionId != null ? sessionId : query;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    public String getQuery() {
+        return query;
+    }
+
+    public void setQuery(String query) {
+        this.query = query;
+    }
+
+    public String getAnswer() {
+        return answer != null ? answer : reply;
+    }
+
+    public void setAnswer(String answer) {
+        this.answer = answer;
+        if (this.reply == null) {
+            this.reply = answer;
+        }
     }
 
     public String getReply() {
-        return this.reply != null ? this.reply : this.answer;
+        return reply != null ? reply : answer;
+    }
+
+    public void setReply(String reply) {
+        this.reply = reply;
+        if (this.answer == null) {
+            this.answer = reply;
+        }
+    }
+
+    public String getIntent() {
+        return intent;
+    }
+
+    public void setIntent(String intent) {
+        this.intent = intent;
+    }
+
+    public List<String> getSuggestedActions() {
+        return suggestedActions;
+    }
+
+    public void setSuggestedActions(List<String> suggestedActions) {
+        this.suggestedActions = suggestedActions;
+    }
+
+    public String getApiReference() {
+        return apiReference;
+    }
+
+    public void setApiReference(String apiReference) {
+        this.apiReference = apiReference;
+    }
+
+    public String sessionId() {
+        return getSessionId();
+    }
+
+    public String reply() {
+        return getReply();
     }
 }

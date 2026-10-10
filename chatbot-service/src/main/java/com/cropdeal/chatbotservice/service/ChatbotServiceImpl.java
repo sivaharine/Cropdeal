@@ -39,33 +39,49 @@ public class ChatbotServiceImpl implements ChatbotService {
 
     @Override
     public ChatResponse chat(ChatRequest request) {
-        String sessionId = StringUtils.hasText(request.sessionId())
-                ? request.sessionId()
+        String sessionId = StringUtils.hasText(request.getSessionId())
+                ? request.getSessionId()
                 : UUID.randomUUID().toString();
 
         request.setSessionId(sessionId);
 
-        // 1. Check project advisory engine for domain queries (crop prices from DB, logistics, bidding, etc.)
+        // 1. Process query with CropDeal domain engine (handles database queries, greetings, orders, mandi rates, non-agri refusal)
         ChatResponse advisory = advisoryService.processQuery(request);
-        if (advisory != null && !"GENERAL_ASSIST".equals(advisory.getIntent())) {
+        if (advisory != null && !"OFF_TOPIC".equals(advisory.getIntent())) {
+            advisory.setSessionId(sessionId);
             return advisory;
         }
 
-        // 2. If general query, try AI service (or when running tests)
+        // 2. If general question or off-topic, leverage Sarvam AI 105b LLM with system prompt
         try {
-            List<MessageDto> history = sessions.computeIfAbsent(sessionId, ignored -> new ArrayList<>());
-            synchronized (history) {
-                history.add(new MessageDto("user", request.message()));
+            if (config != null && StringUtils.hasText(config.getSubscriptionKey())) {
+                List<MessageDto> history = sessions.computeIfAbsent(sessionId, k -> new ArrayList<>());
+                history.add(new MessageDto("user", request.getMessage()));
                 trimHistory(history);
-                String reply = sarvamClientService.complete(buildMessages(history));
-                history.add(new MessageDto("assistant", reply));
-                trimHistory(history);
-                return new ChatResponse(sessionId, reply);
+                List<MessageDto> messages = buildMessages(history);
+                String aiReply = sarvamClientService.complete(messages);
+                if (StringUtils.hasText(aiReply)) {
+                    history.add(new MessageDto("assistant", aiReply));
+                    trimHistory(history);
+                    return ChatResponse.builder()
+                            .sessionId(sessionId)
+                            .intent("SARVAM_AI")
+                            .answer(aiReply)
+                            .reply(aiReply)
+                            .suggestedActions(List.of("Check Mandi Prices", "Show Available Crops", "What is CropDeal?"))
+                            .build();
+                }
             }
         } catch (Exception ex) {
-            log.info("AI provider inactive or unconfigured. Falling back to local advisory response: {}", ex.getMessage());
-            return advisory != null ? advisory : new ChatResponse(sessionId, "🌾 Welcome to CropDeal Agricultural Assistant!");
+            log.warn("Sarvam AI completion error/fallback: {}", ex.getMessage());
         }
+
+        if (advisory != null) {
+            advisory.setSessionId(sessionId);
+            return advisory;
+        }
+
+        return new ChatResponse(sessionId, "🌾 Welcome to CropDeal! How can I assist you with your farming or crop orders today?");
     }
 
     @Override
@@ -74,7 +90,7 @@ public class ChatbotServiceImpl implements ChatbotService {
     }
 
     private void trimHistory(List<MessageDto> history) {
-        int maxHistoryMessages = Math.max(config.getMaxHistoryMessages(), 2);
+        int maxHistoryMessages = Math.max(config != null ? config.getMaxHistoryMessages() : 20, 2);
         while (history.size() > maxHistoryMessages) {
             history.remove(0);
         }
@@ -82,7 +98,7 @@ public class ChatbotServiceImpl implements ChatbotService {
 
     private List<MessageDto> buildMessages(List<MessageDto> history) {
         List<MessageDto> messages = new ArrayList<>();
-        if (StringUtils.hasText(config.getSystemPrompt())) {
+        if (config != null && StringUtils.hasText(config.getSystemPrompt())) {
             messages.add(new MessageDto("system", config.getSystemPrompt()));
         }
         messages.addAll(history);

@@ -6,23 +6,23 @@ import { AuthService } from './auth.service';
 import { User, UserRole } from '../models/user.model';
 
 export interface UserProfileData {
-  userId?: string | number;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  role: UserRole;
+  userId?: string | number | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  role?: UserRole | null;
   // Farmer specific
-  farmLocation?: string;
+  farmLocation?: string | null;
   // Dealer specific
-  businessName?: string;
+  businessName?: string | null;
   // Delivery partner specific
-  vehicleNumber?: string;
-  vehicleType?: 'BIKE' | 'TEMPO' | 'TRUCK' | 'VAN';
-  drivingLicenseNumber?: string;
-  availabilityStatus?: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE';
+  vehicleNumber?: string | null;
+  vehicleType?: 'BIKE' | 'TEMPO' | 'TRUCK' | 'VAN' | null;
+  drivingLicenseNumber?: string | null;
+  availabilityStatus?: 'AVAILABLE' | 'ON_TRIP' | 'OFFLINE' | null;
   // Common banking
-  bankDetails?: string;
+  bankDetails?: string | null;
 }
 
 @Injectable({
@@ -112,36 +112,36 @@ export class UserService {
     if (currentUser) {
       this.authService.updateStoredUser({
         ...currentUser,
-        fullName: data.name,
-        phone: data.phone,
-        address: data.address
+        fullName: data.name || undefined,
+        phone: data.phone || undefined,
+        address: data.address || undefined
       });
     }
 
     // Propagate to master users so Admin User Management and Quick Logins reflect the changes immediately
     this.updateMasterUser({
-      role: data.role,
-      fullName: data.name,
-      phone: data.phone,
-      address: data.address
+      role: data.role || undefined,
+      fullName: data.name || undefined,
+      phone: data.phone || undefined,
+      address: data.address || undefined
     });
   }
 
   private mapBackendResponse(res: any, role: UserRole): UserProfileData {
     return {
-      userId: res.userId || res.id,
-      name: res.name || res.fullName || '',
-      email: res.email || '',
-      phone: res.phone || '',
-      address: res.address || '',
+      userId: res.userId != null ? res.userId : (res.id != null ? res.id : null),
+      name: res.name != null ? res.name : (res.fullName != null ? res.fullName : null),
+      email: res.email != null ? res.email : null,
+      phone: res.phone != null ? res.phone : null,
+      address: res.address != null ? res.address : null,
       role: role,
-      farmLocation: res.farmLocation,
-      businessName: res.businessName,
-      vehicleNumber: res.vehicleNumber,
-      vehicleType: res.vehicleType,
-      drivingLicenseNumber: res.drivingLicenseNumber,
-      availabilityStatus: res.availabilityStatus,
-      bankDetails: res.bankDetails
+      farmLocation: res.farmLocation != null ? res.farmLocation : null,
+      businessName: res.businessName != null ? res.businessName : null,
+      vehicleNumber: res.vehicleNumber != null ? res.vehicleNumber : null,
+      vehicleType: res.vehicleType != null ? res.vehicleType : null,
+      drivingLicenseNumber: res.drivingLicenseNumber != null ? res.drivingLicenseNumber : null,
+      availabilityStatus: res.availabilityStatus != null ? res.availabilityStatus : null,
+      bankDetails: res.bankDetails != null ? res.bankDetails : null
     };
   }
 
@@ -155,24 +155,21 @@ export class UserService {
     }
 
     const currentUser = this.authService.currentUserValue;
-    const isFarmer = role === 'FARMER';
-    const isDealer = role === 'DEALER';
-    const isPartner = role === 'DELIVERY_PARTNER';
 
     return {
-      userId: currentUser?.id || currentUser?.userId || 'u-101',
-      name: currentUser?.fullName || (isFarmer ? 'Sardar Gurpreet Singh' : (isDealer ? 'Apex Agro Mills Ltd' : (isPartner ? 'Kisan Express Agro Logistics' : 'System Administrator'))),
-      email: currentUser?.email || `${role.toLowerCase()}@cropdeal.in`,
-      phone: currentUser?.phone || (isFarmer ? '9814011223' : (isDealer ? '9872255667' : (isPartner ? '9888822110' : '9999999999'))),
-      address: currentUser?.address || (isFarmer ? 'Khanna Mandi, Ludhiana, Punjab' : (isDealer ? 'Commercial Grain Terminal, New Delhi' : (isPartner ? 'Northern Freight Corridor Yard 3' : 'CropDeal Headquarters, Tech Park'))),
+      userId: currentUser?.id || currentUser?.userId || null,
+      name: currentUser?.fullName || currentUser?.username || null,
+      email: currentUser?.email || null,
+      phone: currentUser?.phone || null,
+      address: currentUser?.address || null,
       role: role,
-      farmLocation: isFarmer ? 'Khanna Mandi, Block 4, Ludhiana' : undefined,
-      businessName: isDealer ? 'Apex Agro Mills Private Limited' : undefined,
-      vehicleNumber: isPartner ? 'PB-10-CZ-4921' : undefined,
-      vehicleType: isPartner ? 'TRUCK' : undefined,
-      drivingLicenseNumber: isPartner ? 'DL-PB-20210049281' : undefined,
-      availabilityStatus: isPartner ? 'AVAILABLE' : undefined,
-      bankDetails: 'State Bank of India • A/C: 39482910482 • IFSC: SBIN0001423'
+      farmLocation: (currentUser as any)?.farmLocation || null,
+      businessName: (currentUser as any)?.businessName || null,
+      vehicleNumber: (currentUser as any)?.vehicleNumber || null,
+      vehicleType: (currentUser as any)?.vehicleType || null,
+      drivingLicenseNumber: (currentUser as any)?.drivingLicenseNumber || null,
+      availabilityStatus: (currentUser as any)?.availabilityStatus || null,
+      bankDetails: (currentUser as any)?.bankDetails || null
     };
   }
 
@@ -188,7 +185,7 @@ export class UserService {
           parsed.forEach(u => {
             const uLower = (u.username || '').toLowerCase();
             const uId = String(u.id || u.userId);
-            if (uId === '1' || uLower === 'admin' || (u.email && u.email.toLowerCase().includes('admin@cropdeal'))) {
+            if (uId === '4' || uLower.includes('admin')) {
               if (u.role !== 'ADMIN') {
                 u.role = 'ADMIN';
                 healed = true;
@@ -198,24 +195,19 @@ export class UserService {
                 u.status = 'ACTIVE';
                 healed = true;
               }
-            } else if (uId === '4' || uLower === 'dealer' || (u.email && u.email.toLowerCase().includes('dealer@'))) {
+            } else if (uId === '2' || uLower.includes('dealer')) {
               if (u.role !== 'DEALER') {
                 u.role = 'DEALER';
                 healed = true;
               }
-            } else if (uId === '3' || uLower === 'delivery_partner' || (u.email && u.email.toLowerCase().includes('delivery@'))) {
+            } else if (uId === '3' || uLower.includes('delivery')) {
               if (u.role !== 'DELIVERY_PARTNER') {
                 u.role = 'DELIVERY_PARTNER';
                 healed = true;
               }
-            } else if (['farmer'].includes(uLower)) {
+            } else if (uId === '1' || uLower.includes('farmer')) {
               if (u.role !== 'FARMER') {
                 u.role = 'FARMER';
-                healed = true;
-              }
-              if (u.isBlocked || u.status === 'BLOCKED') {
-                u.isBlocked = false;
-                u.status = 'ACTIVE';
                 healed = true;
               }
             }
@@ -234,11 +226,10 @@ export class UserService {
 
   getDefaultSeedUsers(): User[] {
     return [
-      { id: '1', userId: '1', username: 'admin', fullName: 'System Administrator', email: 'admin@cropdeal.com', phone: '+91 99999 99999', role: 'ADMIN', address: 'CropDeal Headquarters, Tech Park', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-01' },
-      { id: '2', userId: '2', username: 'ramesh', fullName: 'Ramesh Farmer', email: 'ramesh@cropdeal.in', phone: '+91 98765 43210', role: 'FARMER', address: 'Khanna Mandi, Ludhiana, Punjab', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-10' },
-      { id: '3', userId: '3', username: 'delivery_partner', fullName: 'Kisan Express Agro Logistics', email: 'delivery@cropdeal.in', phone: '+91 98888 22110', role: 'DELIVERY_PARTNER', address: 'Northern Freight Corridor Yard 3', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-20' },
-      { id: '4', userId: '4', username: 'dealer', fullName: 'Apex Agro Mills Ltd', email: 'dealer@cropdeal.in', phone: '+91 98722 55667', role: 'DEALER', address: 'Commercial Grain Terminal, New Delhi', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-12' },
-      { id: '11', userId: '11', username: 'farmer', fullName: 'Sardar Gurpreet Singh', email: 'farmer@cropdeal.in', phone: '+91 98140 11223', role: 'FARMER', address: 'Khanna Mandi, Ludhiana, Punjab', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-10' }
+      { id: '1', userId: '1', username: 'farmer@gmail.com', fullName: 'Ramesh Kumar (Farmer)', email: 'farmer@gmail.com', phone: '+91 98765 43210', role: 'FARMER', address: 'Khanna Mandi, Ludhiana, Punjab', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-10' },
+      { id: '2', userId: '2', username: 'dealer@gmail.com', fullName: 'Super Agros (Dealer)', email: 'dealer@gmail.com', phone: '+91 98765 43211', role: 'DEALER', address: 'Commercial Grain Terminal, New Delhi', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-12' },
+      { id: '3', userId: '3', username: 'delivery@gmail.com', fullName: 'Kisan Express Logistics', email: 'delivery@gmail.com', phone: '+91 98765 43212', role: 'DELIVERY_PARTNER', address: 'Northern Freight Corridor Yard 3', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-20' },
+      { id: '4', userId: '4', username: 'admin@gmail.com', fullName: 'System Administrator', email: 'admin@gmail.com', phone: '+91 99999 99999', role: 'ADMIN', address: 'CropDeal Headquarters, Tech Park', status: 'ACTIVE', isBlocked: false, createdAt: '2026-08-01' }
     ];
   }
 
@@ -250,7 +241,7 @@ export class UserService {
       if (updatedData.username && u.username && u.username.toLowerCase() === updatedData.username.toLowerCase()) return true;
       return false;
     });
-    if (idx === -1 && !updatedData.id && updatedData.role) {
+    if (idx === -1 && updatedData.role) {
       idx = users.findIndex(u => u.role === updatedData.role);
     }
     if (idx !== -1) {

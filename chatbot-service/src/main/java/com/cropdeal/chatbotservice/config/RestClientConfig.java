@@ -20,8 +20,12 @@ public class RestClientConfig {
         factory.setConnectTimeout(Duration.ofSeconds(30));
         factory.setReadTimeout(Duration.ofSeconds(120));
 
+        String baseUrl = (config != null && config.getBaseUrl() != null && !config.getBaseUrl().isBlank())
+                ? config.getBaseUrl()
+                : "https://api.sarvam.ai";
+
         return RestClient.builder()
-                .baseUrl(config.getBaseUrl())
+                .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("Content-Type", "application/json")

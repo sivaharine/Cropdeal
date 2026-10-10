@@ -18,12 +18,21 @@ export class CropService {
 
   constructor(private http: HttpClient) {
     if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(this.DELETED_CROPS_KEY);
+      } catch {}
       window.addEventListener('storage', (e: StorageEvent) => {
         if (e.key === this.CROPS_KEY) {
           this.cropsSubject.next(this.getLocalCrops());
         }
       });
     }
+  }
+
+  uploadCropImage(file: File): Observable<{ imageUrl: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ imageUrl: string; filename: string }>(`${this.baseUrl}/upload-image`, formData);
   }
 
   public mapBackendCrop(c: any): Crop {
@@ -36,6 +45,8 @@ export class CropService {
     const farmerId = c.farmerId !== undefined && c.farmerId !== null ? String(c.farmerId) : '1';
     const farmerName = c.farmerName || 'Farmer Producer';
     const id = c.id !== undefined && c.id !== null ? String(c.id) : (c.cropId ? String(c.cropId) : `cr-${Date.now()}`);
+    const rawStatus = (c.status || 'AVAILABLE').toUpperCase();
+    const status = (rawStatus === 'PUBLISHED') ? 'AVAILABLE' : rawStatus;
 
     return {
       id,
@@ -48,12 +59,14 @@ export class CropService {
       unit: c.unit || 'Kg',
       pricePerUnit: price,
       location,
+      state: c.state || (c.location ? c.location.split(',')[1]?.trim() : undefined),
+      district: c.district || (c.location ? c.location.split(',')[0]?.trim() : undefined),
       farmerId,
       farmerName,
       farmerPhone: c.farmerPhone,
       harvestDate: c.harvestDate,
       imageUrl: c.imageUrl || resolveCropImage(cropName),
-      status: c.status || 'AVAILABLE',
+      status: status,
       description: c.description || '',
       govMspPrice: c.govMspPrice || 25,
       createdAt: c.createdAt || new Date().toISOString()
@@ -99,47 +112,176 @@ export class CropService {
     } catch {}
   }
 
+  public getDefaultSeedCrops(): Crop[] {
+    return [
+      {
+        id: 'cr-101',
+        cropId: 'cr-101',
+        cropName: 'Sona Masoori Rice',
+        cropType: 'Grains',
+        variety: 'Grade A Premium',
+        quantity: 850,
+        availableQuantity: 850,
+        unit: 'Kg',
+        pricePerUnit: 26,
+        location: 'Thanjavur APMC Mandi, Thanjavur, Tamil Nadu',
+        state: 'Tamil Nadu',
+        district: 'Thanjavur',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-rice.jpg',
+        status: 'AVAILABLE',
+        description: 'Naturally aged premium Sona Masoori paddy harvest from Cauvery delta basin.',
+        govMspPrice: 28.5,
+        createdAt: '2026-10-01T08:00:00.000Z'
+      },
+      {
+        id: 'cr-102',
+        cropId: 'cr-102',
+        cropName: 'Coimbatore Sugarcane',
+        cropType: 'Cash Crops',
+        variety: 'Co-86032 Grade A',
+        quantity: 1200,
+        availableQuantity: 1200,
+        unit: 'Kg',
+        pricePerUnit: 18,
+        location: 'Pollachi Mandi, Coimbatore, Tamil Nadu',
+        state: 'Tamil Nadu',
+        district: 'Coimbatore',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-sugarcane.jpg',
+        status: 'AVAILABLE',
+        description: 'Juicy, high sucrose cane harvested directly from Pollachi organic farms.',
+        govMspPrice: 20.0,
+        createdAt: '2026-10-02T09:00:00.000Z'
+      },
+      {
+        id: 'cr-103',
+        cropId: 'cr-103',
+        cropName: 'Salem Turmeric Fingers',
+        cropType: 'Spices',
+        variety: 'Salem Curcumin High',
+        quantity: 450,
+        availableQuantity: 450,
+        unit: 'Kg',
+        pricePerUnit: 74,
+        location: 'Shevapet Mandi, Salem, Tamil Nadu',
+        state: 'Tamil Nadu',
+        district: 'Salem',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-turmeric.jpg',
+        status: 'AVAILABLE',
+        description: 'Sun-dried golden turmeric with >4.5% curcumin content, lab tested.',
+        govMspPrice: 80.0,
+        createdAt: '2026-10-03T10:00:00.000Z'
+      },
+      {
+        id: 'cr-104',
+        cropId: 'cr-104',
+        cropName: 'Sharbati Golden Wheat',
+        cropType: 'Grains',
+        variety: 'Sharbati Grade A',
+        quantity: 950,
+        availableQuantity: 950,
+        unit: 'Kg',
+        pricePerUnit: 24,
+        location: 'Khanna Mandi, Ludhiana, Punjab',
+        state: 'Punjab',
+        district: 'Ludhiana',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-wheat.jpg',
+        status: 'AVAILABLE',
+        description: 'Golden heavy grains with high protein content direct from Khanna grain hub.',
+        govMspPrice: 26.0,
+        createdAt: '2026-10-04T07:30:00.000Z'
+      },
+      {
+        id: 'cr-105',
+        cropId: 'cr-105',
+        cropName: 'Bt Cotton Long Staple',
+        cropType: 'Fiber Crops',
+        variety: 'Grade A White',
+        quantity: 600,
+        availableQuantity: 600,
+        unit: 'Kg',
+        pricePerUnit: 68,
+        location: 'Bathinda Cotton Yard, Bathinda, Punjab',
+        state: 'Punjab',
+        district: 'Bathinda',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-cotton.jpg',
+        status: 'AVAILABLE',
+        description: 'Clean, machine-picked long staple cotton fibers suitable for textile spinning.',
+        govMspPrice: 72.0,
+        createdAt: '2026-10-05T08:15:00.000Z'
+      },
+      {
+        id: 'cr-106',
+        cropId: 'cr-106',
+        cropName: 'Nashik Red Onion',
+        cropType: 'Vegetables',
+        variety: 'Medium Bold Grade A',
+        quantity: 1500,
+        availableQuantity: 1500,
+        unit: 'Kg',
+        pricePerUnit: 28,
+        location: 'Lasalgaon Mandi, Nashik, Maharashtra',
+        state: 'Maharashtra',
+        district: 'Nashik',
+        farmerId: '1',
+        farmerName: 'Ramesh Kumar (Farmer)',
+        farmerPhone: '+91 98765 43210',
+        imageUrl: '/assets/images/crop-onion.jpg',
+        status: 'AVAILABLE',
+        description: 'Firm, dry-skinned red onions with long shelf life from Asia largest onion market.',
+        govMspPrice: 31.0,
+        createdAt: '2026-10-06T11:00:00.000Z'
+      }
+    ];
+  }
+
   public getLocalCrops(): Crop[] {
     try {
-      const deleted = this.getDeletedCropIds();
       const raw = localStorage.getItem(this.CROPS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(c => {
-            const cId = String(c.id || c.cropId || '');
-            if (deleted.has(cId)) return false;
-            const q = c.quantity !== undefined ? c.quantity : c.availableQuantity;
-            return q === undefined || q > 0;
-          });
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter(c => c.status !== 'DELETED');
+          if (filtered.length > 0) return filtered;
         }
       }
     } catch {}
-    return [];
+    const defaults = this.getDefaultSeedCrops();
+    try {
+      localStorage.setItem(this.CROPS_KEY, JSON.stringify(defaults));
+    } catch {}
+    return defaults;
   }
 
   private saveLocalCrops(crops: Crop[]): void {
     try {
-      const deleted = this.getDeletedCropIds();
-      const activeOnly = (crops || []).filter(c => {
-        const cId = String(c.id || c.cropId || '');
-        if (deleted.has(cId)) return false;
-        const q = c.quantity !== undefined ? c.quantity : c.availableQuantity;
-        return q === undefined || q > 0;
-      });
+      const activeOnly = (crops || []).filter(c => c.status !== 'DELETED');
       localStorage.setItem(this.CROPS_KEY, JSON.stringify(activeOnly));
       this.cropsSubject.next(activeOnly);
     } catch {}
   }
 
   getAllCrops(): Observable<Crop[]> {
-    const deleted = this.getDeletedCropIds();
     return this.http.get<any[]>(this.baseUrl).pipe(
       map(items => {
         if (Array.isArray(items)) {
           const mapped = items
             .map(c => this.mapBackendCrop(c))
-            .filter(c => !deleted.has(String(c.id)) && !deleted.has(String(c.cropId)));
+            .filter(c => c.status !== 'DELETED');
           this.saveLocalCrops(mapped);
           return mapped;
         }

@@ -124,6 +124,29 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    public PaymentResponse getPaymentByOrderId(Long orderId) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found for order id: " + orderId));
+        return convertToPaymentResponse(payment);
+    }
+
+    @Override
+    public List<PaymentResponse> getPaymentsByDealer(Long dealerId) {
+        return paymentRepository.findByDealerId(dealerId)
+                .stream()
+                .map(this::convertToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PaymentResponse> getPaymentsByFarmer(Long farmerId) {
+        return paymentRepository.findByFarmerId(farmerId)
+                .stream()
+                .map(this::convertToPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public PaymentResponse updatePayment(
             Long id,
             UpdatePaymentRequest request) {

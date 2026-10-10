@@ -12,6 +12,12 @@ public interface PaymentService {
 
     PaymentResponse getPaymentById(Long id);
 
+    PaymentResponse getPaymentByOrderId(Long orderId);
+
+    List<PaymentResponse> getPaymentsByDealer(Long dealerId);
+
+    List<PaymentResponse> getPaymentsByFarmer(Long farmerId);
+
     PaymentResponse updatePayment(
             Long id,
             UpdatePaymentRequest request);

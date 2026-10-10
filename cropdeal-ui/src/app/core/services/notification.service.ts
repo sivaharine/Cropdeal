@@ -25,6 +25,19 @@ export class NotificationService {
     if (s === '2' || s.includes('dealer')) return 'dealer';
     if (s === '3' || s.includes('delivery')) return 'delivery';
     if (s === '4' || s.includes('admin')) return 'admin';
+    try {
+      const stored = localStorage.getItem('cropdeal_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (String(u.id) === s || String(u.userId) === s || String(u.username).toLowerCase() === s) {
+          const r = String(u.role || '').toLowerCase();
+          if (r.includes('farmer')) return 'farmer';
+          if (r.includes('dealer')) return 'dealer';
+          if (r.includes('delivery')) return 'delivery';
+          if (r.includes('admin')) return 'admin';
+        }
+      }
+    } catch {}
     return 'guest';
   }
 
@@ -45,7 +58,8 @@ export class NotificationService {
   }
 
   getUserNotifications(userId: string): Observable<AppNotification[]> {
-    const bucket = this.resolveRoleBucket(userId);
+    const userBucket = this.getCurrentUserBucket();
+    const bucket = userBucket !== 'guest' ? userBucket : this.resolveRoleBucket(userId);
     const targetKey = this.getBucketKey(bucket);
 
     let foundList: AppNotification[] = [];
@@ -174,7 +188,8 @@ export class NotificationService {
     userId: string,
     title: string,
     message: string,
-    type: 'ORDER' | 'NEGOTIATION' | 'BID' | 'PRICE_ALERT' | 'WALLET' | 'DELIVERY' | 'SYSTEM'
+    type: 'ORDER' | 'NEGOTIATION' | 'BID' | 'PRICE_ALERT' | 'WALLET' | 'DELIVERY' | 'SYSTEM',
+    targetRole?: 'farmer' | 'dealer' | 'delivery' | 'admin'
   ): void {
     const notif: AppNotification = {
       id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
@@ -186,7 +201,7 @@ export class NotificationService {
       createdAt: new Date().toISOString()
     };
 
-    const targetBucket = this.resolveRoleBucket(userId);
+    const targetBucket = targetRole || this.resolveRoleBucket(userId);
     const targetKey = this.getBucketKey(targetBucket);
 
     // Persist into user-specific bucket

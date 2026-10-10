@@ -18,8 +18,12 @@ export interface Negotiation {
 
 export interface NegotiationRequest {
   cropId: string;
+  cropName?: string;
   farmerId: string;
+  farmerName?: string;
   dealerId: string;
+  dealerName?: string;
+  originalPrice?: number;
   quantity: number;
   offeredPrice: number;
   notes?: string;

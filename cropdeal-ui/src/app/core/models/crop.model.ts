@@ -12,9 +12,11 @@ export interface Crop {
   unit: string; // kg
   pricePerUnit: number;
   location: string;
+  state?: string;
+  district?: string;
   harvestDate?: string;
   imageUrl?: string;
-  status: 'AVAILABLE' | 'SOLD' | 'IN_NEGOTIATION' | 'AUCTION' | 'BLOCKED';
+  status: 'AVAILABLE' | 'SOLD' | 'IN_NEGOTIATION' | 'AUCTION' | 'BLOCKED' | 'DELETED';
   description?: string;
   govMspPrice?: number;
   createdAt?: string;

@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 public class Crop {
     public static final String PUBLISHED = "PUBLISHED";
     public static final String SOLD_OUT = "SOLD_OUT";
+    public static final String DELETED = "DELETED";
+    public static final String CLOSED = "CLOSED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
