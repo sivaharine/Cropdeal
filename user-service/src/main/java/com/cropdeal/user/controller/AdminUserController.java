@@ -168,7 +168,7 @@ public class AdminUserController {
             @RequestParam(defaultValue = "Blocked by Administrator") String reason,
             HttpServletRequest httpRequest
     ) {
-        if (userId != null && (userId == 4L || userId == 1L)) {
+        if (userId != null && userId == 4L) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "Bad Request",
                     "message", "Administrator account cannot be blocked"

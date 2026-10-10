@@ -32,9 +32,11 @@ import java.util.UUID;
 public class CropController {
     private static final Path UPLOAD_DIR = Paths.get(System.getProperty("user.dir"), "uploads", "crops");
     private final CropService cropService;
+    private final com.cropdeal.cropservice.service.CloudinaryService cloudinaryService;
 
-    public CropController(CropService cropService) {
+    public CropController(CropService cropService, com.cropdeal.cropservice.service.CloudinaryService cloudinaryService) {
         this.cropService = cropService;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @PostMapping
@@ -103,24 +105,26 @@ public class CropController {
             return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
         }
         try {
-            if (!Files.exists(UPLOAD_DIR)) {
-                Files.createDirectories(UPLOAD_DIR);
+            // 1. Upload directly to Cloudinary (free cloud storage)
+            String cloudinaryUrl = cloudinaryService.uploadImage(file, "cropdeal/crops");
+            return ResponseEntity.ok(Map.of("imageUrl", cloudinaryUrl, "filename", file.getOriginalFilename() != null ? file.getOriginalFilename() : "crop.jpg"));
+        } catch (Exception cloudEx) {
+            // Graceful fallback to local storage if Cloudinary network encounters issue
+            try {
+                if (!Files.exists(UPLOAD_DIR)) {
+                    Files.createDirectories(UPLOAD_DIR);
+                }
+                String original = file.getOriginalFilename();
+                String ext = (original != null && original.contains(".")) ? original.substring(original.lastIndexOf(".")) : ".jpg";
+                String filename = "crop_" + UUID.randomUUID().toString() + ext;
+                Path destination = UPLOAD_DIR.resolve(filename);
+                Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+                String imageUrl = "/api/crops/images/" + filename;
+                return ResponseEntity.ok(Map.of("imageUrl", imageUrl, "filename", filename));
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Failed to store image: " + e.getMessage()));
             }
-            String original = file.getOriginalFilename();
-            String ext = "";
-            if (original != null && original.contains(".")) {
-                ext = original.substring(original.lastIndexOf("."));
-            } else {
-                ext = ".jpg";
-            }
-            String filename = "crop_" + UUID.randomUUID().toString() + ext;
-            Path destination = UPLOAD_DIR.resolve(filename);
-            Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
-            String imageUrl = "/api/crops/images/" + filename;
-            return ResponseEntity.ok(Map.of("imageUrl", imageUrl, "filename", filename));
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to store image: " + e.getMessage()));
         }
     }
 
