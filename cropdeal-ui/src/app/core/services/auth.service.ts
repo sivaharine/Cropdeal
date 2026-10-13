@@ -91,6 +91,7 @@ export class AuthService {
           const user: User = {
             id: String(res.userId),
             userId: String(res.userId),
+            name: displayName,
             username: res.username || usernameToSend || res.email?.split('@')[0] || '',
             fullName: displayName,
             email: res.email || '',
@@ -98,7 +99,8 @@ export class AuthService {
             address: userAddress,
             role: rawRole,
             status: 'ACTIVE',
-            isBlocked: false
+            isBlocked: false,
+            createdAt: new Date().toISOString()
           };
           localStorage.setItem(this.USER_KEY, JSON.stringify(user));
           this.syncMasterUser(user);
@@ -149,17 +151,23 @@ export class AuthService {
       'ADMIN': '4'
     };
 
+    const fallbackFullName = role === 'ADMIN' ? 'System Administrator' :
+      (role === 'FARMER' ? 'Ramesh Kumar (Farmer)' :
+      (role === 'DEALER' ? 'Super Agros (Dealer)' : 'Kisan Express Logistics'));
+
     const user: User = masterUser ? {
       ...masterUser,
       id: String(masterUser.id || defaultIds[role] || '1'),
-      userId: String(masterUser.userId || masterUser.id || defaultIds[role] || '1')
+      userId: String(masterUser.userId || masterUser.id || defaultIds[role] || '1'),
+      name: masterUser.name || masterUser.fullName || masterUser.username || fallbackFullName,
+      fullName: masterUser.fullName || masterUser.name || masterUser.username || fallbackFullName,
+      createdAt: masterUser.createdAt || '2026-10-09'
     } : {
       id: defaultIds[role] || '1',
       userId: defaultIds[role] || '1',
+      name: fallbackFullName,
       username: username,
-      fullName: role === 'ADMIN' ? 'System Administrator' :
-        (role === 'FARMER' ? 'Ramesh Kumar (Farmer)' :
-        (role === 'DEALER' ? 'Super Agros (Dealer)' : 'Kisan Express Logistics')),
+      fullName: fallbackFullName,
       phone: role === 'FARMER' ? '+91 98765 43210' :
         (role === 'DEALER' ? '+91 98765 43211' :
         (role === 'DELIVERY_PARTNER' ? '+91 98765 43212' : '+91 99999 99999')),
@@ -168,7 +176,8 @@ export class AuthService {
         (role === 'DELIVERY_PARTNER' ? 'Northern Freight Corridor Yard 3' : 'CropDeal Headquarters, Tech Park')),
       email: username.includes('@') ? username : (role.toLowerCase() + '@gmail.com'),
       role: role,
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      createdAt: '2026-10-09'
     };
 
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
@@ -339,6 +348,7 @@ export class AuthService {
     const masterUser: User = {
       id: 'user-' + Date.now(),
       userId: 'user-' + Date.now(),
+      name: data.fullName || data.name || data.username,
       username: reqUsername,
       fullName: data.fullName || data.name || data.username,
       email: reqEmail,
@@ -346,7 +356,8 @@ export class AuthService {
       address: data.address,
       role: cleanRole,
       status: 'ACTIVE',
-      isBlocked: false
+      isBlocked: false,
+      createdAt: new Date().toISOString()
     };
 
     return this.http.post(`${environment.apiUrl}/auth/register`, payload).pipe(
@@ -551,6 +562,15 @@ export class AuthService {
     try {
       const u: User = JSON.parse(raw);
       if (u) {
+        if (!u.name) {
+          u.name = u.fullName || u.username || 'Verified Member';
+        }
+        if (!u.fullName) {
+          u.fullName = u.name || u.username || 'Verified Member';
+        }
+        if (!u.createdAt || String(u.createdAt).includes('2024') || String(u.createdAt).includes('2004')) {
+          u.createdAt = '2026-10-09';
+        }
         const uid = u.id || u.userId;
         if (uid) {
           const savedAvatar = localStorage.getItem(`cropdeal_user_avatar_${uid}`);

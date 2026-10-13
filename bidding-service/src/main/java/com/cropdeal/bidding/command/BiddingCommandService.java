@@ -60,6 +60,7 @@ public class BiddingCommandService {
     public BiddingListingResponse createListing(CreateBiddingRequest request) {
         BiddingListing listing = new BiddingListing();
         listing.setFarmerId(request.farmerId());
+        listing.setFarmerName(request.farmerName());
         listing.setCropName(request.cropName());
         listing.setQuantity(request.quantity());
         listing.setUnit(request.unit());
@@ -230,7 +231,7 @@ public class BiddingCommandService {
                 .toList();
 
         return new BiddingListingResponse(
-                l.getId(), l.getFarmerId(), l.getCropName(), l.getQuantity(),
+                l.getId(), l.getFarmerId(), l.getFarmerName(), l.getCropName(), l.getQuantity(),
                 l.getUnit(), l.getBasePrice(), l.getGuidelinePrice(), l.getLocation(),
                 l.getDescription(), l.getPhotoUrl(), l.getStatus(), l.getHighestBidAmount(),
                 l.getWinningDealerId(), l.getCreatedAt(), bids

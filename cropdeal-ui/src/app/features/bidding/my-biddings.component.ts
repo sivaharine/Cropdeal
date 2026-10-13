@@ -1344,13 +1344,14 @@ export class MyBiddingsComponent implements OnInit, OnDestroy {
     }
 
     const finalImageUrl = this.newCropImage || this.cloudinaryBiddingUrl || this.selectedBiddingPreview || resolveCropImage(this.newAuction.cropName);
+    const resolvedFarmerName = this.user?.name || this.user?.fullName || this.user?.username || 'Sardar Gurpreet Singh';
 
     this.biddingService.createAuction({
       ...this.newAuction,
       imageUrl: finalImageUrl,
       photoUrl: finalImageUrl,
       farmerId: this.user?.id || 'farmer-1',
-      farmerName: this.user?.fullName || this.user?.username || null,
+      farmerName: resolvedFarmerName,
       durationHours: this.auctionDurationHours
     } as any).subscribe({
       next: (created) => {

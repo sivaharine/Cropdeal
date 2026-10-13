@@ -116,32 +116,34 @@ export class SubscriptionService {
   }
 
   /**
-   * Returns recent crops that match the dealer's active commodity subscriptions.
+   * Returns only currently active UI crops that match the dealer's active commodity subscriptions.
    */
   getMatchingCropsForDealer(dealerId: string, availableCrops: Crop[]): Observable<Crop[]> {
     const raw = localStorage.getItem(this.getKey(dealerId));
     const subs: CropSubscription[] = raw ? JSON.parse(raw) : [];
-    if (subs.length === 0) return of([]);
+    if (subs.length === 0 || !availableCrops || availableCrops.length === 0) return of([]);
 
-    // Merge availableCrops with any locally stored crops
-    const cachedRaw = localStorage.getItem(this.allCropsKey);
-    const cachedCrops: Crop[] = cachedRaw ? JSON.parse(cachedRaw) : [];
-    const combined = [...cachedCrops, ...availableCrops];
+    // Filter strictly to crops currently active and visible in the UI
+    const activeUiCrops = availableCrops.filter(c =>
+      c &&
+      c.cropName &&
+      c.status !== 'DELETED' &&
+      c.status !== 'SOLD' &&
+      Number(c.quantity ?? c.availableQuantity ?? 0) > 0
+    );
 
-    // Remove duplicates by id
     const uniqueMap = new Map<string, Crop>();
-    combined.forEach(c => {
-      if (c && (c.id || c.cropName)) {
-        const idKey = c.id || `${c.cropName}_${c.location}`;
-        if (!uniqueMap.has(idKey)) uniqueMap.set(idKey, c);
-      }
+    activeUiCrops.forEach(c => {
+      const idKey = String(c.id || c.cropId || `${c.cropName}_${c.location}`);
+      if (!uniqueMap.has(idKey)) uniqueMap.set(idKey, c);
     });
 
     const filtered = Array.from(uniqueMap.values()).filter(crop => {
-      return subs.some(sub =>
-        crop.cropName?.toLowerCase().includes(sub.commodity.toLowerCase()) ||
-        sub.commodity.toLowerCase().includes(crop.cropName?.toLowerCase())
-      );
+      const cropNameLower = (crop.cropName || '').toLowerCase().trim();
+      return subs.some(sub => {
+        const subComLower = (sub.commodity || '').toLowerCase().trim();
+        return subComLower && (cropNameLower.includes(subComLower) || subComLower.includes(cropNameLower));
+      });
     });
 
     return of(filtered);

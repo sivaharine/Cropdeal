@@ -59,6 +59,34 @@ export class BiddingService {
     return [];
   }
 
+  private resolveFarmerName(a: any, localList: BiddingAuction[] = []): string {
+    if (a?.farmerName && String(a.farmerName).trim() !== '' && String(a.farmerName) !== 'null' && String(a.farmerName) !== 'undefined') {
+      return String(a.farmerName).trim();
+    }
+    const matchingLocal = localList.find(l =>
+      (String(l.id) === String(a?.id) ||
+       (l.cropName && a?.cropName && l.cropName.toLowerCase() === a.cropName.toLowerCase() && String(l.farmerId) === String(a?.farmerId))) &&
+      l.farmerName && l.farmerName !== 'null' && l.farmerName !== 'undefined'
+    );
+    if (matchingLocal && matchingLocal.farmerName) {
+      return matchingLocal.farmerName;
+    }
+    try {
+      const rawUser = localStorage.getItem('cropdeal_user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        const uName = u?.name || u?.fullName || u?.username;
+        if (uName && (String(u.id) === String(a?.farmerId) || u.role === 'FARMER')) {
+          return String(uName);
+        }
+      }
+    } catch {}
+    const fid = String(a?.farmerId || '');
+    if (fid === '1' || fid === 'farmer-1') return 'Sardar Gurpreet Singh';
+    if (fid === '10') return 'vnareshprasad2004';
+    return 'Verified Farmer';
+  }
+
   public loadStoredAuctions(): BiddingAuction[] {
     const deleted = this.getDeletedAuctionIds();
     const raw = localStorage.getItem(this.STORAGE_KEY);
@@ -67,12 +95,16 @@ export class BiddingService {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const now = Date.now();
-          return parsed.filter(a =>
+          const filtered = parsed.filter(a =>
             !deleted.has(String(a.id)) &&
             a.status !== 'CLOSED' &&
             (a.status as string) !== 'AWARDED' &&
             (!a.endTime || new Date(a.endTime).getTime() > now)
           );
+          filtered.forEach(a => {
+            a.farmerName = this.resolveFarmerName(a, filtered);
+          });
+          return filtered;
         }
       } catch (e) {}
     }
@@ -93,7 +125,13 @@ export class BiddingService {
       map(data => {
         const local = this.loadStoredAuctions();
         const mapById = new Map<string, BiddingAuction>();
-        local.forEach(a => mapById.set(String(a.id), a));
+        // Only pre-seed non-temporary local IDs if backend returned data
+        local.forEach(a => {
+          const sid = String(a.id);
+          if (!data || data.length === 0 || (!sid.startsWith('auc-') && !sid.startsWith('AUCT-'))) {
+            mapById.set(sid, a);
+          }
+        });
         if (data && data.length > 0) {
           data.forEach(a => {
             const sid = String(a.id);
@@ -102,8 +140,10 @@ export class BiddingService {
                 ? Number(a.highestBidAmount)
                 : (Number(a.currentHighestBid || a.basePrice || a.startingPrice || 0));
               const bidsCount = (a.bids && a.bids.length > 0) ? a.bids.length : (a.bidsCount || 0);
+              const resolvedName = this.resolveFarmerName(a, local);
               const existing = mapById.get(sid);
               if (existing) {
+                existing.farmerName = resolvedName;
                 existing.currentHighestBid = Math.max(highest, existing.currentHighestBid || 0);
                 existing.bidsCount = Math.max(bidsCount, existing.bidsCount || 0);
                 if (a.bids && a.bids.length > 0) {
@@ -117,6 +157,8 @@ export class BiddingService {
               } else {
                 mapById.set(sid, {
                   ...a,
+                  id: sid,
+                  farmerName: resolvedName,
                   startingPrice: Number(a.basePrice || a.startingPrice || 20),
                   currentHighestBid: highest,
                   bidsCount: bidsCount
@@ -137,7 +179,13 @@ export class BiddingService {
       map(data => {
         const local = this.loadStoredAuctions();
         const mapById = new Map<string, BiddingAuction>();
-        local.forEach(a => mapById.set(String(a.id), a));
+        // Do not keep temporary client-generated IDs (auc-* / AUCT-*) when backend data is loaded
+        local.forEach(a => {
+          const sid = String(a.id);
+          if (!data || data.length === 0 || (!sid.startsWith('auc-') && !sid.startsWith('AUCT-'))) {
+            mapById.set(sid, a);
+          }
+        });
         if (data && data.length > 0) {
           data.forEach(a => {
             const sid = String(a.id);
@@ -146,8 +194,10 @@ export class BiddingService {
                 ? Number(a.highestBidAmount)
                 : (Number(a.currentHighestBid || a.basePrice || a.startingPrice || 0));
               const bidsCount = (a.bids && a.bids.length > 0) ? a.bids.length : (a.bidsCount || 0);
+              const resolvedName = this.resolveFarmerName(a, local);
               const existing = mapById.get(sid);
               if (existing) {
+                existing.farmerName = resolvedName;
                 existing.currentHighestBid = Math.max(highest, existing.currentHighestBid || 0);
                 existing.bidsCount = Math.max(bidsCount, existing.bidsCount || 0);
                 if (a.photoUrl) {
@@ -165,6 +215,8 @@ export class BiddingService {
               } else {
                 mapById.set(sid, {
                   ...a,
+                  id: sid,
+                  farmerName: resolvedName,
                   imageUrl: a.photoUrl || a.imageUrl || '',
                   photoUrl: a.photoUrl || a.imageUrl || '',
                   startingPrice: Number(a.basePrice || a.startingPrice || 20),
@@ -177,12 +229,14 @@ export class BiddingService {
         }
         const now = Date.now();
         // Exclude BLOCKED, CLOSED, AWARDED biddings and any bidding whose timing has completed
-        return Array.from(mapById.values()).filter(a => {
+        const activeResult = Array.from(mapById.values()).filter(a => {
           if (deleted.has(String(a.id))) return false;
           if (a.status && a.status !== 'OPEN') return false;
           if (a.endTime && new Date(a.endTime).getTime() <= now) return false;
           return true;
         });
+        this.saveStoredAuctions(activeResult);
+        return activeResult;
       })
     );
   }
@@ -204,15 +258,20 @@ export class BiddingService {
   }
 
   createAuction(auction: Partial<BiddingAuction>): Observable<BiddingAuction> {
-    const list = this.loadStoredAuctions();
     const startingPrice = Number(auction.startingPrice || 20);
     const photoUrl = (auction as any).photoUrl || auction.imageUrl || '';
-    const newAuction: BiddingAuction = {
-      id: auction.id || ('AUCT-' + Math.floor(100 + Math.random() * 900)),
+    const resolvedFarmerName = this.resolveFarmerName(auction, []);
+    let numericFarmerId = Number(auction.farmerId);
+    if (isNaN(numericFarmerId) || numericFarmerId <= 0) {
+      numericFarmerId = 1;
+    }
+
+    const baseAuction: BiddingAuction = {
+      id: String(auction.id || ('AUCT-' + Math.floor(100 + Math.random() * 900))),
       cropId: auction.cropId || 'crop-' + Date.now(),
       cropName: auction.cropName || 'Fresh Harvest Crop Lot',
-      farmerId: auction.farmerId || 'farmer-1',
-      farmerName: auction.farmerName || 'Registered Producer',
+      farmerId: String(auction.farmerId || numericFarmerId),
+      farmerName: resolvedFarmerName,
       startingPrice: startingPrice,
       currentHighestBid: Number(auction.currentHighestBid || startingPrice),
       highestBidderId: auction.highestBidderId,
@@ -229,23 +288,47 @@ export class BiddingService {
       createdAt: new Date().toISOString(),
       bidsHistory: auction.bidsHistory || []
     };
-    (newAuction as any).photoUrl = photoUrl;
+    (baseAuction as any).photoUrl = photoUrl;
 
-    list.unshift(newAuction);
-    this.saveStoredAuctions(list);
-
-    // Call backend with photoUrl
     const payload = {
-      ...newAuction,
+      farmerId: numericFarmerId,
+      farmerName: resolvedFarmerName,
+      cropName: baseAuction.cropName,
+      quantity: baseAuction.quantity,
+      unit: baseAuction.unit,
       basePrice: startingPrice,
+      guidelinePrice: startingPrice,
+      location: baseAuction.location,
+      description: baseAuction.variety,
       photoUrl: photoUrl
     };
-    this.http.post<BiddingAuction>(this.baseUrl, payload).subscribe({
-      next: () => {},
-      error: () => {}
-    });
 
-    return of(newAuction);
+    return this.http.post<any>(this.baseUrl, payload).pipe(
+      map(res => {
+        const finalId = res && res.id != null ? String(res.id) : baseAuction.id;
+        const createdAuction: BiddingAuction = {
+          ...baseAuction,
+          id: finalId,
+          farmerName: (res && res.farmerName && res.farmerName !== 'null') ? res.farmerName : resolvedFarmerName
+        };
+        (createdAuction as any).photoUrl = photoUrl;
+
+        const currentList = this.loadStoredAuctions().filter(a =>
+          String(a.id) !== finalId &&
+          !String(a.id).startsWith('auc-') &&
+          !String(a.id).startsWith('AUCT-')
+        );
+        currentList.unshift(createdAuction);
+        this.saveStoredAuctions(currentList);
+        return createdAuction;
+      }),
+      catchError(() => {
+        const currentList = this.loadStoredAuctions().filter(a => String(a.id) !== baseAuction.id);
+        currentList.unshift(baseAuction);
+        this.saveStoredAuctions(currentList);
+        return of(baseAuction);
+      })
+    );
   }
 
   placeBid(bid: BidOffer): Observable<BiddingAuction> {

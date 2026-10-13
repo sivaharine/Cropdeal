@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 
 public record CreateBiddingRequest(
     @NotNull Long farmerId,
+    String farmerName,
     @NotBlank String cropName,
     @NotNull @DecimalMin("1.0") BigDecimal quantity,
     @NotBlank String unit,
@@ -21,6 +22,13 @@ public record CreateBiddingRequest(
         Long farmerId, String cropName, BigDecimal quantity, String unit,
         BigDecimal basePrice, BigDecimal guidelinePrice, String location, String description
     ) {
-        this(farmerId, cropName, quantity, unit, basePrice, guidelinePrice, location, description, null);
+        this(farmerId, null, cropName, quantity, unit, basePrice, guidelinePrice, location, description, null);
+    }
+
+    public CreateBiddingRequest(
+        Long farmerId, String cropName, BigDecimal quantity, String unit,
+        BigDecimal basePrice, BigDecimal guidelinePrice, String location, String description, String photoUrl
+    ) {
+        this(farmerId, null, cropName, quantity, unit, basePrice, guidelinePrice, location, description, photoUrl);
     }
 }

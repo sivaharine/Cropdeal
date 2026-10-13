@@ -24,13 +24,13 @@ import { User } from '../../core/models/user.model';
         </div>
 
         <div class="profile-header-info">
-          <h2 class="profile-user-name">{{ profile.name != null ? profile.name : 'null' }}</h2>
+          <h2 class="profile-user-name">{{ profile.name && profile.name !== 'null' ? profile.name : 'Verified Member' }}</h2>
           <span class="profile-user-role">{{ getRoleTitle(profile.role || '') }}</span>
           <div class="verified-pill shadow-xs">
             <i class="fa-solid fa-shield-check text-emerald"></i>
-            <strong>Verified {{ profile.role === 'FARMER' ? 'Farmer' : (profile.role === 'DEALER' ? 'Dealer' : 'Partner') }}</strong>
+            <strong>Verified {{ profile.role === 'FARMER' ? 'Farmer' : (profile.role === 'DEALER' ? 'Dealer' : (profile.role === 'ADMIN' ? 'Admin' : 'Partner')) }}</strong>
           </div>
-          <span class="member-since-text">Member since Sep 2024</span>
+          <span class="member-since-text">Member since {{ memberSince }}</span>
         </div>
       </div>
 
@@ -453,7 +453,7 @@ import { User } from '../../core/models/user.model';
               <div class="large-shield-circle">
                 <i class="fa-solid fa-check"></i>
               </div>
-              <h4 class="status-hero-title">Verified Farmer</h4>
+              <h4 class="status-hero-title">Verified {{ profile.role === 'FARMER' ? 'Farmer' : (profile.role === 'DEALER' ? 'Dealer' : (profile.role === 'ADMIN' ? 'Admin' : 'Partner')) }}</h4>
               <p class="status-hero-sub">Your account is verified and active.</p>
             </div>
           </div>
@@ -495,7 +495,7 @@ import { User } from '../../core/models/user.model';
                   <i class="fa-regular fa-calendar text-purple"></i>
                   <span>Member Since</span>
                 </div>
-                <strong class="text-purple">Sep 2024</strong>
+                <strong class="text-purple">{{ memberSince }}</strong>
               </div>
             </div>
           </div>
@@ -773,6 +773,7 @@ export class ProfileComponent implements OnInit {
   showConfirmPwd = false;
 
   profileAvatar = '';
+  memberSince = 'Oct 2026';
   successMessage = '';
   errorMessage = '';
 
@@ -781,16 +782,27 @@ export class ProfileComponent implements OnInit {
     private authService: AuthService
   ) {}
 
+  private formatMemberSince(createdAt?: string): string {
+    if (createdAt) {
+      const d = new Date(createdAt);
+      if (!isNaN(d.getTime()) && d.getFullYear() >= 2026) {
+        return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      }
+    }
+    return 'Oct 2026';
+  }
+
   ngOnInit(): void {
     this.authService.currentUser$.subscribe((u: User | null) => {
       if (u) {
         if (u.avatar) this.profileAvatar = u.avatar;
-        this.profile.name = u.fullName || u.username || null as any;
+        this.profile.name = (u.fullName || u.name || u.username || 'Verified Member') as any;
         this.profile.email = u.email || null as any;
         this.profile.phone = u.phone || null as any;
         this.profile.role = u.role || null as any;
         this.profile.address = u.address || null as any;
         this.addressLine1 = u.address || null;
+        this.memberSince = this.formatMemberSince(u.createdAt);
 
         const uid = u.id || u.userId || 'default-user';
         const savedExtra = localStorage.getItem('cropdeal_profile_extra_' + uid);

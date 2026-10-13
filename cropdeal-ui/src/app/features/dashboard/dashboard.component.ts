@@ -37,7 +37,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Verified Farmer</strong>
-              <span class="sub">Active Producer</span>
+              <span class="sub">Member since {{ memberSince }}</span>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Verified Dealer</strong>
-              <span class="sub">CropDeal Commercial Member</span>
+              <span class="sub">Member since {{ memberSince }}</span>
             </div>
           </div>
         </div>
@@ -301,7 +301,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Delivery Partner</strong>
-              <span class="sub">Verified Logistics Agent</span>
+              <span class="sub">Member since {{ memberSince }}</span>
             </div>
           </div>
         </div>
@@ -409,7 +409,7 @@ import { User } from '../../core/models/user.model';
           <div class="banner-badge-card shadow-md">
             <div class="date-range-pill">
               <i class="fa-regular fa-calendar-check"></i>
-              <span>Active System Period</span>
+              <span>Member since {{ memberSince }}</span>
             </div>
           </div>
         </div>
@@ -797,6 +797,7 @@ import { User } from '../../core/models/user.model';
 export class DashboardComponent implements OnInit {
   user: User | null = null;
   walletBalance = 0;
+  memberSince = 'Oct 2026';
 
   // Farmer Counts
   totalCropsCount = 0;
@@ -834,9 +835,20 @@ export class DashboardComponent implements OnInit {
     private deliveryService: DeliveryService
   ) {}
 
+  private formatMemberSince(createdAt?: string): string {
+    if (createdAt) {
+      const d = new Date(createdAt);
+      if (!isNaN(d.getTime()) && d.getFullYear() >= 2026) {
+        return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      }
+    }
+    return 'Oct 2026';
+  }
+
   ngOnInit(): void {
     this.authService.currentUser$.subscribe((u: User | null) => {
       this.user = u;
+      this.memberSince = this.formatMemberSince(u?.createdAt);
       if (u && (u.id || u.userId)) {
         const uid = String(u.id || u.userId!);
         this.walletService.getWallet(uid).subscribe({
