@@ -34,12 +34,13 @@ interface AuctionItem {
   farmerRating: number;
   farmerReviewsCount: number;
   farmerId: string;
+  highestBidderId?: string;
   bidsCount: number;
   timeRemaining: string;
   isEndingSoon: boolean;
   status: 'OPEN' | 'CLOSED';
   isFavorite?: boolean;
-  bidsHistory: Array<{ bidderName: string; bidPriceKg: number; bidTime: string }>;
+  bidsHistory: Array<{ bidderName: string; bidPriceKg: number; bidTime: string; dealerId?: string }>;
   endTime?: string;
 }
 
@@ -435,20 +436,23 @@ interface AuctionItem {
                 <div class="wallet-escrow-box mt-3" [ngClass]="dealerWalletBalance >= calculatedTotalAmount ? 'escrow-ok' : 'escrow-low'">
                   <div class="d-flex justify-content-between align-center">
                     <div>
-                      <span class="text-xs text-muted d-block"><i class="fa-solid fa-wallet text-emerald"></i> Your Digital Wallet Balance</span>
+                      <span class="text-xs text-muted d-block"><i class="fa-solid fa-wallet text-emerald"></i> Available Unreserved Balance</span>
                       <strong class="text-base text-dark">₹{{ dealerWalletBalance | number:'1.2-2' }}</strong>
+                      <small *ngIf="dealerReservedBalance > 0" class="text-muted d-block text-xs">
+                        (₹{{ dealerReservedBalance | number:'1.2-2' }} reserved in other active bids)
+                      </small>
                     </div>
                     <span class="badge" [ngClass]="dealerWalletBalance >= calculatedTotalAmount ? 'badge-success' : 'badge-danger'">
-                      {{ dealerWalletBalance >= calculatedTotalAmount ? '✓ Wallet Sufficient' : '⚠️ Insufficient Funds' }}
+                      {{ dealerWalletBalance >= calculatedTotalAmount ? '✓ Balance Sufficient' : '⚠️ Insufficient Funds' }}
                     </span>
                   </div>
                   <div class="escrow-rule-text mt-2 text-xs" *ngIf="dealerWalletBalance < calculatedTotalAmount">
                     <i class="fa-solid fa-triangle-exclamation text-danger"></i>
-                    Bidding requires sufficient wallet balance to buy the full lot (₹{{ calculatedTotalAmount | number:'1.0-0' }}). Please top up your wallet to place this bid.
+                    Bidding requires sufficient unreserved wallet balance to buy the full lot (₹{{ calculatedTotalAmount | number:'1.0-0' }}). You currently have ₹{{ dealerWalletBalance | number:'1.0-0' }} available (₹{{ dealerReservedBalance | number:'1.0-0' }} is locked in other active bids).
                   </div>
                   <div class="escrow-rule-text mt-2 text-xs text-emerald" *ngIf="dealerWalletBalance >= calculatedTotalAmount">
                     <i class="fa-solid fa-shield-halved"></i>
-                    Bidding purchases are paid using wallet balance. ₹{{ calculatedTotalAmount | number:'1.0-0' }} is verified from your wallet.
+                    Upon placing this bid, ₹{{ calculatedTotalAmount | number:'1.0-0' }} will be reserved in digital escrow. If outbid or cancelled, funds return immediately to your available balance.
                   </div>
                 </div>
 
@@ -1237,7 +1241,9 @@ export class BiddingComponent implements OnInit, OnDestroy {
   selectedAuction: AuctionItem | null = null;
   userBidPrice = 23.00;
   calculatedTotalAmount = 115000;
-  dealerWalletBalance = 0;
+  dealerWalletBalance = 0;   // Available / Unreserved Balance
+  dealerReservedBalance = 0; // Locked in active bids
+  dealerTotalBalance = 0;    // Net balance
 
   // Create Auction
   showCreateModal = false;
@@ -1275,17 +1281,31 @@ export class BiddingComponent implements OnInit, OnDestroy {
       this.user = u;
       if (u) {
         const uid = String(u.id || u.userId || 'dealer-1');
+        const stored = this.walletService.getStoredWallet(uid);
+        this.dealerWalletBalance = stored.availableBalance;
+        this.dealerReservedBalance = stored.reservedBalance;
+        this.dealerTotalBalance = stored.balance;
+
         this.walletService.getWallet(uid).subscribe(w => {
-          this.dealerWalletBalance = w.balance;
+          if (w) {
+            this.dealerWalletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+            this.dealerReservedBalance = w.reservedBalance || 0;
+            this.dealerTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+          }
         });
-        this.dealerWalletBalance = this.walletService.getStoredBalance(uid);
       } else {
         this.dealerWalletBalance = 0;
+        this.dealerReservedBalance = 0;
+        this.dealerTotalBalance = 0;
       }
     });
 
-    this.walletService.balance$.subscribe(b => {
-      this.dealerWalletBalance = b;
+    this.walletService.wallet$.subscribe(w => {
+      if (w) {
+        this.dealerWalletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+        this.dealerReservedBalance = w.reservedBalance || 0;
+        this.dealerTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+      }
     });
 
     this.route.queryParams.subscribe(params => {
@@ -1470,18 +1490,14 @@ export class BiddingComponent implements OnInit, OnDestroy {
       const farmerUid = item.farmerId || this.user?.id || '1';
       const orderId = 'ORD-' + Math.floor(10000 + Math.random() * 90000);
 
-      // 1. Debit Dealer's Wallet
-      this.walletService.debitWallet(
+      // 1. Settle escrow: consume dealer's reserved funds and credit farmer's wallet
+      const refId = 'BID-' + item.id + '-' + dealerUid;
+      this.walletService.consumeFunds(
         dealerUid,
-        fullStockTotal,
-        `Bidding Won: Payment for Lot #${item.id} - ${item.cropName} (${item.totalQuantityKg} Kg)`
-      ).subscribe();
-
-      // 2. Credit Farmer's Digital Wallet
-      this.walletService.creditWallet(
+        refId,
         farmerUid,
-        fullStockTotal,
-        `Received Bidding Proceeds for Lot #${item.id}: ${item.cropName} (${item.totalQuantityKg} Kg) from ${highestBidder || 'Dealer'}`
+        item.cropName,
+        fullStockTotal
       ).subscribe();
 
       // 3. Register Order in OrderService as completed bidding lot
@@ -1612,9 +1628,18 @@ export class BiddingComponent implements OnInit, OnDestroy {
 
   cancelBid(item: AuctionItem): void {
     if (confirm(`Are you sure you want to cancel the bidding lot for "${item.cropName}"?`)) {
+      // Release active dealer's escrow hold if present
+      const highestBidderId = (item.bidsHistory && item.bidsHistory.length > 0 && (item.bidsHistory[0] as any).dealerId)
+        ? String((item.bidsHistory[0] as any).dealerId)
+        : (item.highestBidderId ? String(item.highestBidderId) : null);
+      if (highestBidderId) {
+        const refId = 'BID-' + item.id + '-' + highestBidderId;
+        const holdAmt = Math.round(item.currentBidKg * item.totalQuantityKg);
+        this.walletService.releaseFunds(highestBidderId, refId, holdAmt, `Bidding lot cancelled by seller for "${item.cropName}"`).subscribe();
+      }
       this.biddingService.deleteAuction(item.id).subscribe();
       this.auctions = this.auctions.filter(a => a.id !== item.id);
-      this.toastMsg = `✓ Bidding lot for "${item.cropName}" has been cancelled and removed from live bidding floor.`;
+      this.toastMsg = `✓ Bidding lot for "${item.cropName}" has been cancelled and reserved funds released back to dealer's available balance.`;
       setTimeout(() => this.toastMsg = '', 5000);
     }
   }
@@ -1630,7 +1655,11 @@ export class BiddingComponent implements OnInit, OnDestroy {
       return;
     }
     const uid = String(this.user.id || this.user.userId || 'dealer-1');
-    this.dealerWalletBalance = this.walletService.getStoredBalance(uid);
+    const stored = this.walletService.getStoredWallet(uid);
+    this.dealerWalletBalance = stored.availableBalance;
+    this.dealerReservedBalance = stored.reservedBalance;
+    this.dealerTotalBalance = stored.balance;
+
     this.selectedAuction = item;
     this.userBidPrice = item.bidsCount === 0 ? item.startingPriceKg : +(item.currentBidKg + 0.5).toFixed(2);
     this.onBidPriceChange();
@@ -1688,17 +1717,53 @@ export class BiddingComponent implements OnInit, OnDestroy {
     }
 
     const uid = String(this.user.id || this.user.userId || 'dealer-1');
-    this.dealerWalletBalance = this.walletService.getStoredBalance(uid);
+    const stored = this.walletService.getStoredWallet(uid);
+    this.dealerWalletBalance = stored.availableBalance;
+    this.dealerReservedBalance = stored.reservedBalance;
+    this.dealerTotalBalance = stored.balance;
 
-    if (this.dealerWalletBalance < this.calculatedTotalAmount) {
-      alert(`⚠️ Insufficient Wallet Balance!\n\nTo place a bid for the full lot (${this.selectedAuction.totalQuantityKg} Kg @ ₹${this.userBidPrice}/Kg), you must have at least ₹${this.calculatedTotalAmount.toLocaleString()} in your digital wallet.\nYour Current Balance: ₹${this.dealerWalletBalance.toLocaleString()}.\n\nPlease top up your wallet to bid on this harvest lot.`);
+    const isSameBidderWinning = (this.selectedAuction.bidsHistory && this.selectedAuction.bidsHistory.length > 0 && String((this.selectedAuction.bidsHistory[0] as any).dealerId) === uid);
+    const previousHold = isSameBidderWinning ? Math.round((this.selectedAuction.currentBidKg || 0) * this.selectedAuction.totalQuantityKg) : 0;
+    const netAdditionalRequired = Math.max(0, this.calculatedTotalAmount - previousHold);
+
+    if (this.dealerWalletBalance < netAdditionalRequired) {
+      alert(`⚠️ Insufficient Available Wallet Balance!\n\nTo place a bid for the full lot (${this.selectedAuction.totalQuantityKg} Kg @ ₹${this.userBidPrice}/Kg = ₹${this.calculatedTotalAmount.toLocaleString()}), you need an unreserved balance of at least ₹${netAdditionalRequired.toLocaleString()}.\n\nYour Current Available Balance: ₹${this.dealerWalletBalance.toLocaleString()}\nFunds Locked in Other Bids: ₹${this.dealerReservedBalance.toLocaleString()}\nTotal Wallet Balance: ₹${this.dealerTotalBalance.toLocaleString()}.\n\nPlease top up your wallet to bid on this harvest lot.`);
       return;
     }
+
+    // 1. If another dealer was previously winning, release their reserved hold immediately
+    const prevWinningDealerId = (this.selectedAuction.bidsHistory && this.selectedAuction.bidsHistory.length > 0)
+      ? String((this.selectedAuction.bidsHistory[0] as any).dealerId || '')
+      : '';
+    if (prevWinningDealerId && prevWinningDealerId !== uid) {
+      const prevRef = 'BID-' + this.selectedAuction.id + '-' + prevWinningDealerId;
+      const prevHoldAmt = Math.round((this.selectedAuction.currentBidKg || 0) * this.selectedAuction.totalQuantityKg);
+      this.walletService.releaseFunds(prevWinningDealerId, prevRef, prevHoldAmt, `Outbid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName})`).subscribe();
+    }
+
+    // 2. If this same dealer had a previous hold, release it before re-reserving the new full amount
+    const refId = 'BID-' + this.selectedAuction.id + '-' + uid;
+    if (previousHold > 0) {
+      this.walletService.releaseFunds(uid, refId, previousHold, `Adjusted previous hold for raised bid on Lot #${this.selectedAuction.id}`).subscribe();
+    }
+
+    // 3. Reserve the total lot amount from the bidder's wallet
+    this.walletService.reserveFunds(
+      uid,
+      this.calculatedTotalAmount,
+      refId,
+      `Reserved for live bid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName}, ${this.selectedAuction.totalQuantityKg} Kg @ ₹${this.userBidPrice}/Kg)`
+    ).subscribe();
+
+    this.dealerWalletBalance = this.walletService.getStoredAvailableBalance(uid);
+    this.dealerReservedBalance = this.walletService.getStoredReservedBalance(uid);
+    this.dealerTotalBalance = this.walletService.getStoredTotalBalance(uid);
 
     const bidder = this.user?.fullName || this.user?.username || 'Apex Agro Mills Ltd';
     this.selectedAuction.currentBidKg = this.userBidPrice;
     this.selectedAuction.bidsCount = (this.selectedAuction.bidsCount || 0) + 1;
     this.selectedAuction.bidsHistory.unshift({
+      dealerId: uid,
       bidderName: bidder,
       bidPriceKg: this.userBidPrice,
       bidTime: 'Just now'
@@ -1709,6 +1774,7 @@ export class BiddingComponent implements OnInit, OnDestroy {
       found.currentBidKg = this.userBidPrice;
       found.bidsCount = (found.bidsCount || 0) + 1;
       found.bidsHistory.unshift({
+        dealerId: uid,
         bidderName: bidder,
         bidPriceKg: this.userBidPrice,
         bidTime: 'Just now'

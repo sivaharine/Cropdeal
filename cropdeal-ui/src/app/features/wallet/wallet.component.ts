@@ -59,28 +59,29 @@ interface BankDetails {
               <i class="fa-solid fa-wallet"></i>
             </div>
             <div class="balance-meta">
-              <span class="lbl-avail">Available Balance</span>
+              <span class="lbl-avail">Available (Unreserved) Balance</span>
               <div class="d-flex align-center gap-2">
-                <h2 class="val-avail">&#8377; {{ balance | number:'1.2-2' }}</h2>
+                <h2 class="val-avail text-emerald">&#8377; {{ availableBalance | number:'1.2-2' }}</h2>
                 <button class="btn-refresh-balance" (click)="refreshWallet()" title="Refresh Balance">
                   <i class="fa-solid fa-arrows-rotate" [class.fa-spin]="isRefreshing"></i>
                 </button>
               </div>
+              <small class="text-xs text-muted">Ready to spend for purchases, new bids, or bank withdrawal</small>
             </div>
           </div>
 
           <div class="balance-sub-stats">
             <div class="sub-stat-item">
-              <span class="sub-lbl">Total Credited</span>
-              <strong class="sub-val text-emerald">&#8377; {{ totalAdded | number:'1.0-0' }}</strong>
+              <span class="sub-lbl"><i class="fa-solid fa-circle-check text-emerald"></i> Available to Spend</span>
+              <strong class="sub-val text-emerald">&#8377; {{ availableBalance | number:'1.0-0' }}</strong>
             </div>
             <div class="sub-stat-item">
-              <span class="sub-lbl">Total Debited / Withdrawn</span>
-              <strong class="sub-val text-danger">&#8377; {{ totalUsed | number:'1.0-0' }}</strong>
+              <span class="sub-lbl"><i class="fa-solid fa-lock text-amber"></i> Locked in Active Bids</span>
+              <strong class="sub-val text-amber">&#8377; {{ reservedBalance | number:'1.0-0' }}</strong>
             </div>
             <div class="sub-stat-item">
-              <span class="sub-lbl">Net Escrow Balance</span>
-              <strong class="sub-val text-dark">&#8377; {{ balance | number:'1.0-0' }}</strong>
+              <span class="sub-lbl"><i class="fa-solid fa-vault text-dark"></i> Total Wallet Funds</span>
+              <strong class="sub-val text-dark">&#8377; {{ totalBalance | number:'1.0-0' }}</strong>
             </div>
           </div>
 
@@ -136,8 +137,9 @@ interface BankDetails {
           <div class="tx-filters">
             <select [(ngModel)]="filterType" (change)="currentPage = 1" class="filter-select">
               <option value="ALL">All Transactions</option>
-              <option value="CREDIT">Credits / Payouts</option>
-              <option value="DEBIT">Debits / Orders / Withdrawals</option>
+              <option value="CREDIT">Credits & Bidding Proceeds</option>
+              <option value="DEBIT">Debits & Purchases</option>
+              <option value="ESCROW">Bid Holds & Releases</option>
             </select>
           </div>
         </div>
@@ -149,8 +151,8 @@ interface BankDetails {
                 <th>#</th>
                 <th>Date & Time</th>
                 <th>Type</th>
-                <th>Transaction Details & Order Status</th>
-                <th>Status</th>
+                <th>Transaction Details & Reference</th>
+                <th>Escrow Status</th>
                 <th>Amount (&#8377;)</th>
               </tr>
             </thead>
@@ -165,16 +167,19 @@ interface BankDetails {
                   <span class="time-sub d-block">{{ tx.time }}</span>
                 </td>
                 <td>
-                  <span class="badge" [ngClass]="isCredit(tx.type) ? 'badge-added' : 'badge-used'">
-                    <i class="fa-solid" [ngClass]="isCredit(tx.type) ? 'fa-arrow-down-left' : 'fa-arrow-up-right'"></i>
-                    {{ isCredit(tx.type) ? 'Credit / Payout' : 'Debit / Transfer' }}
+                  <span class="badge" [ngClass]="getBadgeClass(tx.rawType)">
+                    <i class="fa-solid" [ngClass]="getIconClass(tx.rawType)"></i>
+                    {{ getTypeLabel(tx.rawType) }}
                   </span>
                 </td>
                 <td>
                   <div class="tx-desc-line">
                     <span class="tx-desc-main">{{ tx.description }}</span>
-                    <span *ngIf="tx.orderId" class="order-tag">
-                      <i class="fa-solid fa-hashtag"></i> {{ tx.orderId }}
+                    <span *ngIf="tx.referenceId" class="order-tag">
+                      <i class="fa-solid fa-hashtag"></i> {{ tx.referenceId }}
+                    </span>
+                    <span *ngIf="tx.orderId && tx.orderId !== tx.referenceId" class="order-tag">
+                      <i class="fa-solid fa-cart-shopping"></i> {{ tx.orderId }}
                     </span>
                   </div>
                   <small *ngIf="tx.bankTransfer" class="text-muted d-block mt-1">
@@ -182,13 +187,14 @@ interface BankDetails {
                   </small>
                 </td>
                 <td>
-                  <span class="badge badge-settled">
-                    <i class="fa-solid fa-circle-check text-emerald"></i> Settled
+                  <span class="badge" [ngClass]="tx.rawType === 'RESERVATION' ? 'badge-reserved' : 'badge-settled'">
+                    <i class="fa-solid" [ngClass]="tx.rawType === 'RESERVATION' ? 'fa-lock' : 'fa-circle-check'"></i>
+                    {{ tx.rawType === 'RESERVATION' ? 'Active Escrow' : 'Settled' }}
                   </span>
                 </td>
                 <td>
-                  <strong [ngClass]="isCredit(tx.type) ? 'text-emerald' : 'text-danger'">
-                    {{ isCredit(tx.type) ? '+ ' : '- ' }}&#8377; {{ tx.amount | number:'1.2-2' }}
+                  <strong [ngClass]="getAmountClass(tx.rawType)">
+                    {{ getAmountPrefix(tx.rawType) }}&#8377; {{ tx.amount | number:'1.2-2' }}
                   </strong>
                 </td>
               </tr>
@@ -538,7 +544,13 @@ interface BankDetails {
     .time-sub { font-size: 0.75rem; color: #64748b; font-weight: 400; }
     .badge-added { background: #dcfce7; color: #166534; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; }
     .badge-used { background: #fee2e2; color: #991b1b; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .badge-reserved { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .badge-released { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .badge-payment { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 0.35rem; }
     .badge-settled { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 0.3rem; }
+    .text-amber { color: #d97706; }
+    .text-cyan { color: #0284c7; }
+    .text-purple { color: #7c3aed; }
     .tx-desc-line { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     .tx-desc-main { font-weight: 600; color: #1e293b; }
     .order-tag { background: #eff6ff; color: #1d4ed8; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
@@ -694,13 +706,16 @@ interface BankDetails {
 })
 export class WalletComponent implements OnInit, OnDestroy {
   balance = 0;
+  availableBalance = 0;
+  reservedBalance = 0;
+  totalBalance = 0;
   totalAdded = 0;
   totalUsed = 0;
   depositAmount: number | null = null;
   isRefreshing = false;
   noticeMsg = '';
   errorMsg = '';
-  filterType: 'ALL' | 'CREDIT' | 'DEBIT' = 'ALL';
+  filterType: 'ALL' | 'CREDIT' | 'DEBIT' | 'ESCROW' = 'ALL';
   isDeliveryPartner = false;
   currentUserId = 'u-1';
 
@@ -750,8 +765,13 @@ export class WalletComponent implements OnInit, OnDestroy {
     );
 
     this.sub.add(
-      this.walletService.balance$.subscribe((b) => {
-        this.balance = b;
+      this.walletService.wallet$.subscribe((w) => {
+        if (w) {
+          this.availableBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          this.reservedBalance = w.reservedBalance || 0;
+          this.totalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+          this.balance = this.availableBalance;
+        }
       })
     );
   }
@@ -761,10 +781,19 @@ export class WalletComponent implements OnInit, OnDestroy {
   }
 
   loadWalletAndTransactions(): void {
+    const cached = this.walletService.getStoredWallet(this.currentUserId);
+    this.availableBalance = cached.availableBalance;
+    this.reservedBalance = cached.reservedBalance;
+    this.totalBalance = cached.balance;
+    this.balance = cached.availableBalance;
+
     this.walletService.getWallet(this.currentUserId).subscribe({
       next: (w) => {
-        if (w && typeof w.balance === 'number') {
-          this.balance = w.balance;
+        if (w) {
+          this.availableBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          this.reservedBalance = w.reservedBalance || 0;
+          this.totalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+          this.balance = this.availableBalance;
         }
       }
     });
@@ -778,12 +807,13 @@ export class WalletComponent implements OnInit, OnDestroy {
               id: t.id || `TXN-${1000 + idx}`,
               date: dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
               time: dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              type: t.type === 'CREDIT' ? 'ADDED' : 'USED',
+              type: t.type,
               rawType: t.type,
               description: t.description || 'Wallet transaction',
+              referenceId: t.referenceId,
               orderId: t.orderId || (t.description?.match(/ORD-\d+/)?.[0] || ''),
               amount: t.amount,
-              balance: this.balance
+              balance: this.availableBalance
             };
           });
         } else {
@@ -802,9 +832,9 @@ export class WalletComponent implements OnInit, OnDestroy {
     let added = 0;
     let used = 0;
     this.transactions.forEach(t => {
-      if (this.isCredit(t.type || t.rawType)) {
+      if (t.rawType === 'CREDIT' || t.rawType === 'RELEASE') {
         added += Number(t.amount);
-      } else {
+      } else if (t.rawType === 'DEBIT' || t.rawType === 'PAYMENT' || t.rawType === 'RESERVATION') {
         used += Number(t.amount);
       }
     });
@@ -812,18 +842,71 @@ export class WalletComponent implements OnInit, OnDestroy {
     this.totalUsed = used;
   }
 
-  getDefaultTransactions(): any[] {
-    return [];
+  getTypeLabel(type: string): string {
+    switch (type) {
+      case 'CREDIT': return 'Credit / Proceeds';
+      case 'DEBIT': return 'Debit / Withdrawal';
+      case 'RESERVATION': return 'Bid Escrow Hold';
+      case 'RELEASE': return 'Escrow Released';
+      case 'PAYMENT': return 'Settled to Farmer';
+      default: return type || 'Transaction';
+    }
+  }
+
+  getBadgeClass(type: string): string {
+    switch (type) {
+      case 'CREDIT': return 'badge-added';
+      case 'DEBIT': return 'badge-used';
+      case 'RESERVATION': return 'badge-reserved';
+      case 'RELEASE': return 'badge-released';
+      case 'PAYMENT': return 'badge-payment';
+      default: return 'badge-added';
+    }
+  }
+
+  getIconClass(type: string): string {
+    switch (type) {
+      case 'CREDIT': return 'fa-arrow-down-left';
+      case 'DEBIT': return 'fa-arrow-up-right';
+      case 'RESERVATION': return 'fa-lock';
+      case 'RELEASE': return 'fa-unlock';
+      case 'PAYMENT': return 'fa-handshake';
+      default: return 'fa-circle-dot';
+    }
+  }
+
+  getAmountClass(type: string): string {
+    switch (type) {
+      case 'CREDIT': return 'text-emerald';
+      case 'RELEASE': return 'text-cyan';
+      case 'RESERVATION': return 'text-amber';
+      case 'DEBIT': return 'text-danger';
+      case 'PAYMENT': return 'text-purple';
+      default: return 'text-dark';
+    }
+  }
+
+  getAmountPrefix(type: string): string {
+    switch (type) {
+      case 'CREDIT': return '+ ';
+      case 'RELEASE': return '+ ';
+      case 'RESERVATION': return '🔒 ';
+      case 'DEBIT': return '- ';
+      case 'PAYMENT': return '- ';
+      default: return '';
+    }
   }
 
   isCredit(type: string): boolean {
-    return type === 'ADDED' || type === 'CREDIT';
+    return type === 'ADDED' || type === 'CREDIT' || type === 'RELEASE';
   }
 
   get filteredTransactions(): any[] {
     if (this.filterType === 'ALL') return this.transactions;
-    if (this.filterType === 'CREDIT') return this.transactions.filter(t => this.isCredit(t.type || t.rawType));
-    return this.transactions.filter(t => !this.isCredit(t.type || t.rawType));
+    if (this.filterType === 'CREDIT') return this.transactions.filter(t => t.rawType === 'CREDIT');
+    if (this.filterType === 'DEBIT') return this.transactions.filter(t => t.rawType === 'DEBIT' || t.rawType === 'PAYMENT');
+    if (this.filterType === 'ESCROW') return this.transactions.filter(t => t.rawType === 'RESERVATION' || t.rawType === 'RELEASE');
+    return this.transactions;
   }
 
   get totalPages(): number {
@@ -859,21 +942,13 @@ export class WalletComponent implements OnInit, OnDestroy {
       'Wallet recharge addition via UPI / Net Banking'
     ).subscribe({
       next: () => {
-        this.balance = this.walletService.getStoredBalance(this.currentUserId);
-        const newTxn = {
-          id: 'TXN-' + Math.floor(1000 + Math.random() * 9000),
-          date: 'Today',
-          time: 'Just now',
-          type: 'ADDED',
-          rawType: 'CREDIT',
-          description: 'Wallet recharge addition via UPI / Net Banking',
-          orderId: '',
-          amount: added,
-          balance: this.balance
-        };
-        this.transactions.unshift(newTxn);
-        this.recalculateTotals();
+        const w = this.walletService.getStoredWallet(this.currentUserId);
+        this.availableBalance = w.availableBalance;
+        this.reservedBalance = w.reservedBalance;
+        this.totalBalance = w.balance;
+        this.balance = w.availableBalance;
 
+        this.loadWalletAndTransactions();
         this.noticeMsg = `Wallet recharged successfully! ₹${added.toLocaleString()} added to your balance.`;
         this.depositAmount = null;
         setTimeout(() => this.noticeMsg = '', 4500);
@@ -890,8 +965,11 @@ export class WalletComponent implements OnInit, OnDestroy {
     this.walletService.getWallet(this.currentUserId).subscribe({
       next: (w) => {
         this.isRefreshing = false;
-        if (w && typeof w.balance === 'number') {
-          this.balance = w.balance;
+        if (w) {
+          this.availableBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          this.reservedBalance = w.reservedBalance || 0;
+          this.totalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+          this.balance = this.availableBalance;
         }
         this.noticeMsg = 'Wallet balance synchronized successfully with escrow ledger.';
         setTimeout(() => this.noticeMsg = '', 3000);
@@ -935,8 +1013,8 @@ export class WalletComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (amount > this.balance) {
-      this.withdrawError = `Insufficient balance. Maximum withdrawable amount is ₹${this.balance.toLocaleString()}.`;
+    if (amount > this.availableBalance) {
+      this.withdrawError = `Insufficient available balance. Maximum withdrawable amount is ₹${this.availableBalance.toLocaleString()} (₹${this.reservedBalance.toLocaleString()} is locked in active bids).`;
       return;
     }
 
@@ -961,22 +1039,13 @@ export class WalletComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.isSubmittingWithdrawal = false;
           if (res.success) {
-            this.balance = this.walletService.getStoredBalance(this.currentUserId);
-            const newTxn = {
-              id: 'TXN-' + Math.floor(1000 + Math.random() * 9000),
-              date: 'Today',
-              time: 'Just now',
-              type: 'USED',
-              rawType: 'DEBIT',
-              description: `Bank Withdrawal to ${bankName}`,
-              bankTransfer: `${bankName} (A/C: ...${accountNumber.slice(-4)})`,
-              orderId: '',
-              amount: amount,
-              balance: this.balance
-            };
-            this.transactions.unshift(newTxn);
-            this.recalculateTotals();
+            const w = this.walletService.getStoredWallet(this.currentUserId);
+            this.availableBalance = w.availableBalance;
+            this.reservedBalance = w.reservedBalance;
+            this.totalBalance = w.balance;
+            this.balance = w.availableBalance;
 
+            this.loadWalletAndTransactions();
             this.closeWithdrawModal();
             this.noticeMsg = res.message;
             setTimeout(() => this.noticeMsg = '', 6000);

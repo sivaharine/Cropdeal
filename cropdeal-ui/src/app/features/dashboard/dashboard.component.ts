@@ -851,13 +851,20 @@ export class DashboardComponent implements OnInit {
       this.memberSince = this.formatMemberSince(u?.createdAt);
       if (u && (u.id || u.userId)) {
         const uid = String(u.id || u.userId!);
+        const stored = this.walletService.getStoredWallet(uid);
+        this.walletBalance = stored.availableBalance;
         this.walletService.getWallet(uid).subscribe({
           next: (w) => {
-            if (w && typeof w.balance === 'number') {
-              this.walletBalance = w.balance;
+            if (w) {
+              this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
             }
           },
           error: () => {}
+        });
+        this.walletService.wallet$.subscribe(w => {
+          if (w) {
+            this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          }
         });
 
         // 1. Farmer Dynamic Metrics

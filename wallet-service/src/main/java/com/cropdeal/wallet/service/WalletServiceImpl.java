@@ -98,11 +98,15 @@ public class WalletServiceImpl implements WalletService {
             reservation.setStatus(ReservationStatus.RELEASED);
             reservationRepository.save(reservation);
 
-            wallet.setReservedBalance(wallet.getReservedBalance().subtract(reservation.getAmount()));
+            BigDecimal newReserved = wallet.getReservedBalance().subtract(reservation.getAmount());
+            if (newReserved.compareTo(BigDecimal.ZERO) < 0) {
+                newReserved = BigDecimal.ZERO;
+            }
+            wallet.setReservedBalance(newReserved);
             Wallet saved = walletRepository.save(wallet);
 
             recordTransaction(wallet.getId(), request.userId(), reservation.getAmount(), TransactionType.RELEASE,
-                    request.referenceId(), "Released outbid funds for " + request.referenceId());
+                    request.referenceId(), "Released reserved funds for " + request.referenceId());
             return toResponse(saved);
         }
         return toResponse(wallet);
@@ -118,12 +122,34 @@ public class WalletServiceImpl implements WalletService {
         reservation.setStatus(ReservationStatus.CONSUMED);
         reservationRepository.save(reservation);
 
-        wallet.setReservedBalance(wallet.getReservedBalance().subtract(reservation.getAmount()));
+        BigDecimal newReserved = wallet.getReservedBalance().subtract(reservation.getAmount());
+        if (newReserved.compareTo(BigDecimal.ZERO) < 0) {
+            newReserved = BigDecimal.ZERO;
+        }
+        wallet.setReservedBalance(newReserved);
         wallet.setBalance(wallet.getBalance().subtract(reservation.getAmount()));
         Wallet saved = walletRepository.save(wallet);
 
+        String paymentDesc = request.cropName() != null
+                ? "Payment settled to farmer for won bid " + request.cropName() + " (" + request.referenceId() + ")"
+                : "Payment consumed for won bid " + request.referenceId();
+
         recordTransaction(wallet.getId(), request.userId(), reservation.getAmount(), TransactionType.PAYMENT,
-                request.referenceId(), "Payment consumed for won bid " + request.referenceId());
+                request.referenceId(), paymentDesc);
+
+        // Send reserved amount to farmer's wallet
+        if (request.payeeUserId() != null) {
+            Wallet farmerWallet = getOrCreateWallet(request.payeeUserId());
+            farmerWallet.setBalance(farmerWallet.getBalance().add(reservation.getAmount()));
+            walletRepository.save(farmerWallet);
+
+            String farmerDesc = request.cropName() != null
+                    ? "Bidding proceeds received for " + request.cropName() + " (" + request.referenceId() + ")"
+                    : "Bidding proceeds received for won bid " + request.referenceId();
+
+            recordTransaction(farmerWallet.getId(), request.payeeUserId(), reservation.getAmount(), TransactionType.CREDIT,
+                    request.referenceId(), farmerDesc);
+        }
 
         return toResponse(saved);
     }
