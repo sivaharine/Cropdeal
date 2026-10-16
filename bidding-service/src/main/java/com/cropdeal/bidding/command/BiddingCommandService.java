@@ -101,36 +101,37 @@ public class BiddingCommandService {
         BigDecimal totalLotBidAmount = request.bidAmount().multiply(lotQuantity);
         String newRefId = "BID-" + listingId + "-" + request.dealerId();
 
-        // If the same dealer is raising their bid, release their previous hold first
-        bidRepository.findFirstByListingIdAndStatusOrderByBidAmountDesc(listingId, BidStatus.ACTIVE).ifPresent(prev -> {
+        // Find all existing active bids on this listing
+        List<Bid> activeBids = bidRepository.findByListingIdAndStatus(listingId, BidStatus.ACTIVE);
+
+        // 1. If the same dealer is raising their bid, release their previous hold first so their available balance is credited
+        for (Bid prev : activeBids) {
             if (prev.getDealerId().equals(request.dealerId())) {
                 try {
-                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), newRefId));
+                    String sameDealerRefId = "BID-" + listingId + "-" + prev.getDealerId();
+                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), sameDealerRefId));
                 } catch (Exception e) {
                     // Ignore release warning
                 }
             }
-        });
+        }
 
-        // Reserve total lot valuation from bidder's wallet
+        // 2. Reserve total lot valuation from the bidder's available wallet balance
         walletClient.reserveFunds(new WalletClient.ReserveRequest(request.dealerId(), newRefId, totalLotBidAmount));
 
-        // If another dealer was previously winning, mark them OUTBID and release their reserved escrow funds immediately
-        bidRepository.findFirstByListingIdAndStatusOrderByBidAmountDesc(listingId, BidStatus.ACTIVE).ifPresent(prev -> {
+        // 3. Mark all previous active bids as OUTBID, and unreserve/release escrow holds for any outbid dealers
+        for (Bid prev : activeBids) {
+            prev.setStatus(BidStatus.OUTBID);
+            bidRepository.save(prev);
             if (!prev.getDealerId().equals(request.dealerId())) {
-                prev.setStatus(BidStatus.OUTBID);
-                bidRepository.save(prev);
                 try {
-                    String prevRefId = "BID-" + listingId + "-" + prev.getDealerId();
-                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), prevRefId));
+                    String outbidDealerRefId = "BID-" + listingId + "-" + prev.getDealerId();
+                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), outbidDealerRefId));
                 } catch (Exception e) {
                     // Log release failure
                 }
-            } else {
-                prev.setStatus(BidStatus.OUTBID);
-                bidRepository.save(prev);
             }
-        });
+        }
 
         Bid bid = new Bid();
         bid.setListingId(listingId);

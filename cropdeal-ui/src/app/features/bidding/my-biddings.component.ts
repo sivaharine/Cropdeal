@@ -1279,8 +1279,14 @@ export class MyBiddingsComponent implements OnInit, OnDestroy {
     this.dealerReservedBalance = stored.reservedBalance;
     this.dealerTotalBalance = stored.balance;
 
-    const isSameBidderWinning = this.selectedAuction.highestBidderId === uid;
-    const previousHold = isSameBidderWinning ? Math.round((this.selectedAuction.currentHighestBid || 0) * this.selectedAuction.quantity) : 0;
+    const existingHoldInfo = this.walletService.getActiveHoldForAuction(uid, this.selectedAuction.id);
+    const isSameBidderWinning = (this.selectedAuction.highestBidderId && String(this.selectedAuction.highestBidderId) === uid) ||
+      existingHoldInfo.amount > 0;
+
+    const previousHold = existingHoldInfo.amount > 0
+      ? existingHoldInfo.amount
+      : (isSameBidderWinning ? Math.round((this.selectedAuction.currentHighestBid || 0) * this.selectedAuction.quantity) : 0);
+
     const netAdditionalRequired = Math.max(0, fullStockTotal - previousHold);
 
     if (this.dealerWalletBalance < netAdditionalRequired) {
@@ -1288,18 +1294,23 @@ export class MyBiddingsComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 1. If another dealer was previously winning, release their reserved hold immediately
-    const prevWinningDealerId = this.selectedAuction.highestBidderId;
-    if (prevWinningDealerId && prevWinningDealerId !== uid) {
-      const prevRef = 'BID-' + this.selectedAuction.id + '-' + prevWinningDealerId;
-      const prevHoldAmt = Math.round((this.selectedAuction.currentHighestBid || 0) * this.selectedAuction.quantity);
-      this.walletService.releaseFunds(prevWinningDealerId, prevRef, prevHoldAmt, `Outbid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName})`).subscribe();
-    }
+    // 1. If another dealer was previously winning, release all previous bidders on this auction
+    this.walletService.releaseAllBiddersForAuction(
+      this.selectedAuction.id,
+      `Outbid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName}) by higher offer`,
+      uid
+    );
 
     // 2. If this same dealer had a previous hold, release it before re-reserving
     const refId = 'BID-' + this.selectedAuction.id + '-' + uid;
     if (previousHold > 0) {
-      this.walletService.releaseFunds(uid, refId, previousHold, `Adjusted previous hold for raised bid on Lot #${this.selectedAuction.id}`).subscribe();
+      const oldRef = existingHoldInfo.referenceId || refId;
+      this.walletService.releaseFunds(
+        uid,
+        oldRef,
+        previousHold,
+        `Released previous bid hold for raised bid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName})`
+      ).subscribe();
     }
 
     // 3. Reserve the total lot valuation from the bidder's wallet
@@ -1442,6 +1453,9 @@ export class MyBiddingsComponent implements OnInit, OnDestroy {
       fullStockTotal
     ).subscribe();
 
+    // Release holds for all other dealers who placed bids on this lot
+    this.walletService.releaseAllBiddersForAuction(auction.id, `Lot #${auction.id} (${auction.cropName}) awarded to highest bidder`, dealerUid);
+
     // 3. Register Order in OrderService as completed bidding lot
     const newOrder: any = {
       id: orderId,
@@ -1570,20 +1584,14 @@ export class MyBiddingsComponent implements OnInit, OnDestroy {
 
   closeAuction(auction: BiddingAuction): void {
     if (!confirm('Are you sure you want to end this auction early?')) return;
-    if (auction.highestBidderId) {
-      const refId = 'BID-' + auction.id + '-' + auction.highestBidderId;
-      const holdAmt = Math.round((auction.currentHighestBid || 0) * (auction.quantity || 0));
-      this.walletService.releaseFunds(
-        auction.highestBidderId,
-        refId,
-        holdAmt,
-        `Auction closed without sale by farmer for "${auction.cropName}"`
-      ).subscribe();
-    }
+    this.walletService.releaseAllBiddersForAuction(
+      auction.id,
+      `Auction #${auction.id} closed without sale by farmer for "${auction.cropName}"`
+    );
     this.biddingService.closeAuction(auction.id).subscribe();
     this.biddingService.deleteAuction(auction.id).subscribe({
       next: () => {
-        this.actionMsg = `Auction #${auction.id} closed and held bidder escrow released back to dealer.`;
+        this.actionMsg = `Auction #${auction.id} closed and held bidder escrow released back to dealer(s).`;
         this.loadAuctions();
         setTimeout(() => this.actionMsg = '', 3000);
       }

@@ -37,12 +37,12 @@ spring:
             - Path=/api/negotiations/**
 
         - id: bidding-service
-          uri: http://localhost:8086
+          uri: ${BIDDING_SERVICE_URL:http://localhost:8086}
           predicates:
-            - Path=/api/biddings/**, /api/bids/**
+            - Path=/api/biddings/**, /api/bids/**, /api/bidding/**
 
         - id: wallet-service
-          uri: http://localhost:8087
+          uri: ${WALLET_SERVICE_URL:http://localhost:8087}
           predicates:
             - Path=/api/wallet/**, /api/wallets/**
 

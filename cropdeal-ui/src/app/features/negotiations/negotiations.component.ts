@@ -808,8 +808,11 @@ export interface UINegotiationItem {
                 <div class="wallet-balance-box">
                   <div class="d-flex justify-between align-center">
                     <div>
-                      <span class="stat-lbl">CropDeal Escrow Balance</span>
+                      <span class="stat-lbl">CropDeal Available (Unreserved) Balance</span>
                       <h3 class="text-emerald m-0">&#8377;{{ currentWalletBalance | number:'1.2-2' }}</h3>
+                      <div *ngIf="currentReservedBalance > 0" class="text-xs text-muted mt-1">
+                        <span><i class="fa-solid fa-lock text-amber"></i> &#8377;{{ currentReservedBalance | number:'1.0-0' }} locked in active bids (Total: &#8377;{{ currentTotalBalance | number:'1.0-0' }})</span>
+                      </div>
                     </div>
                     <span class="badge" [ngClass]="currentWalletBalance >= totalPayable ? 'badge-success' : 'badge-danger'">
                       <i class="fa-solid" [ngClass]="currentWalletBalance >= totalPayable ? 'fa-check' : 'fa-triangle-exclamation'"></i>
@@ -818,9 +821,9 @@ export interface UINegotiationItem {
                   </div>
                   <div *ngIf="currentWalletBalance < totalPayable" class="alert alert-error mt-2">
                     <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                    <span>Short by &#8377;{{ (totalPayable - currentWalletBalance) | number:'1.2-2' }}. Insufficient funds in wallet! Order cannot be placed.</span>
+                    <span>Short by &#8377;{{ (totalPayable - currentWalletBalance) | number:'1.2-2' }}. Insufficient unreserved funds! (Funds locked in active bids cannot be used for crop purchases).</span>
                   </div>
-                  <p class="text-xs text-muted mt-2">Instant debited from your dealer escrow balance with zero payment processing fees.</p>
+                  <p class="text-xs text-muted mt-2">Instant debited from your unreserved escrow funds with zero payment processing fees.</p>
                 </div>
               </div>
 
@@ -1876,6 +1879,8 @@ export class NegotiationsComponent implements OnInit, OnDestroy {
   deliveryAddress = '';
   paymentMethod: 'STRIPE_CARD' | 'UPI' | 'NET_BANKING' | 'WALLET' = 'STRIPE_CARD';
   walletBalance = 0;
+  currentReservedBalance = 0;
+  currentTotalBalance = 0;
   isPlacingOrder = false;
 
   stripeCard = {
@@ -1921,12 +1926,29 @@ export class NegotiationsComponent implements OnInit, OnDestroy {
       this.authService.currentUser$.subscribe((u: User | null) => {
         this.user = u;
         this.loadNegotiations();
+        if (u) {
+          const uid = u.id || u.userId || 'dealer-1';
+          const st = this.walletService.getStoredWallet(uid);
+          this.walletBalance = st.availableBalance;
+          this.currentReservedBalance = st.reservedBalance;
+          this.currentTotalBalance = st.balance;
+        }
       })
     );
 
     this.sub.add(
       this.walletService.balance$.subscribe((b) => {
         this.walletBalance = b;
+      })
+    );
+
+    this.sub.add(
+      this.walletService.wallet$.subscribe((w) => {
+        if (w) {
+          this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          this.currentReservedBalance = w.reservedBalance || 0;
+          this.currentTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+        }
       })
     );
   }
@@ -2287,7 +2309,18 @@ export class NegotiationsComponent implements OnInit, OnDestroy {
     this.completedInvoice = null;
     this.selectedInvoiceForView = null;
     if (this.user) {
-      this.walletBalance = this.walletService.getStoredBalance(this.user.id || this.user.userId || 'dealer-1');
+      const uid = this.user.id || this.user.userId || 'dealer-1';
+      const st = this.walletService.getStoredWallet(uid);
+      this.walletBalance = st.availableBalance;
+      this.currentReservedBalance = st.reservedBalance;
+      this.currentTotalBalance = st.balance;
+      this.walletService.getWallet(uid).subscribe(w => {
+        if (w) {
+          this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+          this.currentReservedBalance = w.reservedBalance || 0;
+          this.currentTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
+        }
+      });
     }
   }
 
@@ -2334,6 +2367,13 @@ export class NegotiationsComponent implements OnInit, OnDestroy {
       alert('Please specify a delivery destination drop address.');
       return;
     }
+    if (this.user) {
+      const uid = this.user.id || this.user.userId || 'dealer-1';
+      const st = this.walletService.getStoredWallet(uid);
+      this.walletBalance = st.availableBalance;
+      this.currentReservedBalance = st.reservedBalance;
+      this.currentTotalBalance = st.balance;
+    }
     this.checkoutStep = 'PAYMENT';
   }
 
@@ -2364,9 +2404,14 @@ export class NegotiationsComponent implements OnInit, OnDestroy {
     const uid = this.user.id || this.user.userId || 'dealer-1';
 
     // Verify wallet if wallet payment chosen
-    if (this.paymentMethod === 'WALLET' && this.currentWalletBalance < finalTotal) {
-      alert(`Insufficient wallet funds! Required: ₹${finalTotal.toLocaleString()}, Available: ₹${this.currentWalletBalance.toLocaleString()}. Please recharge your wallet or choose another payment option.`);
-      return;
+    if (this.paymentMethod === 'WALLET') {
+      const available = this.walletService.getStoredAvailableBalance(uid);
+      if (available < finalTotal) {
+        const reserved = this.walletService.getStoredReservedBalance(uid);
+        const total = this.walletService.getStoredTotalBalance(uid);
+        alert(`❌ Insufficient Available Wallet Balance!\n\nRequired: ₹${finalTotal.toLocaleString()}\nAvailable (Unreserved): ₹${available.toLocaleString()}\nFunds Locked in Active Bids: ₹${reserved.toLocaleString()}\nTotal Balance: ₹${total.toLocaleString()}\n\nOrder cannot be placed using escrow funds that are locked in bids. Please recharge your wallet or choose another payment option.`);
+        return;
+      }
     }
 
     this.processingPayment = true;

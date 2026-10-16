@@ -85,9 +85,12 @@ interface BankDetails {
             </div>
           </div>
 
-          <div class="mt-3 pt-3 border-top d-flex gap-2">
+          <div class="mt-3 pt-3 border-top d-flex gap-2 flex-wrap">
             <button class="btn-withdraw-action" (click)="openWithdrawModal()">
               <i class="fa-solid fa-building-columns"></i> Withdraw to Bank Account
+            </button>
+            <button class="btn-reconcile-action" (click)="reconcileEscrowHolds()" title="Release holds for any expired, deleted, or closed auctions">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Reconcile & Release Expired Holds
             </button>
           </div>
         </div>
@@ -429,6 +432,26 @@ interface BankDetails {
       transition: background 0.15s;
     }
     .btn-withdraw-action:hover { background: #0369a1; }
+
+    .btn-reconcile-action {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+      padding: 0.65rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+    }
+    .btn-reconcile-action:hover {
+      background: #dcfce7;
+      border-color: #16a34a;
+      color: #15803d;
+    }
 
     /* Add Money Card */
     .card-head-line { display: flex; align-items: center; gap: 0.6rem; font-size: 0.95rem; color: #0f172a; }
@@ -781,6 +804,7 @@ export class WalletComponent implements OnInit, OnDestroy {
   }
 
   loadWalletAndTransactions(): void {
+    this.walletService.reconcileOrphanReservations(this.currentUserId);
     const cached = this.walletService.getStoredWallet(this.currentUserId);
     this.availableBalance = cached.availableBalance;
     this.reservedBalance = cached.reservedBalance;
@@ -962,24 +986,28 @@ export class WalletComponent implements OnInit, OnDestroy {
 
   refreshWallet(): void {
     this.isRefreshing = true;
-    this.walletService.getWallet(this.currentUserId).subscribe({
-      next: (w) => {
-        this.isRefreshing = false;
-        if (w) {
-          this.availableBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
-          this.reservedBalance = w.reservedBalance || 0;
-          this.totalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
-          this.balance = this.availableBalance;
-        }
-        this.noticeMsg = 'Wallet balance synchronized successfully with escrow ledger.';
-        setTimeout(() => this.noticeMsg = '', 3000);
-      },
-      error: () => {
-        this.isRefreshing = false;
-        this.noticeMsg = 'Wallet balance synchronized successfully.';
-        setTimeout(() => this.noticeMsg = '', 3000);
-      }
-    });
+    const res = this.walletService.reconcileOrphanReservations(this.currentUserId);
+    this.loadWalletAndTransactions();
+    this.isRefreshing = false;
+    if (res.releasedCount > 0) {
+      this.noticeMsg = `Escrow ledger synchronized! Released ₹${res.totalAmount.toLocaleString()} from ${res.releasedCount} expired/closed bid holds.`;
+    } else {
+      this.noticeMsg = 'Wallet balance and passbook ledger synchronized successfully.';
+    }
+    setTimeout(() => this.noticeMsg = '', 4000);
+  }
+
+  reconcileEscrowHolds(): void {
+    this.isRefreshing = true;
+    const res = this.walletService.reconcileOrphanReservations(this.currentUserId);
+    this.loadWalletAndTransactions();
+    this.isRefreshing = false;
+    if (res.releasedCount > 0) {
+      this.noticeMsg = `✓ Escrow reconciliation complete! Released ₹${res.totalAmount.toLocaleString()} from ${res.releasedCount} expired or non-existent bid holds back to your available balance.`;
+    } else {
+      this.noticeMsg = '✓ All escrow holds are healthy. No orphan or expired holds were found.';
+    }
+    setTimeout(() => this.noticeMsg = '', 5000);
   }
 
   openWithdrawModal(): void {

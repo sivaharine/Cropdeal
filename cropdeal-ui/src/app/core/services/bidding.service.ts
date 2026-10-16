@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, tap, BehaviorSubject } from 'rxjs';
 import { BidOffer, BiddingAuction } from '../models/bidding.model';
 import { environment } from '../../../environments/environment';
+import { WalletService } from './wallet.service';
 
 @Injectable({
   providedIn: 'root'
@@ -15,7 +16,7 @@ export class BiddingService {
   private biddingsSubject = new BehaviorSubject<BiddingAuction[]>([]);
   public biddings$ = this.biddingsSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private walletService: WalletService) {
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem(this.STORAGE_KEY);
@@ -95,6 +96,19 @@ export class BiddingService {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const now = Date.now();
+          // Release held funds for any auctions that timed out
+          const expired = parsed.filter(a =>
+            !deleted.has(String(a.id)) &&
+            a.status !== 'CLOSED' &&
+            (a.status as string) !== 'AWARDED' &&
+            a.endTime && new Date(a.endTime).getTime() <= now
+          );
+          if (expired.length > 0) {
+            expired.forEach(exp => {
+              this.walletService.releaseAllBiddersForAuction(String(exp.id), `Auction #${exp.id} (${exp.cropName}) timed out without purchase`);
+            });
+          }
+
           const filtered = parsed.filter(a =>
             !deleted.has(String(a.id)) &&
             a.status !== 'CLOSED' &&
@@ -400,6 +414,9 @@ export class BiddingService {
     const list = this.loadStoredAuctions().filter(a => String(a.id) !== String(auctionId));
     this.saveStoredAuctions(list);
 
+    // Automatically release held escrow funds for all dealers who bid on this deleted auction
+    this.walletService.releaseAllBiddersForAuction(auctionId, `Auction #${auctionId} deleted by farmer or administrator`);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('cropdeal:bidding_deleted', { detail: { id: auctionId } }));
     }
@@ -417,6 +434,11 @@ export class BiddingService {
     const target = list.find(a => a.id === auctionId);
     const remaining = list.filter(a => a.id !== auctionId);
     this.saveStoredAuctions(remaining);
+
+    // If closed without being awarded, release all held bidders
+    if (!orderId) {
+      this.walletService.releaseAllBiddersForAuction(auctionId, `Auction #${auctionId} closed without sale`);
+    }
 
     this.http.put<BiddingAuction>(`${this.baseUrl}/${auctionId}/close`, {}).subscribe({
       next: () => {},

@@ -129,11 +129,6 @@ import { User } from '../../core/models/user.model';
               </div>
             </div>
 
-            <!-- APMC Benchmark tag -->
-            <div class="apmc-tag" *ngIf="crop.govMspPrice">
-              <i class="fa-solid fa-chart-line text-emerald"></i>
-              <span>Local APMC Benchmark: ₹{{ crop.govMspPrice }}/{{ crop.unit }}</span>
-            </div>
 
             <p class="crop-desc" *ngIf="crop.description">{{ crop.description }}</p>
 

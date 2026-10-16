@@ -168,7 +168,6 @@ export interface MandiRow {
                 <td class="col-num">{{ row.index }}</td>
                 <td class="col-commodity">
                   <div class="commodity-cell">
-                    <img [src]="row.image" [alt]="row.commodity" class="crop-thumb" (error)="onThumbError($event)" />
                     <strong class="comm-title">{{ row.commodity }}</strong>
                   </div>
                 </td>

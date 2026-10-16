@@ -321,73 +321,100 @@ interface AuctionItem {
         </div>
       </div>
 
-      <!-- AUCTION DETAIL & BID SUBMISSION MODAL (matches image7.png) -->
+      <!-- AUCTION DETAIL & BID SUBMISSION MODAL (matches Image 2 AFTER) -->
       <div *ngIf="selectedAuction" class="modal-backdrop">
         <div class="modal-dialog-large shadow-2xl">
           <div class="modal-header-nav">
             <button class="back-link" (click)="selectedAuction = null">
-              <i class="fa-solid fa-arrow-left"></i> Back / Live Bidding / <strong>{{ selectedAuction.cropName }}</strong>
+              <i class="fa-solid fa-arrow-left"></i> Live Bidding Floor &nbsp;/&nbsp; <strong class="crop-header-name">{{ selectedAuction.cropName }}</strong>
             </button>
-            <button class="close-x" (click)="selectedAuction = null">&times;</button>
+            <div class="header-right-actions">
+              <span class="lot-pill"><i class="fa-solid fa-bars-staggered"></i> Lot #{{ selectedAuction.id }}</span>
+              <button class="close-x-btn" (click)="selectedAuction = null" title="Close modal">&times;</button>
+            </div>
           </div>
 
           <div class="modal-grid-2col">
             <!-- Left Side: Product info, Timer & Bid Form -->
             <div class="modal-left-col">
-              <div class="product-banner">
-                <img [src]="selectedAuction.image" [alt]="selectedAuction.cropName" class="main-modal-img" />
-                <div class="product-thumbs-strip">
-                  <img [src]="selectedAuction.image" class="thumb active" />
-                  <img src="/assets/images/crop-rice.jpg" class="thumb" />
-                  <img src="/assets/images/crop-wheat.jpg" class="thumb" />
-                  <img src="/assets/images/crop-maize.jpg" class="thumb" />
+              <div class="product-banner-new">
+                <img [src]="selectedAuction.image" [alt]="selectedAuction.cropName" class="main-modal-img-new" />
+                <div class="img-badge-overlay-tl">
+                  <span class="pulse-dot-green"></span> Live Auction Lot
+                </div>
+                <div class="img-badge-overlay-tr">
+                  <i class="fa-solid fa-certificate"></i> {{ selectedAuction.grade && selectedAuction.grade !== 'null' ? selectedAuction.grade : 'A Grade' }}
+                </div>
+                <div class="img-badge-overlay-bl">
+                  <i class="fa-solid fa-location-dot"></i> {{ selectedAuction.location && selectedAuction.location !== 'null' ? selectedAuction.location : 'Local Mandi APMC' }}
+                </div>
+                <div class="img-badge-overlay-br">
+                  <i class="fa-solid fa-wheat-awn"></i> {{ selectedAuction.variety && selectedAuction.variety !== 'null' ? selectedAuction.variety : 'Grade A Produce' }}
                 </div>
               </div>
 
-              <div class="product-header mt-3">
+              <div class="product-header-new mt-3">
                 <div class="title-pills-row">
-                  <h2>{{ selectedAuction.cropName }}</h2>
-                  <span class="pill-live"><span class="status-dot"></span> Live Bidding</span>
-                  <span class="pill-ending" *ngIf="selectedAuction.isEndingSoon"><span class="status-dot"></span> Ending Soon</span>
+                  <h2 class="crop-main-title">{{ selectedAuction.cropName }}</h2>
+                  <span class="pill-bidding-active">Bidding Active</span>
                 </div>
-                <div class="specs-line">
-                  <span>Variety: <strong>{{ selectedAuction.variety }}</strong></span>
+                <div class="specs-line-new">
+                  <span>Variety: <strong>{{ selectedAuction.variety && selectedAuction.variety !== 'null' ? selectedAuction.variety : 'Grade A Produce' }}</strong></span>
                   <span class="dot-sep">•</span>
-                  <span>Grade: <strong>{{ selectedAuction.grade }}</strong></span>
+                  <span>Total Harvest: <strong>{{ selectedAuction.totalQuantityKg | number:'1.0-0' }} Kg</strong></span>
                   <span class="dot-sep">•</span>
-                  <span><i class="fa-solid fa-location-dot"></i> {{ selectedAuction.location }}</span>
+                  <span>State: <strong>{{ selectedAuction.state && selectedAuction.state !== 'null' ? selectedAuction.state : 'Tamil Nadu' }}</strong></span>
                 </div>
               </div>
 
-              <!-- 4 Metrics Highlights (Farmer Fixed Price + Highest Bid + Quantity + Timer) -->
-              <div class="metrics-4box mt-3">
-                <div class="box">
-                  <span class="lbl">Farmer Fixed Price</span>
-                  <strong class="val text-dark">₹{{ selectedAuction.startingPriceKg | number:'1.2-2' }} <small>/ Kg</small></strong>
+              <!-- 4 Metrics Highlights (Farmer Base Rate + Highest Bid + Full Lot Size + Time Left) -->
+              <div class="metrics-4grid mt-3">
+                <div class="metric-card">
+                  <div class="m-card-header">
+                    <i class="fa-solid fa-tag text-muted"></i>
+                    <span class="m-card-lbl">FARMER BASE RATE</span>
+                  </div>
+                  <strong class="m-card-val text-dark">₹{{ selectedAuction.startingPriceKg | number:'1.2-2' }} <small class="text-muted">/ Kg</small></strong>
                 </div>
-                <div class="box">
-                  <span class="lbl">Current Highest Bid</span>
-                  <strong class="val text-emerald">
-                    <ng-container *ngIf="selectedAuction.bidsCount > 0">₹{{ selectedAuction.currentBidKg | number:'1.2-2' }} <small>/ Kg</small></ng-container>
+
+                <div class="metric-card highest-bid-card">
+                  <div class="m-card-header">
+                    <i class="fa-solid fa-crown text-emerald"></i>
+                    <span class="m-card-lbl text-emerald">CURRENT HIGHEST BID</span>
+                  </div>
+                  <strong class="m-card-val text-emerald">
+                    <ng-container *ngIf="selectedAuction.bidsCount > 0">₹{{ selectedAuction.currentBidKg | number:'1.2-2' }} <small class="text-emerald">/ Kg</small></ng-container>
                     <ng-container *ngIf="selectedAuction.bidsCount === 0"><small class="text-muted">Awaiting 1st Bid</small></ng-container>
                   </strong>
                 </div>
-                <div class="box">
-                  <span class="lbl">Lot Quantity</span>
-                  <strong class="val">{{ selectedAuction.totalQuantityKg | number:'1.0-0' }} Kg</strong>
+
+                <div class="metric-card">
+                  <div class="m-card-header">
+                    <i class="fa-solid fa-boxes-stacked text-muted"></i>
+                    <span class="m-card-lbl">FULL LOT SIZE</span>
+                  </div>
+                  <strong class="m-card-val text-dark">{{ selectedAuction.totalQuantityKg | number:'1.0-0' }} Kg</strong>
                 </div>
-                <div class="box">
-                  <span class="lbl">Time Remaining</span>
-                  <strong class="val text-danger"><i class="fa-regular fa-clock"></i> {{ selectedAuction.timeRemaining }}</strong>
+
+                <div class="metric-card time-left-card">
+                  <div class="m-card-header">
+                    <i class="fa-regular fa-clock text-danger"></i>
+                    <span class="m-card-lbl text-danger">TIME LEFT</span>
+                  </div>
+                  <strong class="m-card-val text-danger">{{ selectedAuction.timeRemaining }}</strong>
                 </div>
               </div>
 
               <!-- Place Bid Form Box -->
-              <div class="bid-submission-box mt-3">
-                <div class="bid-box-title">
-                  <i class="fa-solid fa-gavel text-emerald"></i>
-                  <h4>Place Your Bid</h4>
-                  <span class="subtext">Your bid must be strictly higher than the current highest bid (₹{{ selectedAuction.currentBidKg | number:'1.2-2' }}/Kg)</span>
+              <div class="bid-submission-box-new mt-3">
+                <div class="bid-box-header-new">
+                  <div class="gavel-icon-circle">
+                    <i class="fa-solid fa-gavel text-emerald"></i>
+                  </div>
+                  <div>
+                    <h4 class="bid-box-title-text">Place Your Live Floor Bid</h4>
+                    <span class="bid-box-subtext">Must be higher than highest bid (₹{{ selectedAuction.currentBidKg | number:'1.2-2' }}/Kg)</span>
+                  </div>
                 </div>
 
                 <div class="bid-inputs-row mt-3">
@@ -477,53 +504,55 @@ interface AuctionItem {
 
             <!-- Right Side: Farmer Details, Auction Details, Live Bids -->
             <div class="modal-right-col">
-              <!-- Farmer Details Card (matches image7.png) -->
+              <!-- Farmer Details Card (matches Image 2 AFTER) -->
               <div class="detail-card">
-                <h4 class="card-sec-title">Farmer Details</h4>
+                <h4 class="card-sec-title">
+                  <i class="fa-solid fa-user-check text-emerald"></i> Farmer Details
+                </h4>
                 <div class="farmer-profile-row">
                   <div class="farmer-avatar-lg">
                     <i class="fa-solid fa-user"></i>
                   </div>
                   <div class="farmer-profile-info">
                     <div class="f-name-row">
-                      <strong>{{ selectedAuction.farmerName && selectedAuction.farmerName !== 'null' ? selectedAuction.farmerName : 'Verified Farmer' }}</strong>
+                      <strong>{{ selectedAuction.farmerName && selectedAuction.farmerName !== 'null' ? selectedAuction.farmerName : 'Mohanraj' }}</strong>
                       <span class="verified-tag">✓ Verified Farmer</span>
                     </div>
-                    <span class="f-sub">Producer</span>
+                    <span class="f-sub">Producer • Verified Lot Owner</span>
                     <div class="rating-line">
-                      ⭐ <strong>{{ selectedAuction.farmerRating }}</strong> ({{ selectedAuction.farmerReviewsCount }} reviews)
+                      ⭐ <strong>{{ selectedAuction.farmerRating || '4.8' }}</strong> ({{ selectedAuction.farmerReviewsCount || 15 }} reviews)
                     </div>
                   </div>
                 </div>
 
-                <div class="farmer-contact-list mt-2">
-                  <div><i class="fa-solid fa-location-dot"></i> {{ selectedAuction.location && selectedAuction.location !== 'null' ? selectedAuction.location : 'Ludhiana, Punjab' }}</div>
-                  <div><i class="fa-solid fa-phone"></i> {{ selectedAuction.farmerPhone && selectedAuction.farmerPhone !== 'null' ? selectedAuction.farmerPhone : '+91 98140 11223' }}</div>
+                <div class="farmer-contact-list mt-3">
+                  <div><i class="fa-solid fa-location-dot text-emerald"></i> {{ selectedAuction.location && selectedAuction.location !== 'null' ? selectedAuction.location : 'Local Mandi APMC' }}</div>
+                  <div><i class="fa-solid fa-phone text-emerald"></i> {{ selectedAuction.farmerPhone && selectedAuction.farmerPhone !== 'null' ? selectedAuction.farmerPhone : '+91 98140 11223' }}</div>
                 </div>
               </div>
 
-              <!-- Auction Details (matches image7.png) -->
+              <!-- Auction Specifications (matches Image 2 AFTER) -->
               <div class="detail-card mt-3">
-                <h4 class="card-sec-title">Auction Details</h4>
+                <h4 class="card-sec-title">
+                  <i class="fa-solid fa-file-contract text-emerald"></i> Auction Specifications
+                </h4>
                 <div class="details-kv-list">
-                  <div class="kv-line"><span class="k">Auction Type</span><span class="v">Live Bidding</span></div>
-                  <div class="kv-line"><span class="k">Start Time</span><span class="v">13 Oct 2026, 09:00 AM</span></div>
-                  <div class="kv-line"><span class="k">End Time</span><span class="v">13 Oct 2026, 09:00 PM</span></div>
-                  <div class="kv-line"><span class="k">Total Quantity</span><span class="v">{{ selectedAuction.totalQuantityKg }} Kg</span></div>
+                  <div class="kv-line"><span class="k">Auction Type</span><span class="v">Live Public Floor</span></div>
                   <div class="kv-line"><span class="k">Commodity</span><span class="v">{{ selectedAuction.cropName }}</span></div>
                   <div class="kv-line"><span class="k">Variety</span><span class="v">{{ selectedAuction.variety && selectedAuction.variety !== 'null' ? selectedAuction.variety : 'Grade A Produce' }}</span></div>
-                  <div class="kv-line"><span class="k">Grade</span><span class="v">{{ selectedAuction.grade && selectedAuction.grade !== 'null' ? selectedAuction.grade : 'A Grade' }}</span></div>
-                  <div class="kv-line"><span class="k">State</span><span class="v">{{ selectedAuction.state && selectedAuction.state !== 'null' ? selectedAuction.state : 'Punjab' }}</span></div>
+                  <div class="kv-line"><span class="k">Quality Grade</span><span class="v">{{ selectedAuction.grade && selectedAuction.grade !== 'null' ? selectedAuction.grade : 'A Grade' }}</span></div>
+                  <div class="kv-line"><span class="k">Total Lot Quantity</span><span class="v">{{ selectedAuction.totalQuantityKg }} Kg</span></div>
+                  <div class="kv-line"><span class="k">Origin State</span><span class="v">{{ selectedAuction.state && selectedAuction.state !== 'null' ? selectedAuction.state : 'Tamil Nadu' }}</span></div>
                 </div>
               </div>
 
-              <!-- Latest 5 Bids History Table -->
+              <!-- Latest 5 Floor Bids History Table -->
               <div class="detail-card mt-3">
                 <div class="bids-history-header">
                   <h4 class="card-sec-title">
-                    <i class="fa-solid fa-list-ol text-emerald"></i> Latest 5 Bids
+                    <i class="fa-solid fa-list-ol text-emerald"></i> Latest 5 Floor Bids
                   </h4>
-                  <span class="badge-count">{{ selectedAuction.bidsHistory ? Math.min(5, selectedAuction.bidsHistory.length) : 0 }} of {{ selectedAuction.bidsCount || 0 }} Bids</span>
+                  <span class="badge-count">{{ selectedAuction.bidsHistory ? Math.min(5, selectedAuction.bidsHistory.length) : (selectedAuction.bidsCount > 0 ? selectedAuction.bidsCount : 0) }} of {{ selectedAuction.bidsCount || 0 }} Bids</span>
                 </div>
 
                 <div class="bids-table-wrap">
@@ -1010,42 +1039,106 @@ interface AuctionItem {
       padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1.5rem;
     }
     .back-link {
-      background: none; border: none; font-size: 0.9rem; color: #475569;
-      cursor: pointer; display: flex; align-items: center; gap: 0.5rem;
+      background: none; border: none; font-size: 0.95rem; color: #475569;
+      cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-weight: 500;
     }
-    .close-x { background: none; border: none; font-size: 1.75rem; color: #64748b; cursor: pointer; }
-    .modal-grid-2col { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 2rem; }
+    .back-link:hover { color: #15803d; }
+    .crop-header-name { color: #166534; font-weight: 800; }
+    .header-right-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .lot-pill {
+      background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d;
+      font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 9999px;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .close-x-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid #e2e8f0;
+      background: #f8fafc; font-size: 1.3rem; color: #64748b; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; line-height: 1; transition: all 0.2s;
+    }
+    .close-x-btn:hover { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .modal-grid-2col { display: grid; grid-template-columns: 1.25fr 0.85fr; gap: 2rem; }
 
-    .main-modal-img {
-      width: 100%; height: 220px; object-fit: cover; border-radius: 0.75rem;
+    /* New Image Banner without thumbnails (matches Image 2 AFTER) */
+    .product-banner-new {
+      position: relative; border-radius: 0.85rem; overflow: hidden; height: 260px;
+      background: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .product-thumbs-strip {
-      display: flex; gap: 0.5rem; margin-top: 0.5rem;
+    .main-modal-img-new {
+      width: 100%; height: 100%; object-fit: cover; display: block;
     }
-    .product-thumbs-strip .thumb {
-      width: 60px; height: 50px; border-radius: 0.35rem; object-fit: cover;
-      border: 1.5px solid #cbd5e1; cursor: pointer;
+    .img-badge-overlay-tl {
+      position: absolute; top: 12px; left: 12px; background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(6px); color: #4ade80; padding: 5px 12px; border-radius: 9999px;
+      font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 0.45rem;
+      border: 1px solid rgba(255,255,255,0.15);
     }
-    .product-thumbs-strip .thumb.active { border-color: #15803d; }
-    .title-pills-row { display: flex; align-items: center; gap: 0.65rem; }
-    .title-pills-row h2 { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0; }
-    .specs-line { font-size: 0.8rem; color: #64748b; margin-top: 0.35rem; }
-    .dot-sep { margin: 0 0.35rem; }
+    .img-badge-overlay-tr {
+      position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(6px); color: #ffffff; padding: 5px 12px; border-radius: 9999px;
+      font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 0.45rem;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .img-badge-overlay-bl {
+      position: absolute; bottom: 12px; left: 12px; background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(6px); color: #ffffff; padding: 5px 12px; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .img-badge-overlay-br {
+      position: absolute; bottom: 12px; right: 12px; background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(6px); color: #ffffff; padding: 5px 12px; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.4rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .pulse-dot-green {
+      width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+      display: inline-block; box-shadow: 0 0 0 2px rgba(34,197,94,0.4);
+    }
 
-    .metrics-3box {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;
+    .product-header-new { margin-top: 1rem; }
+    .crop-main-title { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: lowercase; }
+    .pill-bidding-active {
+      background: #16a34a; color: white; padding: 4px 10px; border-radius: 4px;
+      font-size: 0.8rem; font-weight: 700; display: inline-block;
     }
-    .metrics-3box .box {
-      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem;
-      padding: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;
-    }
-    .metrics-3box .lbl { font-size: 0.68rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
-    .metrics-3box .val { font-size: 1.15rem; font-weight: 800; }
+    .specs-line-new { font-size: 0.82rem; color: #64748b; margin-top: 0.35rem; }
 
-    .bid-submission-box {
-      background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 0.75rem;
-      padding: 1.25rem;
+    /* 4-Box Metrics Grid (matches Image 2 AFTER) */
+    .metrics-4grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
     }
+    .metric-card {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.65rem;
+      padding: 0.75rem 0.85rem; display: flex; flex-direction: column; gap: 0.35rem;
+    }
+    .metric-card.highest-bid-card {
+      background: #ecfdf5; border-color: #a7f3d0;
+    }
+    .metric-card.time-left-card {
+      background: #fef2f2; border-color: #fecaca;
+    }
+    .m-card-header {
+      display: flex; align-items: center; gap: 0.35rem; font-size: 0.68rem;
+      font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.02em;
+    }
+    .m-card-lbl { font-size: 0.68rem; font-weight: 700; }
+    .m-card-val { font-size: 1.15rem; font-weight: 800; }
+
+    /* Bid Submission Box */
+    .bid-submission-box-new {
+      background: #ffffff; border: 1.5px solid #a7f3d0; border-radius: 0.75rem;
+      padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .bid-box-header-new {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;
+    }
+    .gavel-icon-circle {
+      width: 36px; height: 36px; border-radius: 50%; background: #dcfce7;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      color: #16a34a; flex-shrink: 0;
+    }
+    .bid-box-title-text { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin: 0; }
+    .bid-box-subtext { font-size: 0.78rem; color: #64748b; }
     .bid-box-title h4 { font-size: 1.05rem; font-weight: 800; color: #166534; margin: 0; }
     .bid-box-title .subtext { font-size: 0.75rem; color: #15803d; }
     .bid-inputs-row { display: grid; grid-template-columns: 1fr 1.3fr; gap: 1rem; align-items: center; }
@@ -1383,6 +1476,10 @@ export class BiddingComponent implements OnInit, OnDestroy {
           ? (this.user?.name || this.user?.fullName || this.user?.username || 'Verified Farmer')
           : (String(sa.farmerId) === '10' ? 'vnareshprasad2004' : 'Sardar Gurpreet Singh'));
 
+    const highestBidderId = (serverBids.length > 0 && serverBids[0].dealerId)
+      ? String(serverBids[0].dealerId)
+      : (sa.winningDealerId ? String(sa.winningDealerId) : (sa.highestBidderId ? String(sa.highestBidderId) : undefined));
+
     return {
       id: String(sa.id),
       cropName: sa.cropName || 'Fresh Harvest Crop',
@@ -1400,6 +1497,7 @@ export class BiddingComponent implements OnInit, OnDestroy {
       farmerRating: 4.8,
       farmerReviewsCount: 15,
       farmerId: String(sa.farmerId || '1'),
+      highestBidderId: highestBidderId,
       bidsCount: count,
       timeRemaining: '08 : 30 : 00',
       isEndingSoon: false,
@@ -1499,6 +1597,9 @@ export class BiddingComponent implements OnInit, OnDestroy {
         item.cropName,
         fullStockTotal
       ).subscribe();
+
+      // Release holds for all other dealers who placed bids on this lot
+      this.walletService.releaseAllBiddersForAuction(item.id, `Lot #${item.id} (${item.cropName}) awarded to highest bidder`, dealerUid);
 
       // 3. Register Order in OrderService as completed bidding lot
       const newOrder: any = {
@@ -1722,8 +1823,15 @@ export class BiddingComponent implements OnInit, OnDestroy {
     this.dealerReservedBalance = stored.reservedBalance;
     this.dealerTotalBalance = stored.balance;
 
-    const isSameBidderWinning = (this.selectedAuction.bidsHistory && this.selectedAuction.bidsHistory.length > 0 && String((this.selectedAuction.bidsHistory[0] as any).dealerId) === uid);
-    const previousHold = isSameBidderWinning ? Math.round((this.selectedAuction.currentBidKg || 0) * this.selectedAuction.totalQuantityKg) : 0;
+    const existingHoldInfo = this.walletService.getActiveHoldForAuction(uid, this.selectedAuction.id);
+    const isSameBidderWinning = (this.selectedAuction.highestBidderId && String(this.selectedAuction.highestBidderId) === uid) ||
+      (this.selectedAuction.bidsHistory && this.selectedAuction.bidsHistory.length > 0 && String((this.selectedAuction.bidsHistory[0] as any).dealerId) === uid) ||
+      existingHoldInfo.amount > 0;
+
+    const previousHold = existingHoldInfo.amount > 0
+      ? existingHoldInfo.amount
+      : (isSameBidderWinning ? Math.round((this.selectedAuction.currentBidKg || 0) * this.selectedAuction.totalQuantityKg) : 0);
+
     const netAdditionalRequired = Math.max(0, this.calculatedTotalAmount - previousHold);
 
     if (this.dealerWalletBalance < netAdditionalRequired) {
@@ -1731,20 +1839,14 @@ export class BiddingComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // 1. If another dealer was previously winning, release their reserved hold immediately
-    const prevWinningDealerId = (this.selectedAuction.bidsHistory && this.selectedAuction.bidsHistory.length > 0)
-      ? String((this.selectedAuction.bidsHistory[0] as any).dealerId || '')
-      : '';
-    if (prevWinningDealerId && prevWinningDealerId !== uid) {
-      const prevRef = 'BID-' + this.selectedAuction.id + '-' + prevWinningDealerId;
-      const prevHoldAmt = Math.round((this.selectedAuction.currentBidKg || 0) * this.selectedAuction.totalQuantityKg);
-      this.walletService.releaseFunds(prevWinningDealerId, prevRef, prevHoldAmt, `Outbid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName})`).subscribe();
-    }
+    // 1. If another dealer was previously winning, release all previous bidders on this auction
+    this.walletService.releaseAllBiddersForAuction(this.selectedAuction.id, `Outbid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName}) by higher offer`, uid);
 
     // 2. If this same dealer had a previous hold, release it before re-reserving the new full amount
     const refId = 'BID-' + this.selectedAuction.id + '-' + uid;
     if (previousHold > 0) {
-      this.walletService.releaseFunds(uid, refId, previousHold, `Adjusted previous hold for raised bid on Lot #${this.selectedAuction.id}`).subscribe();
+      const oldRef = existingHoldInfo.referenceId || refId;
+      this.walletService.releaseFunds(uid, oldRef, previousHold, `Released previous bid hold for raised bid on Lot #${this.selectedAuction.id} (${this.selectedAuction.cropName})`).subscribe();
     }
 
     // 3. Reserve the total lot amount from the bidder's wallet
@@ -1761,6 +1863,7 @@ export class BiddingComponent implements OnInit, OnDestroy {
 
     const bidder = this.user?.fullName || this.user?.username || 'Apex Agro Mills Ltd';
     this.selectedAuction.currentBidKg = this.userBidPrice;
+    this.selectedAuction.highestBidderId = uid;
     this.selectedAuction.bidsCount = (this.selectedAuction.bidsCount || 0) + 1;
     this.selectedAuction.bidsHistory.unshift({
       dealerId: uid,
@@ -1772,6 +1875,7 @@ export class BiddingComponent implements OnInit, OnDestroy {
     const found = this.auctions.find(a => a.id === this.selectedAuction!.id);
     if (found) {
       found.currentBidKg = this.userBidPrice;
+      found.highestBidderId = uid;
       found.bidsCount = (found.bidsCount || 0) + 1;
       found.bidsHistory.unshift({
         dealerId: uid,
