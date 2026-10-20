@@ -82,7 +82,7 @@ public class BiddingQueryService {
         }
 
         return new BiddingListingResponse(
-                l.getId(), l.getFarmerId(), l.getCropName(), l.getQuantity(),
+                l.getId(), l.getFarmerId(), l.getFarmerName(), l.getCropName(), l.getQuantity(),
                 l.getUnit(), l.getBasePrice(), l.getGuidelinePrice(), l.getLocation(),
                 l.getDescription(), l.getPhotoUrl(), l.getStatus(), highest,
                 l.getWinningDealerId(), l.getCreatedAt(), bids

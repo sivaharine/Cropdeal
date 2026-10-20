@@ -75,14 +75,6 @@ public class PriceAlertTriggeredEvent implements Serializable {
         this.matchedPrice = matchedPrice;
     }
 
-    public BigDecimal getCurrentPrice() {
-        return matchedPrice;
-    }
-
-    public void setCurrentPrice(BigDecimal currentPrice) {
-        this.matchedPrice = currentPrice;
-    }
-
     public String getPriceCondition() {
         return priceCondition;
     }

@@ -1,0 +1,8 @@
+.git
+.gitignore
+.metadata
+logs/
+cropdeal-ui/node_modules
+cropdeal-ui/.angular
+**/target/*.original
+*.log

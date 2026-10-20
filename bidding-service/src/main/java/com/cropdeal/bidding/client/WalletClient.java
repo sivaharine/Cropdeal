@@ -10,7 +10,11 @@ public interface WalletClient {
 
     record ReserveRequest(Long userId, String referenceId, BigDecimal amount) {}
     record ReleaseRequest(Long userId, String referenceId) {}
-    record ConsumeRequest(Long userId, String referenceId) {}
+    record ConsumeRequest(Long userId, String referenceId, Long payeeUserId, String cropName) {
+        public ConsumeRequest(Long userId, String referenceId) {
+            this(userId, referenceId, null, null);
+        }
+    }
 
     @PostMapping("/api/wallet/reserve")
     void reserveFunds(@RequestBody ReserveRequest request);

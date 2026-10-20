@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.3.13</version>
+		<relativePath/>
+	</parent>
+	<groupId>com.cropdeal</groupId>
+	<artifactId>cropdeal-parent</artifactId>
+	<version>1.0.0</version>
+	<packaging>pom</packaging>
+	<name>CropDeal Platform</name>
+	<description>CropDeal Spring Boot Microservices Platform</description>
+
+	<properties>
+		<java.version>17</java.version>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+		<maven.compiler.release>17</maven.compiler.release>
+		<spring-cloud.version>2023.0.6</spring-cloud.version>
+	</properties>
+
+	<modules>
+		<module>config-server</module>
+		<module>eureka-server</module>
+		<module>api-gateway</module>
+		<module>auth-service</module>
+		<module>user-sevice</module>
+		<module>crop-service</module>
+		<module>price-service</module>
+		<module>negotiation-service</module>
+		<module>bidding-service</module>
+		<module>wallet-service</module>
+		<module>order-service</module>
+		<module>payment-service</module>
+		<module>invoice-service</module>
+		<module>deliveryservice</module>
+		<module>notification-service</module>
+		<module>chatbot-service</module>
+		<module>price-alert-service</module>
+		<module>report-service</module>
+	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+</project>

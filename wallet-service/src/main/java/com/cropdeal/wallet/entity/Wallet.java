@@ -47,7 +47,9 @@ public class Wallet {
     }
 
     public BigDecimal getAvailableBalance() {
-        return balance.subtract(reservedBalance);
+        BigDecimal total = balance != null ? balance : BigDecimal.ZERO;
+        BigDecimal reserved = reservedBalance != null ? reservedBalance : BigDecimal.ZERO;
+        return total.subtract(reserved);
     }
 
     public Long getId() { return id; }

@@ -65,6 +65,24 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public WalletResponse reserveFunds(ReserveFundsRequest request) {
         Wallet wallet = getOrCreateWallet(request.userId());
+
+        List<WalletReservation> existingActives = reservationRepository
+                .findAllByUserIdAndReferenceIdAndStatus(request.userId(), request.referenceId(), ReservationStatus.ACTIVE);
+
+        if (!existingActives.isEmpty()) {
+            WalletReservation existingActive = existingActives.get(0);
+            BigDecimal diff = request.amount().subtract(existingActive.getAmount());
+            if (diff.compareTo(BigDecimal.ZERO) > 0 && wallet.getAvailableBalance().compareTo(diff) < 0) {
+                throw new InsufficientWalletBalanceException("Insufficient available balance to raise bid. Available: ₹"
+                        + wallet.getAvailableBalance() + ", Required: ₹" + diff);
+            }
+            wallet.setReservedBalance(wallet.getReservedBalance().add(diff));
+            existingActive.setAmount(request.amount());
+            reservationRepository.save(existingActive);
+            Wallet saved = walletRepository.save(wallet);
+            return toResponse(saved);
+        }
+
         if (wallet.getAvailableBalance().compareTo(request.amount()) < 0) {
             throw new InsufficientWalletBalanceException("Insufficient available balance to place bid. Available: ₹"
                     + wallet.getAvailableBalance() + ", Required: ₹" + request.amount());
@@ -90,19 +108,26 @@ public class WalletServiceImpl implements WalletService {
     @Override
     public WalletResponse releaseFunds(ReleaseFundsRequest request) {
         Wallet wallet = getOrCreateWallet(request.userId());
-        WalletReservation reservation = reservationRepository
-                .findByUserIdAndReferenceIdAndStatus(request.userId(), request.referenceId(), ReservationStatus.ACTIVE)
-                .orElse(null);
+        List<WalletReservation> reservations = reservationRepository
+                .findAllByUserIdAndReferenceIdAndStatus(request.userId(), request.referenceId(), ReservationStatus.ACTIVE);
 
-        if (reservation != null) {
-            reservation.setStatus(ReservationStatus.RELEASED);
-            reservationRepository.save(reservation);
+        if (!reservations.isEmpty()) {
+            BigDecimal totalReleased = BigDecimal.ZERO;
+            for (WalletReservation res : reservations) {
+                res.setStatus(ReservationStatus.RELEASED);
+                reservationRepository.save(res);
+                totalReleased = totalReleased.add(res.getAmount());
+            }
 
-            wallet.setReservedBalance(wallet.getReservedBalance().subtract(reservation.getAmount()));
+            BigDecimal newReserved = wallet.getReservedBalance().subtract(totalReleased);
+            if (newReserved.compareTo(BigDecimal.ZERO) < 0) {
+                newReserved = BigDecimal.ZERO;
+            }
+            wallet.setReservedBalance(newReserved);
             Wallet saved = walletRepository.save(wallet);
 
-            recordTransaction(wallet.getId(), request.userId(), reservation.getAmount(), TransactionType.RELEASE,
-                    request.referenceId(), "Released outbid funds for " + request.referenceId());
+            recordTransaction(wallet.getId(), request.userId(), totalReleased, TransactionType.RELEASE,
+                    request.referenceId(), "Released reserved funds for " + request.referenceId());
             return toResponse(saved);
         }
         return toResponse(wallet);
@@ -118,12 +143,34 @@ public class WalletServiceImpl implements WalletService {
         reservation.setStatus(ReservationStatus.CONSUMED);
         reservationRepository.save(reservation);
 
-        wallet.setReservedBalance(wallet.getReservedBalance().subtract(reservation.getAmount()));
+        BigDecimal newReserved = wallet.getReservedBalance().subtract(reservation.getAmount());
+        if (newReserved.compareTo(BigDecimal.ZERO) < 0) {
+            newReserved = BigDecimal.ZERO;
+        }
+        wallet.setReservedBalance(newReserved);
         wallet.setBalance(wallet.getBalance().subtract(reservation.getAmount()));
         Wallet saved = walletRepository.save(wallet);
 
+        String paymentDesc = request.cropName() != null
+                ? "Payment settled to farmer for won bid " + request.cropName() + " (" + request.referenceId() + ")"
+                : "Payment consumed for won bid " + request.referenceId();
+
         recordTransaction(wallet.getId(), request.userId(), reservation.getAmount(), TransactionType.PAYMENT,
-                request.referenceId(), "Payment consumed for won bid " + request.referenceId());
+                request.referenceId(), paymentDesc);
+
+        // Send reserved amount to farmer's wallet
+        if (request.payeeUserId() != null) {
+            Wallet farmerWallet = getOrCreateWallet(request.payeeUserId());
+            farmerWallet.setBalance(farmerWallet.getBalance().add(reservation.getAmount()));
+            walletRepository.save(farmerWallet);
+
+            String farmerDesc = request.cropName() != null
+                    ? "Bidding proceeds received for " + request.cropName() + " (" + request.referenceId() + ")"
+                    : "Bidding proceeds received for won bid " + request.referenceId();
+
+            recordTransaction(farmerWallet.getId(), request.payeeUserId(), reservation.getAmount(), TransactionType.CREDIT,
+                    request.referenceId(), farmerDesc);
+        }
 
         return toResponse(saved);
     }

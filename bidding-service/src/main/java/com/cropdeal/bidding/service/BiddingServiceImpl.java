@@ -50,6 +50,11 @@ public class BiddingServiceImpl implements BiddingService {
     }
 
     @Override
+    public String uploadImage(MultipartFile file) {
+        return commandService.uploadImage(file);
+    }
+
+    @Override
     public void deleteListing(Long listingId) {
         commandService.deleteListing(listingId);
     }

@@ -213,11 +213,49 @@ interface MandiPriceBenchmark {
             </div>
 
             <div class="form-group">
-              <label class="form-label">Crop Image (URL)</label>
-              <input type="url" [(ngModel)]="crop.imageUrl" name="imageUrl" placeholder="Enter Image URL (e.g. https://...)" class="form-control" />
-              <div *ngIf="crop.imageUrl" class="d-flex align-center gap-2 mt-1">
-                <img [src]="crop.imageUrl" alt="Crop preview" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1.5px solid #86efac;" />
-                <span class="text-xs text-muted">Preview ready for listing</span>
+              <label class="form-label">
+                <i class="fa-solid fa-cloud-arrow-up text-emerald"></i> Produce Image (Upload from Device / Cloudinary)
+              </label>
+              <div class="image-upload-wrapper">
+                <input
+                  type="file"
+                  id="cropFileInput"
+                  (change)="onFileSelected($event)"
+                  accept="image/*"
+                  class="d-none" />
+                <label for="cropFileInput" class="btn-file-select" [class.uploading]="isUploadingImage">
+                  <i class="fa-solid fa-cloud-arrow-up" *ngIf="!isUploadingImage"></i>
+                  <i class="fa-solid fa-spinner fa-spin text-emerald" *ngIf="isUploadingImage"></i>
+                  <span>{{ isUploadingImage ? 'Uploading to Cloudinary...' : (selectedFile ? 'Change Image (' + selectedFile.name + ')' : 'Choose Image from Machine') }}</span>
+                </label>
+
+                <!-- Cloudinary Preview Card -->
+                <div *ngIf="crop.imageUrl || selectedImagePreview" class="image-preview-card mt-2">
+                  <img
+                    [src]="crop.imageUrl || selectedImagePreview"
+                    alt="Produce preview"
+                    class="produce-preview-thumb"
+                    (error)="onPreviewError($event)" />
+                  <div class="preview-info">
+                    <span class="preview-title">{{ selectedFile ? selectedFile.name : (crop.cropName || 'Crop Produce') }}</span>
+                    <span class="badge-cloud" *ngIf="cloudinaryUploadedUrl || (crop.imageUrl && crop.imageUrl.includes('cloudinary'))">
+                      <i class="fa-solid fa-cloud-bolt text-emerald"></i> Hosted on Cloudinary
+                    </span>
+                    <span class="badge-ready" *ngIf="!cloudinaryUploadedUrl && (!crop.imageUrl || !crop.imageUrl.includes('cloudinary'))">
+                      <i class="fa-solid fa-image text-primary"></i> Ready for Upload
+                    </span>
+                  </div>
+                </div>
+
+                <!-- URL text input option -->
+                <div class="mt-2">
+                  <input
+                    type="url"
+                    [(ngModel)]="crop.imageUrl"
+                    name="imageUrl"
+                    placeholder="Or paste Cloud/Web Image URL (optional)"
+                    class="form-control form-control-sm text-xs" />
+                </div>
               </div>
             </div>
           </div>
@@ -459,6 +497,88 @@ interface MandiPriceBenchmark {
     .alert-success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
     .alert-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
     .mt-4 { margin-top: 1rem; }
+
+    /* Cloudinary Image Upload Styling */
+    .image-upload-wrapper { margin-top: 0.25rem; }
+    .btn-file-select {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 1.1rem;
+      background: #f0fdf4;
+      border: 1.5px dashed #16a34a;
+      border-radius: 0.5rem;
+      color: #15803d;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      justify-content: center;
+    }
+    .btn-file-select:hover {
+      background: #dcfce7;
+      border-color: #15803d;
+    }
+    .btn-file-select.uploading {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      cursor: wait;
+    }
+    .image-preview-card {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.6rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+    }
+    .produce-preview-thumb {
+      width: 58px;
+      height: 58px;
+      object-fit: cover;
+      border-radius: 0.4rem;
+      border: 1px solid #cbd5e1;
+    }
+    .preview-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      overflow: hidden;
+    }
+    .preview-title {
+      font-weight: 600;
+      font-size: 0.825rem;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .badge-cloud {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.725rem;
+      color: #15803d;
+      background: #dcfce7;
+      padding: 0.15rem 0.45rem;
+      border-radius: 0.3rem;
+      font-weight: 600;
+      width: fit-content;
+    }
+    .badge-ready {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.725rem;
+      color: #2563eb;
+      background: #dbeafe;
+      padding: 0.15rem 0.45rem;
+      border-radius: 0.3rem;
+      font-weight: 600;
+      width: fit-content;
+    }
   `]
 })
 export class CropAddComponent implements OnInit {
@@ -477,6 +597,12 @@ export class CropAddComponent implements OnInit {
   submitting = false;
   successMessage = '';
   errorMessage = '';
+
+  // Cloudinary image upload state
+  selectedFile: File | null = null;
+  selectedImagePreview: string | null = null;
+  isUploadingImage = false;
+  cloudinaryUploadedUrl: string | null = null;
 
   // Government Mandhi Prices
   matchedGovPrice: MandiPriceBenchmark | null = null;
@@ -656,6 +782,43 @@ export class CropAddComponent implements OnInit {
     return 'Grains';
   }
 
+  onFileSelected(event: any): void {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+
+    this.selectedFile = file;
+
+    // Show immediate local preview
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      this.selectedImagePreview = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Upload directly to Cloudinary via backend microservice
+    this.isUploadingImage = true;
+    this.cropService.uploadCropImage(file).subscribe({
+      next: (res: any) => {
+        this.isUploadingImage = false;
+        const uploadedUrl = res.imageUrl || res.url;
+        if (uploadedUrl) {
+          this.cloudinaryUploadedUrl = uploadedUrl;
+          this.crop.imageUrl = uploadedUrl;
+        }
+      },
+      error: (err) => {
+        console.warn('Cloudinary upload warning:', err);
+        this.isUploadingImage = false;
+      }
+    });
+  }
+
+  onPreviewError(event: any): void {
+    if (this.crop.cropName) {
+      event.target.src = resolveCropImage(this.crop.cropName);
+    }
+  }
+
   onSubmit(): void {
     if (!this.crop.cropName || !this.crop.pricePerUnit || !this.crop.quantity) {
       this.errorMessage = 'Please complete all required fields.';
@@ -670,7 +833,8 @@ export class CropAddComponent implements OnInit {
 
     this.submitting = true;
     this.errorMessage = '';
-    this.saveCrop(this.crop.imageUrl || resolveCropImage(this.crop.cropName));
+    const finalImage = this.crop.imageUrl || this.cloudinaryUploadedUrl || resolveCropImage(this.crop.cropName);
+    this.saveCrop(finalImage);
   }
 
   private saveCrop(finalImageUrl: string): void {
