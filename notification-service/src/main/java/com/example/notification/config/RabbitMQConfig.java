@@ -17,6 +17,13 @@ public class RabbitMQConfig {
     public static final String QUEUE = "cropdeal.notification.queue";
     public static final String ROUTING_KEY = "notification";
 
+    public static final String NEGOTIATION_ACCEPTED_ROUTING_KEY = "notification.negotiation.accepted";
+    public static final String PAYMENT_COMPLETED_ROUTING_KEY = "notification.payment.completed";
+    public static final String DELIVERY_ACCEPTED_ROUTING_KEY = "notification.delivery.accepted";
+    public static final String DELIVERY_COMPLETED_ROUTING_KEY = "notification.delivery.completed";
+    public static final String BIDDING_QUEUE = "cropdeal.bidding.queue";
+    public static final String BIDDING_ROUTING_KEY = "notification.bidding.#";
+
     public static final String PRICE_ALERT_QUEUE = "cropdeal.price-alert.queue";
     public static final String PRICE_ALERT_ROUTING_KEY = "price.#";
 
@@ -53,6 +60,21 @@ public class RabbitMQConfig {
                 .bind(priceAlertQueue)
                 .to(notificationExchange)
                 .with(PRICE_ALERT_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue biddingQueue() {
+        return new Queue(BIDDING_QUEUE, true);
+    }
+
+    @Bean
+    public Binding biddingBinding(
+            Queue biddingQueue,
+            TopicExchange notificationExchange) {
+        return BindingBuilder
+                .bind(biddingQueue)
+                .to(notificationExchange)
+                .with(BIDDING_ROUTING_KEY);
     }
 
     @Bean

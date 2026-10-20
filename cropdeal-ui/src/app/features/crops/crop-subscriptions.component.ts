@@ -34,16 +34,12 @@ import { User } from '../../core/models/user.model';
         <span>{{ statusMsg }}</span>
       </div>
 
-      <!-- Quick Commodity Subscription Chips (Strictly from Active UI Crops) -->
+      <!-- Quick Commodity Subscription Chips -->
       <div class="card p-4 text-center">
-        <h4 class="card-subtitle-bold"><i class="fa-solid fa-bolt text-amber"></i> Quick Subscribe to Available Marketplace Crops</h4>
-        <p class="card-desc">Showing only crops currently active in the marketplace UI. Click any crop chip below to toggle your subscription.</p>
+        <h4 class="card-subtitle-bold"><i class="fa-solid fa-bolt text-amber"></i> Quick Subscribe to High-Demand Commodities</h4>
+        <p class="card-desc">Click any commodity chip below to instantly toggle your active subscription.</p>
         
-        <div *ngIf="popularCommodities.length === 0" class="py-3 text-muted">
-          <small>No active crops currently listed in the marketplace UI.</small>
-        </div>
-
-        <div class="commodity-chips-grid mt-3" *ngIf="popularCommodities.length > 0">
+        <div class="commodity-chips-grid mt-3">
           <button
             *ngFor="let com of popularCommodities"
             class="commodity-chip"
@@ -51,7 +47,7 @@ import { User } from '../../core/models/user.model';
             (click)="toggleQuickSubscription(com)">
             <i class="fa-solid" [class.fa-check]="isSubscribed(com.name)" [class.fa-plus]="!isSubscribed(com.name)"></i>
             <span>{{ com.name }}</span>
-            <small class="chip-cat">({{ com.category }} • ₹{{ com.priceKg }}/Kg)</small>
+            <small class="chip-cat">({{ com.category }})</small>
           </button>
         </div>
       </div>
@@ -64,18 +60,18 @@ import { User } from '../../core/models/user.model';
             <div class="card-header-clean">
               <div>
                 <h3 class="section-title"><i class="fa-solid fa-tags text-primary-600"></i> My Active Subscriptions</h3>
-                <span class="subtext">{{ visibleSubscriptions.length }} active UI commodities monitored</span>
+                <span class="subtext">{{ subscriptions.length }} commodities monitored</span>
               </div>
             </div>
 
-            <div *ngIf="visibleSubscriptions.length === 0" class="empty-state py-4">
+            <div *ngIf="subscriptions.length === 0" class="empty-state py-4">
               <i class="fa-regular fa-bookmark"></i>
-              <p>No active subscriptions for current marketplace crops</p>
-              <small class="text-muted">Click the available crop chips above or add a subscription for crops listed in the UI!</small>
+              <p>No active subscriptions yet</p>
+              <small class="text-muted">Click the quick chips above to subscribe to crops!</small>
             </div>
 
             <div class="subscriptions-list mt-3">
-              <div *ngFor="let sub of visibleSubscriptions" class="sub-item-card">
+              <div *ngFor="let sub of subscriptions" class="sub-item-card">
                 <div class="sub-item-header">
                   <span class="sub-com-name">{{ sub.commodity }}</span>
                   <button class="btn-icon-danger" (click)="removeSubscription(sub.id)" title="Unsubscribe">
@@ -85,8 +81,7 @@ import { User } from '../../core/models/user.model';
                 <div class="sub-meta-row">
                   <span class="badge badge-subtle">{{ sub.category || 'Commodity' }}</span>
                   <span *ngIf="sub.preferredState" class="meta-tag"><i class="fa-solid fa-location-dot"></i> {{ sub.preferredState }}</span>
-                  <span *ngIf="getSubQuantityKg(sub)" class="meta-tag"><i class="fa-solid fa-scale-balanced"></i> {{ getSubQuantityKg(sub) }} Kg</span>
-                  <span *ngIf="sub.maxBudgetPerUnit" class="meta-tag"><i class="fa-solid fa-indian-rupee-sign"></i> Max ₹{{ formatBudgetKg(sub.maxBudgetPerUnit) }}/Kg</span>
+                  <span *ngIf="sub.maxBudgetPerUnit" class="meta-tag"><i class="fa-solid fa-indian-rupee-sign"></i> Max ₹{{ sub.maxBudgetPerUnit }}/Qtl</span>
                 </div>
                 <div class="notif-indicator mt-2">
                   <i class="fa-solid fa-bell text-emerald"></i>
@@ -103,7 +98,7 @@ import { User } from '../../core/models/user.model';
             <div class="card-header-clean">
               <div>
                 <h3 class="section-title"><i class="fa-solid fa-wheat-awn text-emerald"></i> Subscribed Crops Live Feed</h3>
-                <span class="subtext">Active marketplace harvests matching your subscribed commodities</span>
+                <span class="subtext">Newly listed farmer harvests matching your subscribed commodities</span>
               </div>
               <button class="btn btn-secondary btn-sm" (click)="loadMatchingCrops()" title="Refresh Feed">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
@@ -112,8 +107,8 @@ import { User } from '../../core/models/user.model';
 
             <div *ngIf="matchingCrops.length === 0" class="empty-state py-5">
               <i class="fa-solid fa-box-open"></i>
-              <p>No matching active UI crop listings found for your subscriptions</p>
-              <small class="text-muted">Only crops currently active in the marketplace UI appear here. Subscribe to an available crop above to view live matches.</small>
+              <p>No matching farmer listings found for your current subscriptions</p>
+              <small class="text-muted">When a farmer lists a crop you've subscribed to, it will appear here automatically and trigger an in-app alert.</small>
             </div>
 
             <div class="crops-feed-list mt-3" *ngIf="matchingCrops.length > 0">
@@ -126,14 +121,14 @@ import { User } from '../../core/models/user.model';
                   </div>
                   <div class="crop-price-box">
                     <span class="price-val text-emerald">₹{{ crop.pricePerUnit }}</span>
-                    <small class="price-unit">/ Kg</small>
+                    <small class="price-unit">/ {{ crop.unit || 'Kg' }}</small>
                   </div>
                 </div>
 
                 <div class="crop-feed-details mt-2">
                   <div class="feed-detail-item">
                     <span class="lbl">Available Quantity:</span>
-                    <strong>{{ crop.quantity }} Kg</strong>
+                    <strong>{{ crop.quantity }} {{ crop.unit || 'Kg' }}</strong>
                   </div>
                   <div class="feed-detail-item">
                     <span class="lbl">Farm / Mandi Location:</span>
@@ -159,26 +154,23 @@ import { User } from '../../core/models/user.model';
         </div>
       </div>
 
-      <!-- Add Custom Subscription Modal (Details in Kg) -->
+      <!-- Add Custom Subscription Modal -->
       <div *ngIf="showAddModal" class="modal-overlay">
         <div class="modal-content shadow-xl">
           <div class="modal-header">
-            <h3><i class="fa-solid fa-bookmark text-emerald"></i> Add Commodity Subscription (in Kg)</h3>
+            <h3><i class="fa-solid fa-bookmark text-emerald"></i> Add Commodity Subscription</h3>
             <button class="close-btn" (click)="showAddModal = false">&times;</button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label class="form-label">Select Marketplace Crop / Commodity *</label>
-              <select
+              <label class="form-label">Crop / Commodity Name *</label>
+              <input
+                type="text"
                 [(ngModel)]="newSub.commodity"
-                (ngModelChange)="onCommoditySelect($event)"
+                placeholder="e.g. Sharbati Wheat, Mustard, Soybean"
                 class="form-control"
-                required>
-                <option value="" disabled>-- Select an Active Crop from Marketplace UI --</option>
-                <option *ngFor="let com of popularCommodities" [value]="com.name">
-                  {{ com.name }} ({{ com.category }} • ₹{{ com.priceKg }}/Kg available)
-                </option>
-              </select>
+                required
+              />
             </div>
 
             <div class="form-group mt-3">
@@ -195,42 +187,30 @@ import { User } from '../../core/models/user.model';
 
             <div class="grid grid-cols-2 gap-3 mt-3">
               <div class="form-group">
-                <label class="form-label">Required Quantity (in Kg) *</label>
+                <label class="form-label">Preferred State (Optional)</label>
                 <input
-                  type="number"
-                  [(ngModel)]="newSubQuantityKg"
-                  min="1"
-                  placeholder="e.g. 500 Kg"
+                  type="text"
+                  [(ngModel)]="newSub.preferredState"
+                  placeholder="e.g. Punjab, Haryana, MP"
                   class="form-control"
                 />
               </div>
 
               <div class="form-group">
-                <label class="form-label">Max Target Price (₹/Kg) *</label>
+                <label class="form-label">Max Target Price (₹/Qtl)</label>
                 <input
                   type="number"
                   [(ngModel)]="newSub.maxBudgetPerUnit"
-                  min="1"
-                  placeholder="e.g. 25"
+                  placeholder="e.g. 2600"
                   class="form-control"
                 />
               </div>
             </div>
 
-            <div class="form-group mt-3">
-              <label class="form-label">Preferred State / Location (Optional)</label>
-              <input
-                type="text"
-                [(ngModel)]="newSub.preferredState"
-                placeholder="e.g. Punjab, Haryana, MP"
-                class="form-control"
-              />
-            </div>
-
             <div class="form-check mt-4">
               <input type="checkbox" [(ngModel)]="newSub.notifyInApp" id="notifCheck" class="form-check-input" />
               <label for="notifCheck" class="form-check-label">
-                <strong>Enable instant in-app notification</strong> when any farmer lists this crop in Kg
+                <strong>Enable instant in-app notification</strong> when any farmer lists this crop
               </label>
             </div>
           </div>
@@ -402,19 +382,30 @@ import { User } from '../../core/models/user.model';
 export class CropSubscriptionsComponent implements OnInit {
   user: User | null = null;
   subscriptions: CropSubscription[] = [];
-  uiCrops: Crop[] = [];
   matchingCrops: Crop[] = [];
   statusMsg = '';
   showAddModal = false;
-  newSubQuantityKg = 500;
 
-  popularCommodities: { name: string; category: string; priceKg: number }[] = [];
+  popularCommodities = [
+    { name: 'Wheat', category: 'Grains' },
+    { name: 'Basmati Rice', category: 'Grains' },
+    { name: 'Cotton', category: 'Fibre' },
+    { name: 'Soybean', category: 'Oilseeds' },
+    { name: 'Mustard', category: 'Oilseeds' },
+    { name: 'Maize', category: 'Grains' },
+    { name: 'Chickpeas', category: 'Pulses' },
+    { name: 'Tomato', category: 'Vegetables' },
+    { name: 'Potato', category: 'Vegetables' },
+    { name: 'Onion', category: 'Vegetables' },
+    { name: 'Groundnut', category: 'Oilseeds' },
+    { name: 'Turmeric', category: 'Spices' }
+  ];
 
   newSub: Partial<CropSubscription> = {
     commodity: '',
     category: 'Grains',
     preferredState: '',
-    maxBudgetPerUnit: 25,
+    maxBudgetPerUnit: 2500,
     notifyInApp: true
   };
 
@@ -425,84 +416,15 @@ export class CropSubscriptionsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Clear any stale cached crops that are no longer in the UI
-    try {
-      localStorage.removeItem('cropdeal_recent_crops');
-    } catch {}
-
     this.authService.currentUser$.subscribe((u: User | null) => {
       this.user = u;
       const dealerId = this.getDealerId();
       this.loadSubscriptions(dealerId);
     });
-
-    this.cropService.crops$.subscribe((crops) => {
-      this.syncUiCrops(crops || []);
-    });
   }
 
   private getDealerId(): string {
     return this.user?.id || this.user?.userId || 'dealer-default';
-  }
-
-  private syncUiCrops(crops: Crop[]): void {
-    const active = (crops || []).filter(c =>
-      c &&
-      c.cropName &&
-      c.status !== 'DELETED' &&
-      c.status !== 'SOLD' &&
-      Number(c.quantity ?? c.availableQuantity ?? 0) > 0
-    );
-    this.uiCrops = active;
-
-    // Build unique commodity chips strictly from active UI crops
-    const seen = new Set<string>();
-    const list: { name: string; category: string; priceKg: number }[] = [];
-    active.forEach(c => {
-      const key = (c.cropName || '').trim().toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        list.push({
-          name: c.cropName.trim(),
-          category: c.cropType || 'Grains',
-          priceKg: Number(c.pricePerUnit || 25)
-        });
-      }
-    });
-    this.popularCommodities = list;
-
-    const dealerId = this.getDealerId();
-    this.subscriptionService.getMatchingCropsForDealer(dealerId, this.uiCrops).subscribe(matched => {
-      this.matchingCrops = matched;
-    });
-  }
-
-  get visibleSubscriptions(): CropSubscription[] {
-    if (!this.uiCrops || this.uiCrops.length === 0) return [];
-    return (this.subscriptions || []).filter(sub => {
-      const subName = (sub.commodity || '').toLowerCase().trim();
-      return this.uiCrops.some(c => {
-        const cropName = (c.cropName || '').toLowerCase().trim();
-        return subName && cropName && (cropName.includes(subName) || subName.includes(cropName));
-      });
-    });
-  }
-
-  formatBudgetKg(val?: number): number {
-    if (!val) return 25;
-    return val > 500 ? Math.round(val / 100) : val;
-  }
-
-  getSubQuantityKg(sub: CropSubscription): number {
-    return (sub as any).minQuantityKg || 500;
-  }
-
-  onCommoditySelect(commodityName: string): void {
-    const found = this.popularCommodities.find(c => c.name.toLowerCase() === (commodityName || '').toLowerCase());
-    if (found) {
-      this.newSub.category = found.category;
-      this.newSub.maxBudgetPerUnit = found.priceKg;
-    }
   }
 
   loadSubscriptions(dealerId: string): void {
@@ -513,27 +435,25 @@ export class CropSubscriptionsComponent implements OnInit {
   }
 
   isSubscribed(commodity: string): boolean {
-    return this.visibleSubscriptions.some(s => s.commodity.toLowerCase() === commodity.toLowerCase());
+    return this.subscriptions.some(s => s.commodity.toLowerCase() === commodity.toLowerCase());
   }
 
-  toggleQuickSubscription(com: { name: string; category: string; priceKg?: number }): void {
+  toggleQuickSubscription(com: { name: string, category: string }): void {
     const dealerId = this.getDealerId();
     const existing = this.subscriptions.find(s => s.commodity.toLowerCase() === com.name.toLowerCase());
     if (existing) {
       this.removeSubscription(existing.id);
     } else {
-      const sub: any = {
+      const sub: CropSubscription = {
         id: 'sub-' + Date.now(),
         dealerId: dealerId,
         commodity: com.name,
         category: com.category,
-        maxBudgetPerUnit: com.priceKg || 25,
-        minQuantityKg: 500,
         notifyInApp: true,
         createdAt: new Date().toISOString()
       };
       this.subscriptionService.subscribe(sub).subscribe(() => {
-        this.statusMsg = `Subscribed to ${com.name} (₹${sub.maxBudgetPerUnit}/Kg)! You will receive in-app notifications for matching harvests.`;
+        this.statusMsg = `Subscribed to ${com.name}! You will receive in-app notifications whenever farmers post this harvest.`;
         this.loadSubscriptions(dealerId);
         setTimeout(() => this.statusMsg = '', 4000);
       });
@@ -550,24 +470,27 @@ export class CropSubscriptionsComponent implements OnInit {
   }
 
   loadMatchingCrops(): void {
+    const dealerId = this.getDealerId();
     this.cropService.getAllCrops().subscribe({
       next: (crops) => {
-        this.syncUiCrops(crops || []);
+        this.subscriptionService.getMatchingCropsForDealer(dealerId, crops || []).subscribe(matched => {
+          this.matchingCrops = matched;
+        });
       },
       error: () => {
-        this.syncUiCrops([]);
+        this.subscriptionService.getMatchingCropsForDealer(dealerId, []).subscribe(matched => {
+          this.matchingCrops = matched;
+        });
       }
     });
   }
 
   openAddModal(): void {
-    const firstCrop = this.popularCommodities.length > 0 ? this.popularCommodities[0] : null;
-    this.newSubQuantityKg = 500;
     this.newSub = {
-      commodity: firstCrop ? firstCrop.name : '',
-      category: firstCrop ? firstCrop.category : 'Grains',
+      commodity: '',
+      category: 'Grains',
       preferredState: '',
-      maxBudgetPerUnit: firstCrop ? firstCrop.priceKg : 25,
+      maxBudgetPerUnit: 2500,
       notifyInApp: true
     };
     this.showAddModal = true;
@@ -575,24 +498,23 @@ export class CropSubscriptionsComponent implements OnInit {
 
   saveSubscription(): void {
     if (!this.newSub.commodity) {
-      alert('Please select an active marketplace crop.');
+      alert('Please enter a commodity name.');
       return;
     }
     const dealerId = this.getDealerId();
-    const sub: any = {
+    const sub: CropSubscription = {
       id: 'sub-' + Date.now(),
       dealerId: dealerId,
       commodity: this.newSub.commodity,
       category: this.newSub.category || 'Grains',
       preferredState: this.newSub.preferredState,
-      maxBudgetPerUnit: Number(this.newSub.maxBudgetPerUnit || 25),
-      minQuantityKg: Number(this.newSubQuantityKg || 500),
+      maxBudgetPerUnit: this.newSub.maxBudgetPerUnit,
       notifyInApp: this.newSub.notifyInApp ?? true,
       createdAt: new Date().toISOString()
     };
     this.subscriptionService.subscribe(sub).subscribe(() => {
       this.showAddModal = false;
-      this.statusMsg = `Successfully subscribed to ${sub.commodity} (${sub.minQuantityKg} Kg @ Max ₹${sub.maxBudgetPerUnit}/Kg)!`;
+      this.statusMsg = `Successfully subscribed to ${sub.commodity}!`;
       this.loadSubscriptions(dealerId);
       setTimeout(() => this.statusMsg = '', 4000);
     });

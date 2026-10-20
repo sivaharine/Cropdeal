@@ -37,7 +37,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Verified Farmer</strong>
-              <span class="sub">Member since {{ memberSince }}</span>
+              <span class="sub">Active Producer</span>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Verified Dealer</strong>
-              <span class="sub">Member since {{ memberSince }}</span>
+              <span class="sub">CropDeal Commercial Member</span>
             </div>
           </div>
         </div>
@@ -301,7 +301,7 @@ import { User } from '../../core/models/user.model';
             </div>
             <div class="verified-text">
               <strong class="title">Delivery Partner</strong>
-              <span class="sub">Member since {{ memberSince }}</span>
+              <span class="sub">Verified Logistics Agent</span>
             </div>
           </div>
         </div>
@@ -409,7 +409,7 @@ import { User } from '../../core/models/user.model';
           <div class="banner-badge-card shadow-md">
             <div class="date-range-pill">
               <i class="fa-regular fa-calendar-check"></i>
-              <span>Member since {{ memberSince }}</span>
+              <span>Active System Period</span>
             </div>
           </div>
         </div>
@@ -797,7 +797,6 @@ import { User } from '../../core/models/user.model';
 export class DashboardComponent implements OnInit {
   user: User | null = null;
   walletBalance = 0;
-  memberSince = 'Oct 2026';
 
   // Farmer Counts
   totalCropsCount = 0;
@@ -835,36 +834,18 @@ export class DashboardComponent implements OnInit {
     private deliveryService: DeliveryService
   ) {}
 
-  private formatMemberSince(createdAt?: string): string {
-    if (createdAt) {
-      const d = new Date(createdAt);
-      if (!isNaN(d.getTime()) && d.getFullYear() >= 2026) {
-        return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      }
-    }
-    return 'Oct 2026';
-  }
-
   ngOnInit(): void {
     this.authService.currentUser$.subscribe((u: User | null) => {
       this.user = u;
-      this.memberSince = this.formatMemberSince(u?.createdAt);
       if (u && (u.id || u.userId)) {
         const uid = String(u.id || u.userId!);
-        const stored = this.walletService.getStoredWallet(uid);
-        this.walletBalance = stored.availableBalance;
         this.walletService.getWallet(uid).subscribe({
           next: (w) => {
-            if (w) {
-              this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
+            if (w && typeof w.balance === 'number') {
+              this.walletBalance = w.balance;
             }
           },
           error: () => {}
-        });
-        this.walletService.wallet$.subscribe(w => {
-          if (w) {
-            this.walletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
-          }
         });
 
         // 1. Farmer Dynamic Metrics

@@ -129,6 +129,11 @@ import { User } from '../../core/models/user.model';
               </div>
             </div>
 
+            <!-- APMC Benchmark tag -->
+            <div class="apmc-tag" *ngIf="crop.govMspPrice">
+              <i class="fa-solid fa-chart-line text-emerald"></i>
+              <span>Local APMC Benchmark: ₹{{ crop.govMspPrice }}/{{ crop.unit }}</span>
+            </div>
 
             <p class="crop-desc" *ngIf="crop.description">{{ crop.description }}</p>
 
@@ -576,11 +581,8 @@ import { User } from '../../core/models/user.model';
                 <div class="wallet-balance-box">
                   <div class="d-flex justify-between align-center">
                     <div>
-                      <span class="stat-lbl">CropDeal Available (Unreserved) Balance</span>
+                      <span class="stat-lbl">CropDeal Escrow Balance</span>
                       <h3 class="text-emerald m-0">₹{{ currentWalletBalance | number:'1.2-2' }}</h3>
-                      <div *ngIf="currentReservedBalance > 0" class="text-xs text-muted mt-1">
-                        <span><i class="fa-solid fa-lock text-amber"></i> ₹{{ currentReservedBalance | number:'1.0-0' }} locked in active bids (Total: ₹{{ currentTotalBalance | number:'1.0-0' }})</span>
-                      </div>
                     </div>
                     <span class="badge" [ngClass]="currentWalletBalance >= totalPayable ? 'badge-success' : 'badge-danger'">
                       <i class="fa-solid" [ngClass]="currentWalletBalance >= totalPayable ? 'fa-check' : 'fa-triangle-exclamation'"></i>
@@ -589,9 +591,9 @@ import { User } from '../../core/models/user.model';
                   </div>
                   <div *ngIf="currentWalletBalance < totalPayable" class="alert alert-error mt-2">
                     <i class="fa-solid fa-triangle-exclamation me-1"></i>
-                    <span>Short by ₹{{ (totalPayable - currentWalletBalance) | number:'1.2-2' }}. Insufficient unreserved funds! (Funds locked in active bids cannot be used for direct crop purchases).</span>
+                    <span>Short by ₹{{ (totalPayable - currentWalletBalance) | number:'1.2-2' }}. Insufficient funds in wallet! Order cannot be placed.</span>
                   </div>
-                  <p class="text-xs text-muted mt-2">Instant debited from your unreserved escrow funds with zero payment processing fees.</p>
+                  <p class="text-xs text-muted mt-2">Instant debited from your dealer escrow balance with zero payment processing fees.</p>
                 </div>
               </div>
 
@@ -1573,8 +1575,6 @@ export class CropListComponent implements OnInit {
 
   isMyCropsOnly = false;
   currentWalletBalance = 0;
-  currentReservedBalance = 0;
-  currentTotalBalance = 0;
 
   constructor(
     private cropService: CropService,
@@ -1601,29 +1601,11 @@ export class CropListComponent implements OnInit {
       this.user = u;
       if (u) {
         const uid = String(u.id || u.userId || 'dealer-1');
-        const st = this.walletService.getStoredWallet(uid);
-        this.currentWalletBalance = st.availableBalance;
-        this.currentReservedBalance = st.reservedBalance;
-        this.currentTotalBalance = st.balance;
-        this.walletService.getWallet(uid).subscribe(w => {
-          if (w) {
-            this.currentWalletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
-            this.currentReservedBalance = w.reservedBalance || 0;
-            this.currentTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
-          }
-        });
-      } else {
-        this.currentWalletBalance = 0;
-        this.currentReservedBalance = 0;
-        this.currentTotalBalance = 0;
+        this.currentWalletBalance = this.walletService.getStoredBalance(uid);
       }
     });
-    this.walletService.wallet$.subscribe(w => {
-      if (w) {
-        this.currentWalletBalance = w.availableBalance != null ? w.availableBalance : (w.balance - (w.reservedBalance || 0));
-        this.currentReservedBalance = w.reservedBalance || 0;
-        this.currentTotalBalance = w.totalBalance != null ? w.totalBalance : w.balance;
-      }
+    this.walletService.balance$.subscribe(bal => {
+      this.currentWalletBalance = bal;
     });
     this.route.queryParams.subscribe(params => {
       this.isMyCropsOnly = params['my'] === 'true';
@@ -1756,13 +1738,6 @@ export class CropListComponent implements OnInit {
       alert('Please provide a destination delivery drop address.');
       return;
     }
-    if (this.user) {
-      const uid = String(this.user.id || this.user.userId || 'dealer-1');
-      const st = this.walletService.getStoredWallet(uid);
-      this.currentWalletBalance = st.availableBalance;
-      this.currentReservedBalance = st.reservedBalance;
-      this.currentTotalBalance = st.balance;
-    }
     this.checkoutStep = 'PAYMENT';
   }
 
@@ -1781,16 +1756,14 @@ export class CropListComponent implements OnInit {
     const uid = String(this.user.id || this.user.userId || 'dealer-1');
 
     if (this.paymentMethod === 'WALLET') {
-      const available = this.walletService.getStoredAvailableBalance(uid);
+      const available = this.walletService.getStoredBalance(uid);
       if (available < this.totalPayable) {
-        const reserved = this.walletService.getStoredReservedBalance(uid);
-        const total = this.walletService.getStoredTotalBalance(uid);
-        alert(`❌ Insufficient Available Wallet Balance!\n\nRequired: ₹${this.totalPayable.toLocaleString()}\nAvailable (Unreserved): ₹${available.toLocaleString()}\nFunds Locked in Active Bids: ₹${reserved.toLocaleString()}\nTotal Balance: ₹${total.toLocaleString()}\n\nOrder cannot be placed using escrow funds that are locked in bids. Please recharge your wallet or choose another payment method.`);
+        alert(`❌ Insufficient Wallet Balance!\n\nRequired: ₹${this.totalPayable.toLocaleString()}\nAvailable in Wallet: ₹${available.toLocaleString()}\n\nOrder cannot be placed. Please recharge your wallet or choose another payment method.`);
         return;
       }
 
       this.processingPayment = true;
-      this.paymentProgressMessage = 'Verifying and debiting available wallet escrow balance...';
+      this.paymentProgressMessage = 'Verifying and reserving wallet escrow balance...';
       setTimeout(() => {
         this.walletService.debitWallet(
           uid,
@@ -1929,6 +1902,15 @@ export class CropListComponent implements OnInit {
     this.completedInvoice = inv;
 
     // Credit Farmer's Digital Wallet for crop purchase proceeds
+    // Debit Dealer's Wallet if paying via wallet
+    if (this.paymentMethod === 'WALLET') {
+      const buyerId = String(this.user?.id || this.user?.userId || 'dealer-1');
+      this.walletService.debitWallet(
+        buyerId,
+        finalTotal,
+        `Crop Purchase: ${cropName} (${this.orderQuantity} ${cropUnit}) - Order #${orderId}`
+      ).subscribe();
+    }
 
     // Credit Farmer's Digital Wallet for crop purchase proceeds
     const farmerTargetId = String(crop.farmerId || 'farmer-1');

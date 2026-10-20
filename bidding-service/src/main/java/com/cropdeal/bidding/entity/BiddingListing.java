@@ -15,8 +15,6 @@ public class BiddingListing {
     @Column(nullable = false)
     private Long farmerId;
 
-    private String farmerName;
-
     @Column(nullable = false)
     private String cropName;
 
@@ -75,9 +73,6 @@ public class BiddingListing {
 
     public Long getFarmerId() { return farmerId; }
     public void setFarmerId(Long farmerId) { this.farmerId = farmerId; }
-
-    public String getFarmerName() { return farmerName; }
-    public void setFarmerName(String farmerName) { this.farmerName = farmerName; }
 
     public String getCropName() { return cropName; }
     public void setCropName(String cropName) { this.cropName = cropName; }

@@ -15,7 +15,6 @@ public interface BiddingService {
     BiddingListingResponse closeBidding(Long listingId);
     BiddingListingResponse sellListing(Long listingId);
     String uploadPhoto(Long listingId, MultipartFile file);
-    String uploadImage(MultipartFile file);
     List<BiddingListingResponse> getAllListings();
     void deleteListing(Long listingId);
     BiddingListingResponse toggleBlockListing(Long listingId, boolean block);

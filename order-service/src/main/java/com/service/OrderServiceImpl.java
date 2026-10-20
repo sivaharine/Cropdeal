@@ -23,24 +23,26 @@ import java.util.stream.Collectors;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+
     private final PaymentServiceClient paymentServiceClient;
+
     private final InvoiceServiceClient invoiceServiceClient;
-    private final OrderEventPublisher eventPublisher;
-    private final OrderSagaOrchestrator sagaOrchestrator;
+
+    public OrderServiceImpl(
+            OrderRepository orderRepository,
+            PaymentServiceClient paymentServiceClient) {
+        this(orderRepository, paymentServiceClient, null);
+    }
 
     @Autowired
     public OrderServiceImpl(
             OrderRepository orderRepository,
             PaymentServiceClient paymentServiceClient,
-            @Autowired(required = false) InvoiceServiceClient invoiceServiceClient,
-            @Autowired(required = false) OrderEventPublisher eventPublisher,
-            @Autowired(required = false) OrderSagaOrchestrator sagaOrchestrator) {
+            @Autowired(required = false) InvoiceServiceClient invoiceServiceClient) {
 
         this.orderRepository = orderRepository;
         this.paymentServiceClient = paymentServiceClient;
         this.invoiceServiceClient = invoiceServiceClient;
-        this.eventPublisher = eventPublisher;
-        this.sagaOrchestrator = sagaOrchestrator;
     }
 
     @Override
@@ -70,18 +72,6 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.PAID);
 
         Order savedOrder = orderRepository.save(order);
-
-        if (eventPublisher != null) {
-            try {
-                eventPublisher.publishOrderPlacedEvent(
-                        savedOrder.getId(),
-                        savedOrder.getCropName(),
-                        savedOrder.getTotalAmount(),
-                        savedOrder.getDealerId(),
-                        savedOrder.getFarmerId()
-                );
-            } catch (Exception ignored) {}
-        }
 
         return convertToResponse(savedOrder);
     }
@@ -151,37 +141,33 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.PAYMENT_PENDING);
-        if (request.getPaymentMethod() != null) {
-            order.setPaymentMethod(request.getPaymentMethod());
-        }
         orderRepository.save(order);
 
-        try {
-            PaymentResponse paymentResponse;
-            if (sagaOrchestrator != null) {
-                paymentResponse = sagaOrchestrator.executePaymentWithResilience(order);
-            } else {
-                PaymentRequest paymentRequest = new PaymentRequest();
-                paymentRequest.setOrderId(order.getId());
-                paymentRequest.setDealerId(order.getDealerId());
-                paymentRequest.setFarmerId(order.getFarmerId());
-                paymentRequest.setAmount(order.getTotalAmount());
-                paymentRequest.setPaymentMethod(request.getPaymentMethod());
-                paymentResponse = paymentServiceClient.makePayment(paymentRequest);
-            }
+        PaymentRequest paymentRequest = new PaymentRequest();
 
-            if (paymentResponse != null && "SUCCESS".equalsIgnoreCase(paymentResponse.getStatus())) {
+        paymentRequest.setOrderId(order.getId());
+        paymentRequest.setDealerId(order.getDealerId());
+        paymentRequest.setFarmerId(order.getFarmerId());
+        paymentRequest.setAmount(order.getTotalAmount());
+        paymentRequest.setPaymentMethod(request.getPaymentMethod());
+
+        try {
+
+            PaymentResponse paymentResponse =
+                    paymentServiceClient.makePayment(paymentRequest);
+
+            if (paymentResponse != null &&
+                    "SUCCESS".equalsIgnoreCase(paymentResponse.getStatus())) {
+
                 order.setStatus(OrderStatus.PAID);
-                if (eventPublisher != null) {
-                    try {
-                        eventPublisher.publishOrderCompletedEvent(order.getId(), "PAID");
-                    } catch (Exception ignored) {}
-                }
+
             } else {
+
                 order.setStatus(OrderStatus.PAYMENT_PENDING);
             }
 
             orderRepository.save(order);
+
             return paymentResponse;
 
         } catch (FeignException e) {

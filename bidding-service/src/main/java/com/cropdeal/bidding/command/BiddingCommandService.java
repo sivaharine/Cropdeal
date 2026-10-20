@@ -25,7 +25,6 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,7 +39,6 @@ public class BiddingCommandService {
     private final BidRepository bidRepository;
     private final WalletClient walletClient;
     private final OrderClient orderClient;
-    private final com.cropdeal.bidding.service.CloudinaryService cloudinaryService;
 
     @Value("${file.upload-dir:D:/Cropdeal/uploads/bidding}")
     private String uploadDir;
@@ -48,19 +46,16 @@ public class BiddingCommandService {
     public BiddingCommandService(BiddingListingRepository listingRepository,
                                  BidRepository bidRepository,
                                  WalletClient walletClient,
-                                 OrderClient orderClient,
-                                 com.cropdeal.bidding.service.CloudinaryService cloudinaryService) {
+                                 OrderClient orderClient) {
         this.listingRepository = listingRepository;
         this.bidRepository = bidRepository;
         this.walletClient = walletClient;
         this.orderClient = orderClient;
-        this.cloudinaryService = cloudinaryService;
     }
 
     public BiddingListingResponse createListing(CreateBiddingRequest request) {
         BiddingListing listing = new BiddingListing();
         listing.setFarmerId(request.farmerId());
-        listing.setFarmerName(request.farmerName());
         listing.setCropName(request.cropName());
         listing.setQuantity(request.quantity());
         listing.setUnit(request.unit());
@@ -68,9 +63,6 @@ public class BiddingCommandService {
         listing.setGuidelinePrice(request.guidelinePrice());
         listing.setLocation(request.location());
         listing.setDescription(request.description());
-        if (request.photoUrl() != null && !request.photoUrl().isBlank()) {
-            listing.setPhotoUrl(request.photoUrl());
-        }
         listing.setStatus(BiddingStatus.OPEN);
         listing.setHighestBidAmount(BigDecimal.ZERO);
 
@@ -95,43 +87,25 @@ public class BiddingCommandService {
             }
         }
 
-        BigDecimal lotQuantity = listing.getQuantity() != null && listing.getQuantity().compareTo(BigDecimal.ZERO) > 0
-                ? listing.getQuantity()
-                : BigDecimal.ONE;
-        BigDecimal totalLotBidAmount = request.bidAmount().multiply(lotQuantity);
         String newRefId = "BID-" + listingId + "-" + request.dealerId();
 
-        // Find all existing active bids on this listing
-        List<Bid> activeBids = bidRepository.findByListingIdAndStatus(listingId, BidStatus.ACTIVE);
+        walletClient.reserveFunds(new WalletClient.ReserveRequest(request.dealerId(), newRefId, request.bidAmount()));
 
-        // 1. If the same dealer is raising their bid, release their previous hold first so their available balance is credited
-        for (Bid prev : activeBids) {
-            if (prev.getDealerId().equals(request.dealerId())) {
-                try {
-                    String sameDealerRefId = "BID-" + listingId + "-" + prev.getDealerId();
-                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), sameDealerRefId));
-                } catch (Exception e) {
-                    // Ignore release warning
-                }
-            }
-        }
-
-        // 2. Reserve total lot valuation from the bidder's available wallet balance
-        walletClient.reserveFunds(new WalletClient.ReserveRequest(request.dealerId(), newRefId, totalLotBidAmount));
-
-        // 3. Mark all previous active bids as OUTBID, and unreserve/release escrow holds for any outbid dealers
-        for (Bid prev : activeBids) {
-            prev.setStatus(BidStatus.OUTBID);
-            bidRepository.save(prev);
+        bidRepository.findFirstByListingIdAndStatusOrderByBidAmountDesc(listingId, BidStatus.ACTIVE).ifPresent(prev -> {
             if (!prev.getDealerId().equals(request.dealerId())) {
+                prev.setStatus(BidStatus.OUTBID);
+                bidRepository.save(prev);
                 try {
-                    String outbidDealerRefId = "BID-" + listingId + "-" + prev.getDealerId();
-                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), outbidDealerRefId));
+                    String prevRefId = "BID-" + listingId + "-" + prev.getDealerId();
+                    walletClient.releaseFunds(new WalletClient.ReleaseRequest(prev.getDealerId(), prevRefId));
                 } catch (Exception e) {
                     // Log release failure
                 }
+            } else {
+                prev.setStatus(BidStatus.OUTBID);
+                bidRepository.save(prev);
             }
-        }
+        });
 
         Bid bid = new Bid();
         bid.setListingId(listingId);
@@ -174,12 +148,7 @@ public class BiddingCommandService {
         }
 
         String refId = "BID-" + listingId + "-" + listing.getWinningDealerId();
-        walletClient.consumeFunds(new WalletClient.ConsumeRequest(
-                listing.getWinningDealerId(),
-                refId,
-                listing.getFarmerId(),
-                listing.getCropName()
-        ));
+        walletClient.consumeFunds(new WalletClient.ConsumeRequest(listing.getWinningDealerId(), refId));
 
         try {
             orderClient.createOrder(new OrderClient.CreateOrderRequest(
@@ -198,54 +167,37 @@ public class BiddingCommandService {
         return toResponse(listingRepository.save(listing));
     }
 
-    public String uploadImage(MultipartFile file) {
+    public String uploadPhoto(Long listingId, MultipartFile file) {
+        BiddingListing listing = findListing(listingId);
         if (file.isEmpty()) {
             throw new InvalidBidException("File cannot be empty");
         }
         try {
-            return cloudinaryService.uploadImage(file, "cropdeal/bidding");
-        } catch (Exception e) {
-            // Local fallback
-            try {
-                File dir = new File(uploadDir);
-                if (!dir.exists()) dir.mkdirs();
-                String ext = "";
-                String orig = file.getOriginalFilename();
-                if (orig != null && orig.contains(".")) {
-                    ext = orig.substring(orig.lastIndexOf("."));
-                }
-                String filename = "bidding_" + UUID.randomUUID().toString().substring(0, 8) + ext;
-                Path targetPath = Paths.get(uploadDir, filename);
-                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-                return "/uploads/bidding/" + filename;
-            } catch (IOException ioEx) {
-                throw new RuntimeException("Failed to store image: " + ioEx.getMessage(), ioEx);
-            }
-        }
-    }
+            File dir = new File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
 
-    public String uploadPhoto(Long listingId, MultipartFile file) {
-        BiddingListing listing = findListing(listingId);
-        String photoUrl = uploadImage(file);
-        listing.setPhotoUrl(photoUrl);
-        listingRepository.save(listing);
-        return photoUrl;
+            String ext = "";
+            String orig = file.getOriginalFilename();
+            if (orig != null && orig.contains(".")) {
+                ext = orig.substring(orig.lastIndexOf("."));
+            }
+            String filename = "listing_" + listingId + "_" + UUID.randomUUID().toString().substring(0, 8) + ext;
+            Path targetPath = Paths.get(uploadDir, filename);
+            Files.copy(file.getInputStream(), targetPath);
+
+            String photoUrl = "/uploads/bidding/" + filename;
+            listing.setPhotoUrl(photoUrl);
+            listingRepository.save(listing);
+            return photoUrl;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload photo: " + e.getMessage(), e);
+        }
     }
 
     public void deleteListing(Long listingId) {
         BiddingListing listing = findListing(listingId);
         listing.setStatus(BiddingStatus.CLOSED);
         listingRepository.save(listing);
-
-        // If there was an active winning bid, release the reserved funds back to the dealer
-        if (listing.getWinningDealerId() != null) {
-            String refId = "BID-" + listingId + "-" + listing.getWinningDealerId();
-            try {
-                walletClient.releaseFunds(new WalletClient.ReleaseRequest(listing.getWinningDealerId(), refId));
-            } catch (Exception e) {
-                // Ignore release error
-            }
-        }
     }
 
     public BiddingListingResponse toggleBlockListing(Long listingId, boolean block) {
@@ -264,7 +216,7 @@ public class BiddingCommandService {
                 .toList();
 
         return new BiddingListingResponse(
-                l.getId(), l.getFarmerId(), l.getFarmerName(), l.getCropName(), l.getQuantity(),
+                l.getId(), l.getFarmerId(), l.getCropName(), l.getQuantity(),
                 l.getUnit(), l.getBasePrice(), l.getGuidelinePrice(), l.getLocation(),
                 l.getDescription(), l.getPhotoUrl(), l.getStatus(), l.getHighestBidAmount(),
                 l.getWinningDealerId(), l.getCreatedAt(), bids

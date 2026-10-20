@@ -7,5 +7,4 @@ import java.util.Optional;
 
 public interface WalletReservationRepository extends JpaRepository<WalletReservation, Long> {
     Optional<WalletReservation> findByUserIdAndReferenceIdAndStatus(Long userId, String referenceId, ReservationStatus status);
-    java.util.List<WalletReservation> findAllByUserIdAndReferenceIdAndStatus(Long userId, String referenceId, ReservationStatus status);
 }

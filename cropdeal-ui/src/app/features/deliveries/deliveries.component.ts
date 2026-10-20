@@ -135,10 +135,10 @@ import { User } from '../../core/models/user.model';
                   <div class="party-icon farmer-icon"><i class="fa-solid fa-wheat-awn"></i></div>
                   <div class="party-text">
                     <span class="party-role">Pickup Origin (Farmer)</span>
-                    <strong>{{ item.farmerName || 'Verified Farmer' }}</strong>
+                    <strong>{{ item.farmerName != null ? item.farmerName : 'null' }}</strong>
                     <a *ngIf="item.farmerPhone" href="tel:{{ item.farmerPhone }}" class="phone-link"><i class="fa-solid fa-phone"></i> {{ item.farmerPhone }}</a>
-                    <span *ngIf="!item.farmerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> +91 98765 43210</span>
-                    <p class="address-text"><i class="fa-solid fa-location-dot"></i> {{ item.pickupAddress || 'Farm Mandi Gate' }}</p>
+                    <span *ngIf="!item.farmerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> null</span>
+                    <p class="address-text"><i class="fa-solid fa-location-dot"></i> {{ item.pickupAddress != null ? item.pickupAddress : 'null' }}</p>
                   </div>
                 </div>
 
@@ -148,10 +148,10 @@ import { User } from '../../core/models/user.model';
                   <div class="party-icon dealer-icon"><i class="fa-solid fa-warehouse"></i></div>
                   <div class="party-text">
                     <span class="party-role">Drop Destination (Dealer)</span>
-                    <strong>{{ item.dealerName || 'Commercial Dealer' }}</strong>
+                    <strong>{{ item.dealerName != null ? item.dealerName : 'null' }}</strong>
                     <a *ngIf="item.dealerPhone" href="tel:{{ item.dealerPhone }}" class="phone-link"><i class="fa-solid fa-phone"></i> {{ item.dealerPhone }}</a>
-                    <span *ngIf="!item.dealerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> +91 98765 43211</span>
-                    <p class="address-text"><i class="fa-solid fa-location-crosshairs"></i> {{ item.dropAddress || 'Dealer Mandi Facility' }}</p>
+                    <span *ngIf="!item.dealerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> null</span>
+                    <p class="address-text"><i class="fa-solid fa-location-crosshairs"></i> {{ item.dropAddress != null ? item.dropAddress : 'null' }}</p>
                   </div>
                 </div>
               </div>
@@ -218,10 +218,10 @@ import { User } from '../../core/models/user.model';
                   <div class="party-icon farmer-icon"><i class="fa-solid fa-wheat-awn"></i></div>
                   <div class="party-text">
                     <span class="party-role">Pickup Origin (Farmer)</span>
-                    <strong>{{ item.farmerName || 'Verified Farmer' }}</strong>
+                    <strong>{{ item.farmerName != null ? item.farmerName : 'null' }}</strong>
                     <a *ngIf="item.farmerPhone" href="tel:{{ item.farmerPhone }}" class="phone-link"><i class="fa-solid fa-phone"></i> {{ item.farmerPhone }}</a>
-                    <span *ngIf="!item.farmerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> +91 98765 43210</span>
-                    <p class="address-text">{{ item.pickupAddress || 'Farm Mandi Gate' }}</p>
+                    <span *ngIf="!item.farmerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> null</span>
+                    <p class="address-text">{{ item.pickupAddress != null ? item.pickupAddress : 'null' }}</p>
                   </div>
                 </div>
 
@@ -231,10 +231,10 @@ import { User } from '../../core/models/user.model';
                   <div class="party-icon dealer-icon"><i class="fa-solid fa-warehouse"></i></div>
                   <div class="party-text">
                     <span class="party-role">Drop Destination (Dealer)</span>
-                    <strong>{{ item.dealerName || 'Commercial Dealer' }}</strong>
+                    <strong>{{ item.dealerName != null ? item.dealerName : 'null' }}</strong>
                     <a *ngIf="item.dealerPhone" href="tel:{{ item.dealerPhone }}" class="phone-link"><i class="fa-solid fa-phone"></i> {{ item.dealerPhone }}</a>
-                    <span *ngIf="!item.dealerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> +91 98765 43211</span>
-                    <p class="address-text">{{ item.dropAddress || 'Dealer Mandi Facility' }}</p>
+                    <span *ngIf="!item.dealerPhone" class="phone-link text-muted"><i class="fa-solid fa-phone"></i> null</span>
+                    <p class="address-text">{{ item.dropAddress != null ? item.dropAddress : 'null' }}</p>
                   </div>
                 </div>
               </div>
@@ -290,11 +290,11 @@ import { User } from '../../core/models/user.model';
               </div>
 
               <div class="meta-row mt-3">
-                <span>Farmer: <strong>{{ item.farmerName || 'Verified Farmer' }}</strong> ({{ item.farmerPhone || '+91 98765 43210' }})</span>
-                <span>Dealer: <strong>{{ item.dealerName || 'Commercial Dealer' }}</strong> ({{ item.dealerPhone || '+91 98765 43211' }})</span>
+                <span>Farmer: <strong>{{ item.farmerName != null ? item.farmerName : 'null' }}</strong> ({{ item.farmerPhone != null ? item.farmerPhone : 'null' }})</span>
+                <span>Dealer: <strong>{{ item.dealerName != null ? item.dealerName : 'null' }}</strong> ({{ item.dealerPhone != null ? item.dealerPhone : 'null' }})</span>
               </div>
               <div class="meta-row mt-2">
-                <span>Route: {{ item.pickupAddress || 'Farm Mandi Gate' }} &rarr; {{ item.dropAddress || 'Dealer Mandi Facility' }}</span>
+                <span>Route: {{ item.pickupAddress != null ? item.pickupAddress : 'null' }} &rarr; {{ item.dropAddress != null ? item.dropAddress : 'null' }}</span>
                 <span>Distance: <strong>{{ item.distanceKm }} km</strong></span>
               </div>
             </div>
@@ -393,18 +393,18 @@ import { User } from '../../core/models/user.model';
                 <div class="route-point">
                   <i class="fa-solid fa-circle-dot text-emerald"></i>
                   <div>
-                    <span class="point-lbl">Farm-Gate Pickup ({{ item.farmerName || 'Verified Farmer' }})</span>
-                    <p>{{ item.pickupAddress || 'Farm Mandi Gate' }}</p>
-                    <span class="subtext"><i class="fa-solid fa-phone"></i> {{ item.farmerPhone || '+91 98765 43210' }}</span>
+                    <span class="point-lbl">Farm-Gate Pickup ({{ item.farmerName != null ? item.farmerName : 'null' }})</span>
+                    <p>{{ item.pickupAddress != null ? item.pickupAddress : 'null' }}</p>
+                    <span class="subtext"><i class="fa-solid fa-phone"></i> {{ item.farmerPhone != null ? item.farmerPhone : 'null' }}</span>
                   </div>
                 </div>
                 <div class="route-line-v"></div>
                 <div class="route-point">
                   <i class="fa-solid fa-location-dot text-danger"></i>
                   <div>
-                    <span class="point-lbl">Delivery Destination ({{ item.dealerName || 'Commercial Dealer' }})</span>
-                    <p>{{ item.dropAddress || 'Dealer Mandi Facility' }}</p>
-                    <span class="subtext"><i class="fa-solid fa-phone"></i> {{ item.dealerPhone || '+91 98765 43211' }}</span>
+                    <span class="point-lbl">Delivery Destination ({{ item.dealerName != null ? item.dealerName : 'null' }})</span>
+                    <p>{{ item.dropAddress != null ? item.dropAddress : 'null' }}</p>
+                    <span class="subtext"><i class="fa-solid fa-phone"></i> {{ item.dealerPhone != null ? item.dealerPhone : 'null' }}</span>
                   </div>
                 </div>
               </div>
