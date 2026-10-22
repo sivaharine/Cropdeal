@@ -83,8 +83,10 @@ import { NotificationService } from '../../core/services/notification.service';
 
           <!-- Facebook Login Option -->
           <div class="divider-text mt-3"><span>or continue with</span></div>
-          <button type="button" class="btn-facebook btn-block mt-2" (click)="loginWithFacebook()">
-            <i class="fa-brands fa-facebook-f fb-icon"></i> Continue with Facebook
+          <button type="button" class="btn-facebook btn-block mt-2" (click)="openFacebookModal()" [disabled]="fbLoading">
+            <i class="fa-brands fa-facebook-f fb-icon"></i>
+            <span *ngIf="!fbLoading">Continue with Facebook</span>
+            <span *ngIf="fbLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...</span>
           </button>
         </form>
 
@@ -102,6 +104,46 @@ import { NotificationService } from '../../core/services/notification.service';
         <!-- Footer -->
         <div class="auth-footer">
           <p>New to CropDeal? <a routerLink="/auth/register" class="register-link">Create an Account</a></p>
+        </div>
+      </div>
+
+      <!-- Facebook Mock Login Modal -->
+      <div *ngIf="showFacebookModal" class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header" style="background:#1877f2; border-radius: var(--radius-xl) var(--radius-xl) 0 0; margin: -1.5rem -1.5rem 1.25rem; padding: 1rem 1.5rem;">
+            <h3 style="color:#fff; margin:0; display:flex; align-items:center; gap:0.5rem;">
+              <i class="fa-brands fa-facebook-f"></i> Continue with Facebook
+            </h3>
+            <button class="close-icon" style="color:#fff;" (click)="closeFacebookModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom:1rem;">
+              <i class="fa-solid fa-circle-info" style="color:#1877f2;"></i>
+              Enter your Facebook email and select a role to sign in via Facebook.
+            </p>
+            <div class="form-group">
+              <label class="form-label">Facebook Email</label>
+              <div class="input-wrapper">
+                <i class="fa-regular fa-envelope input-icon"></i>
+                <input type="email" [(ngModel)]="fbEmail" class="form-control" placeholder="your@facebook-email.com" autocomplete="off" />
+              </div>
+            </div>
+            <div class="form-group mt-2">
+              <label class="form-label">Login as</label>
+              <select [(ngModel)]="fbRole" class="form-control" style="padding: 0.65rem 1rem;">
+                <option value="FARMER">🌾 Farmer</option>
+                <option value="DEALER">💼 Dealer</option>
+                <option value="DELIVERY_PARTNER">🚚 Delivery Partner</option>
+              </select>
+            </div>
+            <div *ngIf="fbModalError" class="auth-alert alert-error mt-2">
+              <i class="fa-solid fa-triangle-exclamation"></i> {{ fbModalError }}
+            </div>
+            <button class="btn btn-primary mt-3 btn-block" (click)="submitFacebookLogin()" [disabled]="fbLoading || !fbEmail">
+              <span *ngIf="!fbLoading"><i class="fa-brands fa-facebook-f"></i> Sign in with Facebook</span>
+              <span *ngIf="fbLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Signing in...</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -402,6 +444,13 @@ export class LoginComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
 
+  // Facebook Modal
+  showFacebookModal = false;
+  fbEmail = '';
+  fbRole: 'FARMER' | 'DEALER' | 'DELIVERY_PARTNER' = 'DEALER';
+  fbLoading = false;
+  fbModalError = '';
+
   // Forgot Password Modal
   showForgotModal = false;
   forgotStep = 1;
@@ -538,15 +587,44 @@ export class LoginComponent implements OnInit {
     }
   }
 
-  async loginWithFacebook(): Promise<void> {
-    const res = await this.authService.loginWithFacebook();
+  loginWithFacebook(): void {
+    this.openFacebookModal();
+  }
+
+  openFacebookModal(): void {
+    this.showFacebookModal = true;
+    this.fbEmail = '';
+    this.fbRole = 'DEALER';
+    this.fbLoading = false;
+    this.fbModalError = '';
+    this.errorMessage = '';
+    this.successMessage = '';
+  }
+
+  closeFacebookModal(): void {
+    this.showFacebookModal = false;
+    this.fbEmail = '';
+    this.fbModalError = '';
+    this.fbLoading = false;
+  }
+
+  async submitFacebookLogin(): Promise<void> {
+    if (!this.fbEmail || !this.fbEmail.trim()) {
+      this.fbModalError = 'Please enter your Facebook email address.';
+      return;
+    }
+    this.fbLoading = true;
+    this.fbModalError = '';
+    // Use timestamp-based mock token so backend treats it as a new unique FB user
+    const mockToken = `mock_fb_${Date.now()}`;
+    const res = await this.authService.loginWithFacebookMock(mockToken, this.fbEmail.trim(), this.fbRole);
+    this.fbLoading = false;
     if (res.success) {
-      this.successMessage = `Welcome, ${res.user?.fullName || 'Verified User'}! Signed in with Facebook.`;
-      setTimeout(() => {
-        this.router.navigate(['/dashboard']);
-      }, 500);
-    } else if (res.error && res.error !== 'Cancelled') {
-      this.errorMessage = res.error;
+      this.showFacebookModal = false;
+      this.successMessage = `Welcome, ${res.user?.fullName || this.fbEmail}! Signed in with Facebook.`;
+      setTimeout(() => this.router.navigate(['/dashboard']), 500);
+    } else {
+      this.fbModalError = res.error || 'Facebook login failed. Please try again.';
     }
   }
 

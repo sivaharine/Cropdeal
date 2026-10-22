@@ -21,8 +21,9 @@ import java.util.UUID;
 
 @Service
 @Transactional
+//runs public method Database changes can be committed on success or rolled back when a qualifying exception occurs
 public class AuthServiceImpl implements AuthService {
-
+//Creates a logger for recording application events, warnings, and debugging information
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final UserRepository userRepository;
@@ -250,6 +251,21 @@ public class AuthServiceImpl implements AuthService {
             newUser.setAuthProvider(AuthProvider.FACEBOOK);
             newUser.setProviderId(providerId);
 
+            // Derive username from name or email
+            String derivedUsername = null;
+            if (name != null && !name.isBlank()) {
+                derivedUsername = name.trim().toLowerCase().replaceAll("[^a-z0-9]", "_");
+            } else if (normalizedEmail.contains("@")) {
+                derivedUsername = normalizedEmail.split("@")[0];
+            } else {
+                derivedUsername = "fb_" + providerId;
+            }
+            // Ensure username uniqueness by appending providerId suffix if taken
+            if (userRepository.existsByUsername(derivedUsername)) {
+                derivedUsername = derivedUsername + "_" + providerId.substring(0, Math.min(6, providerId.length()));
+            }
+            newUser.setUsername(derivedUsername);
+
             user = userRepository.save(newUser);
 
             // Create profile in user-service
@@ -280,9 +296,17 @@ public class AuthServiceImpl implements AuthService {
 
         triggerLoginCropAlerts(user.getId());
 
+        // Derive a username: use stored username, or generate from email/providerId
+        String username = user.getUsername() != null && !user.getUsername().isBlank()
+                ? user.getUsername()
+                : (normalizedEmail.contains("@")
+                        ? normalizedEmail.split("@")[0]
+                        : "fb_user_" + providerId);
+
         return new LoginResponse(
                 user.getId(),
                 user.getEmail(),
+                username,
                 "ROLE_" + user.getRole().name(),
                 token
         );

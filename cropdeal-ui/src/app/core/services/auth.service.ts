@@ -184,111 +184,150 @@ export class AuthService {
     this.currentUserSubject.next(user);
   }
 
-  private fbAppId = '1095945898864704';
+  // -----------------------------------------------------------------------
+  // Facebook Login
+  // NOTE: A valid Facebook App ID from Meta Developer Portal is required
+  // for the real FB JS SDK popup to work. Without one, loginWithFacebook()
+  // falls through to the backend mock-token flow automatically.
+  // To enable real Facebook OAuth:
+  //   1. Create an app at https://developers.facebook.com/
+  //   2. Add your domain under "Valid OAuth Redirect URIs"
+  //   3. Replace the fbAppId below with your real App ID
+  // -----------------------------------------------------------------------
+  private fbAppId = 'YOUR_FACEBOOK_APP_ID'; // Replace with real App ID to enable FB SDK popup
 
-  public initFacebookSdk(): Promise<boolean> {
-    return new Promise((resolve) => {
-      if ((window as any).FB) {
-        resolve(true);
-        return;
+  async loginWithFacebook(role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
+    // Only attempt the real FB SDK flow if a proper App ID has been configured
+    const hasRealAppId = this.fbAppId && this.fbAppId !== 'YOUR_FACEBOOK_APP_ID' && /^\d{10,20}$/.test(this.fbAppId);
+
+    if (hasRealAppId) {
+      const sdkLoaded = await this.initFacebookSdk();
+      if (sdkLoaded && (window as any).FB) {
+        return new Promise((resolve) => {
+          (window as any).FB.login((response: any) => {
+            if (response && response.authResponse) {
+              const accessToken = response.authResponse.accessToken;
+              // Send the real Facebook access token to our backend for verification and JWT issuance
+              this.http.post<any>(`${environment.apiUrl}/auth/facebook`, {
+                accessToken,
+                role
+              }).subscribe({
+                next: (res) => {
+                  if (res && res.token) {
+                    const user = this.buildUserFromAuthResponse(res, role);
+                    localStorage.setItem(this.TOKEN_KEY, res.token);
+                    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+                    this.syncMasterUser(user);
+                    this.currentUserSubject.next(user);
+                    resolve({ success: true, user });
+                  } else {
+                    resolve({ success: false, error: 'Facebook login failed: Invalid response from server.' });
+                  }
+                },
+                error: (err) => {
+                  const msg = err.error?.message || err.message || 'Facebook login failed. Please try again.';
+                  resolve({ success: false, error: msg });
+                }
+              });
+            } else {
+              resolve({ success: false, error: 'Facebook authentication was cancelled.' });
+            }
+          }, { scope: 'public_profile,email' });
+        });
       }
+    }
+
+    // No valid App ID configured — use backend mock-token flow (dev/demo mode)
+    return this.fallbackFacebookAuth(role);
+  }
+
+  private initFacebookSdk(): Promise<boolean> {
+    return new Promise((resolve) => {
+      if ((window as any).FB) { resolve(true); return; }
 
       (window as any).fbAsyncInit = () => {
-        (window as any).FB.init({
-          appId: this.fbAppId,
-          cookie: true,
-          xfbml: true,
-          version: 'v19.0'
-        });
+        (window as any).FB.init({ appId: this.fbAppId, cookie: true, xfbml: true, version: 'v19.0' });
         resolve(true);
       };
 
       const id = 'facebook-jssdk';
-      if (document.getElementById(id)) {
-        resolve(true);
-        return;
-      }
+      if (document.getElementById(id)) { resolve(true); return; }
       const js = document.createElement('script');
       js.id = id;
       js.src = 'https://connect.facebook.net/en_US/sdk.js';
-      js.onerror = () => {
-        console.warn('Facebook SDK failed to load (possibly blocked by ad-blocker).');
-        resolve(false);
-      };
+      js.onerror = () => { console.warn('Facebook SDK failed to load.'); resolve(false); };
       document.body.appendChild(js);
     });
   }
 
-  async loginWithFacebook(role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
-    await this.initFacebookSdk();
-
-    if ((window as any).FB) {
-      return new Promise((resolve) => {
-        (window as any).FB.login((response: any) => {
-          if (response && response.authResponse) {
-            const accessToken = response.authResponse.accessToken;
-            const fbUserId = response.authResponse.userID;
-
-            (window as any).FB.api('/me', { fields: 'name,email,picture' }, (userInfo: any) => {
-              const fbName = userInfo?.name || 'Facebook User';
-              const fbEmail = userInfo?.email || `fb_${fbUserId}@cropdeal.in`;
-
-              const user: User = {
-                id: 'fb-' + fbUserId,
-                userId: 'fb-' + fbUserId,
-                username: fbName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-                fullName: fbName,
-                email: fbEmail,
-                phone: '9876543210',
-                address: 'Meta Verified Social Account, India',
-                role: role,
-                status: 'ACTIVE'
-              };
-
-              const token = 'cropdeal-fb-oauth-' + (accessToken ? accessToken.substring(0, 32) : Date.now());
-              localStorage.setItem(this.TOKEN_KEY, token);
-              localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-              this.syncMasterUser(user);
-              this.currentUserSubject.next(user);
-              resolve({ success: true, user });
-            });
-          } else {
-            // User cancelled popup or dialog
-            resolve({ success: false, error: 'Facebook authentication was cancelled.' });
-          }
-        }, { scope: 'public_profile,email' });
-      });
-    }
-
-    // Graceful fallback if connect.facebook.net is blocked by adblockers
-    return this.fallbackFacebookAuth(role);
+  private buildUserFromAuthResponse(res: any, role: UserRole): User {
+    const rawRole = String(res.role || role).replace(/^ROLE_/, '') as UserRole;
+    const fbName = res.username || res.email?.split('@')[0] || 'Facebook User';
+    return {
+      id: String(res.userId),
+      userId: String(res.userId),
+      username: res.username || fbName,
+      fullName: res.username || fbName,
+      name: res.username || fbName,
+      email: res.email || '',
+      phone: '',
+      address: '',
+      role: rawRole,
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
   }
 
-  private fallbackFacebookAuth(role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
-    const fbEmail = prompt('Enter your Facebook account email or phone number:', 'mohan.facebook@cropdeal.in');
-    if (!fbEmail) {
-      return Promise.resolve({ success: false, error: 'Cancelled' });
-    }
-    const fbName = prompt('Enter your Facebook profile name:', 'Mohan Kumar (Meta Verified)') || 'Facebook User';
+  private fallbackFacebookAuth(_role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
+    // Facebook SDK unavailable (no valid App ID configured).
+    // The UI should show its own modal instead of auto-logging in.
+    return Promise.resolve({ success: false, error: 'FB_SDK_UNAVAILABLE' });
+  }
 
-    const user: User = {
-      id: 'fb-' + Date.now(),
-      userId: 'fb-' + Date.now(),
-      username: fbName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-      fullName: fbName,
-      email: fbEmail,
-      phone: '9876543210',
-      address: 'Meta Verified Account, India',
-      role: role,
-      status: 'ACTIVE'
-    };
-
-    const token = 'cropdeal-fb-oauth-' + Date.now();
-    localStorage.setItem(this.TOKEN_KEY, token);
-    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
-    this.syncMasterUser(user);
-    this.currentUserSubject.next(user);
-    return Promise.resolve({ success: true, user });
+  /**
+   * Mock Facebook login used by the in-app Facebook modal.
+   * Sends a mock_fb_ token to the backend and overrides the stored
+   * user's email with the value entered by the user in the modal.
+   */
+  loginWithFacebookMock(mockToken: string, email: string, role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
+    return new Promise((resolve) => {
+      this.http.post<any>(`${environment.apiUrl}/auth/facebook`, {
+        accessToken: mockToken,
+        role
+      }).subscribe({
+        next: (res) => {
+          if (res && res.token) {
+            const rawRole = String(res.role || role).replace(/^ROLE_/, '') as UserRole;
+            // Use the email the user typed in the modal as the display identity
+            const displayName = email.split('@')[0];
+            const user: User = {
+              id: String(res.userId),
+              userId: String(res.userId),
+              username: res.username || displayName,
+              fullName: res.username || displayName,
+              name: res.username || displayName,
+              email: email,          // override with modal email for display
+              phone: '',
+              address: '',
+              role: rawRole,
+              status: 'ACTIVE',
+              createdAt: new Date().toISOString()
+            };
+            localStorage.setItem(this.TOKEN_KEY, res.token);
+            localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+            this.syncMasterUser(user);
+            this.currentUserSubject.next(user);
+            resolve({ success: true, user });
+          } else {
+            resolve({ success: false, error: 'Facebook login failed: Invalid server response.' });
+          }
+        },
+        error: (err) => {
+          const msg = err.error?.message || err.message || 'Facebook login failed. Please try again.';
+          resolve({ success: false, error: msg });
+        }
+      });
+    });
   }
 
   private syncMasterUser(user: User): void {
@@ -359,7 +398,7 @@ export class AuthService {
       isBlocked: false,
       createdAt: new Date().toISOString()
     };
-
+//AuthService dispatches HTTP POST
     return this.http.post(`${environment.apiUrl}/auth/register`, payload).pipe(
       tap(() => {
         // Sync master user ONLY upon successful registration
@@ -538,10 +577,31 @@ export class AuthService {
   }
 
   logout(): void {
+    const token = this.token;
+
+    // Clear the local session immediately — user is logged out at once
+    // regardless of whether the backend call succeeds.
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
+
+    // Notify the backend to invalidate the token server-side (best-effort).
+    // The authInterceptor automatically attaches the Bearer token, so we
+    // must read it before clearing localStorage (done above via `token`).
+    if (token) {
+      this.http.post(
+        `${environment.apiUrl}/auth/logout`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      ).pipe(
+        catchError(error => {
+          console.warn('Backend logout notification failed:', error);
+          return of(null);
+        })
+      ).subscribe();
+    }
   }
+
 
   updateUserAvatar(avatarUrl: string): void {
     const user = this.currentUserSubject.value;

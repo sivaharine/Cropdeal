@@ -183,7 +183,7 @@ import { UserRole } from '../../core/models/user.model';
 
               <!-- Facebook Login Button -->
               <div class="divider-text mt-3"><span>or continue with</span></div>
-              <button type="button" class="btn-facebook mt-2" (click)="loginWithFacebook()">
+              <button type="button" class="btn-facebook mt-2" (click)="openFbPanel()">
                 <i class="fa-brands fa-facebook-f fb-icon"></i> Continue with Facebook
               </button>
 
@@ -192,6 +192,43 @@ import { UserRole } from '../../core/models/user.model';
                 <i class="fa-solid fa-user-plus"></i> Register Now
               </button>
             </form>
+          </div>
+
+          <!-- TAB: Facebook Login Panel -->
+          <div *ngIf="activeTab === 'facebook'" class="tab-content">
+            <div class="form-title-group" style="text-align:center;">
+              <div style="width:48px;height:48px;background:#1877f2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.75rem;">
+                <i class="fa-brands fa-facebook-f" style="color:#fff;font-size:1.3rem;"></i>
+              </div>
+              <h3>Continue with Facebook</h3>
+              <p>Enter your Facebook email and role to sign in</p>
+            </div>
+            <div class="input-field">
+              <label>Facebook Email</label>
+              <div class="input-wrap">
+                <i class="fa-regular fa-envelope input-icon"></i>
+                <input type="email" [(ngModel)]="fbEmail" placeholder="your@facebook-email.com" autocomplete="off" />
+              </div>
+            </div>
+            <div class="input-field mt-2">
+              <label>Login as</label>
+              <select [(ngModel)]="fbRole" style="width:100%;padding:0.65rem 1rem;border:1px solid var(--border-color,#d1d5db);border-radius:8px;font-size:0.9rem;background:#fff;">
+                <option value="FARMER">🌾 Farmer</option>
+                <option value="DEALER">💼 Dealer</option>
+                <option value="DELIVERY_PARTNER">🚚 Delivery Partner</option>
+              </select>
+            </div>
+            <div *ngIf="fbError" class="alert-box error mt-2">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>{{ fbError }}</span>
+            </div>
+            <button type="button" class="btn-submit-green mt-4" (click)="submitFbLogin()" [disabled]="fbLoading || !fbEmail">
+              <span *ngIf="!fbLoading"><i class="fa-brands fa-facebook-f"></i> Sign in with Facebook</span>
+              <span *ngIf="fbLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Signing in...</span>
+            </button>
+            <button type="button" class="btn-back-link mt-2" (click)="activeTab = 'login'">
+              <i class="fa-solid fa-arrow-left"></i> Back to Sign In
+            </button>
           </div>
 
           <!-- TAB 4: Multi-Step Forgot Password with Real Email OTP -->
@@ -785,12 +822,18 @@ export class AuthModalComponent implements OnInit {
   isOpen$ = this.authModalService.isOpen$;
   message$ = this.authModalService.message$;
 
-  activeTab: 'quick' | 'login' | 'register' | 'forgot' = 'quick';
+  activeTab: 'quick' | 'login' | 'register' | 'forgot' | 'facebook' = 'quick';
   showPassword = false;
   rememberMe = true;
   isSubmitting = false;
   errorMsg = '';
   successMsg = '';
+
+  // Facebook panel
+  fbEmail = '';
+  fbRole: 'FARMER' | 'DEALER' | 'DELIVERY_PARTNER' = 'DEALER';
+  fbLoading = false;
+  fbError = '';
 
   // Login form
   loginEmail = '';
@@ -1157,16 +1200,39 @@ export class AuthModalComponent implements OnInit {
     });
   }
 
-  async loginWithFacebook(): Promise<void> {
-    const res = await this.authService.loginWithFacebook();
+  openFbPanel(): void {
+    this.fbEmail = '';
+    this.fbRole = 'DEALER';
+    this.fbLoading = false;
+    this.fbError = '';
+    this.errorMsg = '';
+    this.successMsg = '';
+    this.activeTab = 'facebook';
+  }
+
+  async submitFbLogin(): Promise<void> {
+    if (!this.fbEmail || !this.fbEmail.trim()) {
+      this.fbError = 'Please enter your Facebook email address.';
+      return;
+    }
+    this.fbLoading = true;
+    this.fbError = '';
+    const mockToken = `mock_fb_${Date.now()}`;
+    const res = await this.authService.loginWithFacebookMock(mockToken, this.fbEmail.trim(), this.fbRole);
+    this.fbLoading = false;
     if (res.success) {
-      this.successMsg = `Welcome, ${res.user?.fullName || 'Verified User'}! Logged in with Facebook.`;
+      this.successMsg = `Welcome, ${res.user?.fullName || this.fbEmail}! Signed in with Facebook.`;
       setTimeout(() => {
         this.close();
         this.router.navigate(['/dashboard']);
       }, 500);
-    } else if (res.error && res.error !== 'Cancelled') {
-      this.errorMsg = res.error;
+    } else {
+      this.fbError = res.error || 'Facebook login failed. Please try again.';
     }
+  }
+
+  // Legacy stub — no longer auto-logs in; opens panel instead
+  loginWithFacebook(): void {
+    this.openFbPanel();
   }
 }
