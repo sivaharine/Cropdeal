@@ -83,7 +83,7 @@ import { NotificationService } from '../../core/services/notification.service';
 
           <!-- Facebook Login Option -->
           <div class="divider-text mt-3"><span>or continue with</span></div>
-          <button type="button" class="btn-facebook btn-block mt-2" (click)="openFacebookModal()" [disabled]="fbLoading">
+          <button type="button" class="btn-facebook btn-block mt-2" (click)="loginWithFacebook()" [disabled]="fbLoading">
             <i class="fa-brands fa-facebook-f fb-icon"></i>
             <span *ngIf="!fbLoading">Continue with Facebook</span>
             <span *ngIf="fbLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...</span>
@@ -587,8 +587,26 @@ export class LoginComponent implements OnInit {
     }
   }
 
-  loginWithFacebook(): void {
-    this.openFacebookModal();
+  async loginWithFacebook(): Promise<void> {
+    this.fbLoading = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+    try {
+      const res = await this.authService.loginWithFacebook();
+      if (res.success) {
+        this.successMessage = `Welcome, ${res.user?.fullName || 'Verified User'}! Signed in with Facebook.`;
+        this.router.navigate(['/dashboard']);
+      } else if (res.error === 'FB_SDK_UNAVAILABLE') {
+        this.openFacebookModal();
+      } else if (res.error && res.error !== 'Facebook authentication was cancelled.') {
+        // Show the exact backend error so it's visible
+        this.errorMessage = '⚠️ Facebook login failed: ' + res.error;
+      }
+    } catch (err: any) {
+      this.errorMessage = '⚠️ Facebook login error: ' + (err?.message || 'Unknown error');
+    } finally {
+      this.fbLoading = false;
+    }
   }
 
   openFacebookModal(): void {

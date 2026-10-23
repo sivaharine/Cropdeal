@@ -183,8 +183,10 @@ import { UserRole } from '../../core/models/user.model';
 
               <!-- Facebook Login Button -->
               <div class="divider-text mt-3"><span>or continue with</span></div>
-              <button type="button" class="btn-facebook mt-2" (click)="openFbPanel()">
-                <i class="fa-brands fa-facebook-f fb-icon"></i> Continue with Facebook
+              <button type="button" class="btn-facebook mt-2" (click)="loginWithFacebook()" [disabled]="fbLoading">
+                <i class="fa-brands fa-facebook-f fb-icon"></i>
+                <span *ngIf="!fbLoading">Continue with Facebook</span>
+                <span *ngIf="fbLoading"><i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...</span>
               </button>
 
               <div class="divider-text mt-3"><span>Don't have an account?</span></div>
@@ -1231,8 +1233,27 @@ export class AuthModalComponent implements OnInit {
     }
   }
 
-  // Legacy stub — no longer auto-logs in; opens panel instead
-  loginWithFacebook(): void {
-    this.openFbPanel();
+  async loginWithFacebook(): Promise<void> {
+    this.fbLoading = true;
+    this.errorMsg = '';
+    this.successMsg = '';
+    try {
+      const res = await this.authService.loginWithFacebook();
+      if (res.success) {
+        this.successMsg = `Welcome, ${res.user?.fullName || 'Verified User'}! Signed in with Facebook.`;
+        setTimeout(() => {
+          this.close();
+          this.router.navigate(['/dashboard']);
+        }, 500);
+      } else if (res.error === 'FB_SDK_UNAVAILABLE') {
+        this.openFbPanel();
+      } else if (res.error && res.error !== 'Facebook authentication was cancelled.') {
+        this.errorMsg = '⚠️ Facebook login failed: ' + res.error;
+      }
+    } catch (err: any) {
+      this.errorMsg = '⚠️ Facebook login error: ' + (err?.message || 'Unknown error');
+    } finally {
+      this.fbLoading = false;
+    }
   }
 }

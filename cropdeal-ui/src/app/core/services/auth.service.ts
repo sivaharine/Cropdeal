@@ -184,17 +184,8 @@ export class AuthService {
     this.currentUserSubject.next(user);
   }
 
-  // -----------------------------------------------------------------------
-  // Facebook Login
-  // NOTE: A valid Facebook App ID from Meta Developer Portal is required
-  // for the real FB JS SDK popup to work. Without one, loginWithFacebook()
-  // falls through to the backend mock-token flow automatically.
-  // To enable real Facebook OAuth:
-  //   1. Create an app at https://developers.facebook.com/
-  //   2. Add your domain under "Valid OAuth Redirect URIs"
-  //   3. Replace the fbAppId below with your real App ID
-  // -----------------------------------------------------------------------
-  private fbAppId = 'YOUR_FACEBOOK_APP_ID'; // Replace with real App ID to enable FB SDK popup
+  // Facebook App ID from Meta Developer Portal
+  private fbAppId = '1390479643108998';
 
   async loginWithFacebook(role: UserRole = 'DEALER'): Promise<{ success: boolean; user?: User; error?: string }> {
     // Only attempt the real FB SDK flow if a proper App ID has been configured
@@ -203,7 +194,9 @@ export class AuthService {
     if (hasRealAppId) {
       const sdkLoaded = await this.initFacebookSdk();
       if (sdkLoaded && (window as any).FB) {
-        return new Promise((resolve) => {
+
+        // Helper: open a fresh FB.login popup and exchange the token with our backend.
+        const doFreshLogin = (resolve: (v: { success: boolean; user?: User; error?: string }) => void) => {
           (window as any).FB.login((response: any) => {
             if (response && response.authResponse) {
               const accessToken = response.authResponse.accessToken;
@@ -230,10 +223,36 @@ export class AuthService {
                 }
               });
             } else {
+              // Popup closed / cancelled / error dialog dismissed
               resolve({ success: false, error: 'Facebook authentication was cancelled.' });
             }
           }, { scope: 'public_profile,email' });
+        };
+
+        // Race the FB login against a 60-second timeout so the button
+        // never stays stuck on "Connecting..." if the popup errors/closes silently.
+        // We force-check the current FB session first (force=true bypasses SDK cache)
+        // so that any stale/invalid cached token is discarded before we call FB.login().
+        const loginPromise = new Promise<{ success: boolean; user?: User; error?: string }>((resolve) => {
+          (window as any).FB.getLoginStatus((statusResponse: any) => {
+            if (statusResponse.status === 'connected' || statusResponse.status === 'not_authorized') {
+              // A cached session exists — log out of it first to guarantee a fresh token.
+              (window as any).FB.logout(() => doFreshLogin(resolve));
+            } else {
+              // No existing session — go straight to login.
+              doFreshLogin(resolve);
+            }
+          }, true); // true = force fresh check from Facebook servers (bypass SDK cache)
         });
+
+        const timeoutPromise = new Promise<{ success: boolean; error?: string }>((resolve) =>
+          setTimeout(() => resolve({
+            success: false,
+            error: 'Facebook login timed out. Please try again.'
+          }), 60000)
+        );
+
+        return Promise.race([loginPromise, timeoutPromise]);
       }
     }
 
